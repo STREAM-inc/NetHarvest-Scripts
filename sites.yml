@@ -1,0 +1,64 @@
+# =============================================================================
+# NetHarvest サイト設定ファイル
+#
+# 全クローラーの設定を一元管理する。
+# deploy.py がこのファイルを読み込み、Prefect Deployment を自動登録する。
+#
+# フィールド:
+#   site_id  : システム用の英語ID (DB主キー、ユニーク必須)
+#   name     : 日本語表示名 (CSV ファイル名、ログ、カタログ表示)
+#   module   : クローラーのモジュールパス (scripts/sites/ からの相対パス、ドット区切り)
+#   url      : 対象 URL
+#   schedule : cron 式 (null = 手動実行のみ)
+#   enabled  : false にすると deploy.py がスキップ (Deployment 未登録 = 実行されない)
+# =============================================================================
+
+sites:
+  - site_id: dummy
+    name: "ダミー"
+    module: "test.dummy"
+    url: "https://example.com"
+    schedule: null
+    enabled: true
+
+  - site_id: eaidem
+    name: "イーアイデム"
+    module: "jobs.eaidem"
+    url: "https://www.e-aidem.com/aps/list.htm?region_id=06&district_id=31"
+    schedule: "0 3 1 * *"
+    enabled: true
+
+  - site_id: shinq_compass
+    name: "鍼灸コンパス"
+    module: "portal.shinq_compass"
+    url: "https://www.shinq-compass.jp/area/list/?page=1"
+    schedule: null
+    enabled: true
+
+  - site_id: honefix
+    name: "骨FIX"
+    module: "portal.honefix"
+    url: "https://seitainavi.jp/seitai_sekkotsu"
+    schedule: null
+    enabled: true
+
+  - site_id: boxil
+    name: "BOXIL"
+    module: "portal.boxil"
+    url: "https://boxil.jp/sc-sales_outsourcing/?via=sr-categoryLink-main"
+    schedule: null
+    enabled: true
+
+  - site_id: imitsu_sales_agent
+    name: "PRONIアイミツ_営業代行"
+    module: "portal.imitsu_sales_agent"
+    url: "https://imitsu.jp/ct-sales-agent/search/"
+    schedule: null
+    enabled: true
+
+  - site_id: biz_sales_outsourcing
+    name: "比較ビズ_営業代行"
+    module: "portal.biz_sales_outsourcing"
+    url: "https://www.biz.ne.jp/list/sales-outsourcing/"
+    schedule: null
+    enabled: true
