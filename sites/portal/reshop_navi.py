@@ -15,7 +15,7 @@ from src.const.schema import Schema
 class ReshopNaviScraper(StaticCrawler):
     """リショップナビ スクレイパー"""
 
-    DELAY = 1.5
+    DELAY = 2.5
 
     EXTRA_COLUMNS = [
         "企業理念",
