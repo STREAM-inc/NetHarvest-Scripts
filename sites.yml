@@ -62,3 +62,10 @@ sites:
     url: "https://www.biz.ne.jp/list/sales-outsourcing/"
     schedule: null
     enabled: true
+
+  - site_id: rehome-navi
+    name: "リショップナビ"
+    module: "portal.reshop_navi"
+    url: "https://rehome-navi.com/shops"
+    schedule: null
+    enabled: true
