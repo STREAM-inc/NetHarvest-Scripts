@@ -69,3 +69,10 @@ sites:
     url: "https://rehome-navi.com/shops"
     schedule: null
     enabled: true
+
+  - site_id: shisha-suitai
+    name: "リショップナビ"
+    module: "portal.shisha-suitai"
+    url: "https://shisha-suitai.com/sitemap.xml"
+    schedule: null
+    enabled: true
