@@ -71,7 +71,7 @@ sites:
     enabled: true
 
   - site_id: shisha-suitai
-    name: "リショップナビ"
+    name: "シーシャスイタイ"
     module: "portal.shisha-suitai"
     url: "https://shisha-suitai.com/sitemap.xml"
     schedule: null
