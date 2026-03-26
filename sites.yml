@@ -76,3 +76,10 @@ sites:
     url: "https://shisha-suitai.com/sitemap.xml"
     schedule: null
     enabled: true
+    
+  - site_id: beauty_park
+    name: "ビューティパーク"
+    module: "portal.beauty_park"
+    url: "https://www.beauty-park.jp/sitemap.xml"
+    schedule: null
+    enabled: true
