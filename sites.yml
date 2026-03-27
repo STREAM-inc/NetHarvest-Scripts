@@ -84,37 +84,37 @@ sites:
     schedule: null
     enabled: true
 
-  - site_id: froma_navi
-    name: "フロム・エー ナビ"
-    module: "jobs.froma_navi"
-    url: "https://www.froma.com/prefectures/"
-    schedule: null
-    enabled: true
+#  - site_id: froma_navi
+#    name: "フロム・エー ナビ"
+#    module: "jobs.froma_navi"
+#    url: "https://www.froma.com/prefectures/"
+#    schedule: null
+#    enabled: true
 
-  - site_id: minimo
-    name: "minimo"
-    module: "portal.minimo"
-    url: "https://minimodel.jp/sitemap.xml"
-    schedule: null
-    enabled: true
+#  - site_id: minimo
+#    name: "minimo"
+#    module: "portal.minimo"
+#    url: "https://minimodel.jp/sitemap.xml"
+#    schedule: null
+#    enabled: true
 
-  - site_id: ozmall_hair_salon
-    name: "OZmallヘアサロン"
-    module: "portal.ozmall_hair_salon"
-    url: "https://www.ozmall.co.jp/hairsalon/list/"
-    schedule: null
-    enabled: true
+#  - site_id: ozmall_hair_salon
+#    name: "OZmallヘアサロン"
+#    module: "portal.ozmall_hair_salon"
+#    url: "https://www.ozmall.co.jp/hairsalon/list/"
+#    schedule: null
+#    enabled: true
 
-  - site_id: qlife
-    name: "QLIFE"
-    module: "medical.qlife"
-    url: "https://www.qlife.jp/search_hospital11b_0_13_0_1"
-    schedule: null
-    enabled: true
+#  - site_id: qlife
+#    name: "QLIFE"
+#    module: "medical.qlife"
+#    url: "https://www.qlife.jp/search_hospital11b_0_13_0_1"
+#    schedule: null
+#    enabled: true
 
-  - site_id: byoinnavi
-    name: "病院なび"
-    module: "medical.byoinnavi"
-    url: "https://byoinnavi.jp/sitemaps/sitemap.xml.gz"
-    schedule: null
-    enabled: true
+#  - site_id: byoinnavi
+#    name: "病院なび"
+#    module: "medical.byoinnavi"
+#    url: "https://byoinnavi.jp/sitemaps/sitemap.xml.gz"
+#    schedule: null
+#    enabled: true
