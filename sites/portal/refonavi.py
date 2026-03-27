@@ -163,7 +163,7 @@ class RefonautiScraper(StaticCrawler):
                 item[Schema.CAP] = value
 
             elif label == "売上高・請負件数":
-                item["売上高"] = value
+                item[Schema.SALES] = value
 
             elif label == "従業員数":
                 # "22 名(内、リフォーム担当10名)..." → "22 名"
