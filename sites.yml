@@ -35,23 +35,16 @@ sites:
     schedule: null
     enabled: true
 
-  - site_id: honefix
-    name: "骨FIX"
-    module: "portal.honefix"
+  - site_id: seitainavi
+    name: "整体ナビ"
+    module: "portal.seitainavi"
     url: "https://seitainavi.jp/seitai_sekkotsu"
-    schedule: null
-    enabled: true
-
-  - site_id: boxil
-    name: "BOXIL"
-    module: "portal.boxil"
-    url: "https://boxil.jp/sc-sales_outsourcing/?via=sr-categoryLink-main"
     schedule: null
     enabled: true
 
   - site_id: imitsu_sales_agent
     name: "PRONIアイミツ_営業代行"
-    module: "portal.imitsu_sales_agent"
+    module: "portal.imitsu"
     url: "https://imitsu.jp/ct-sales-agent/search/"
     schedule: null
     enabled: true
@@ -63,7 +56,7 @@ sites:
     schedule: null
     enabled: true
 
-  - site_id: rehome-navi
+  - site_id: reshop-navi
     name: "リショップナビ"
     module: "portal.reshop_navi"
     url: "https://rehome-navi.com/shops"

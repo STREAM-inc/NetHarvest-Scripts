@@ -20,10 +20,10 @@ PRONIアイミツ — 営業代行会社スクレイパー
 
 実行方法:
     # ローカルテスト（テストページ数で上限あり）
-    python scripts/sites/portal/imitsu_sales_agent.py
+    python scripts/sites/portal/imitsu.py
 
     # Prefect Flow 経由（全件）
-    python bin/run_flow.py --site-id imitsu_sales_agent
+    python bin/run_flow.py --site-id imitsu
 """
 
 import re
