@@ -237,3 +237,276 @@ sites:
     url: "https://www.tadaoka.or.jp/kaiin.html"
     schedule: null
     enabled: true
+
+  - site_id: bepro
+    name: "美プロ"
+    module: "jobs.bepro"
+    url: "https://www.kenkou-job.com"
+    schedule: null
+    enabled: true
+
+  - site_id: yakukyari
+    name: "薬キャリ（法人）"
+    module: "jobs.yakukyari"
+    url: "https://pcareer.m3.com/shokubanavi/companies"
+    schedule: null
+    enabled: true
+
+  - site_id: yakukyari_office
+    name: "薬キャリ（事業所）"
+    module: "jobs.yakukyari_office"
+    url: "https://pcareer.m3.com/shokubanavi/offices"
+    schedule: null
+    enabled: true
+
+  - site_id: kaiten_heiten
+    name: "開店閉店ドットコム"
+    module: "portal.kaiten_heiten"
+    url: "https://kaiten-heiten-24.com"
+    schedule: null
+    enabled: true
+
+  - site_id: inshokuten_job
+    name: "求人飲食店ドットコム"
+    module: "food.inshokuten_job"
+    url: "https://job.inshokuten.com/sitemapindex.xml"
+    schedule: null
+    enabled: true
+
+  - site_id: suumo
+    name: "SUUMO不動産会社"
+    module: "portal.suumo"
+    url: "https://suumo.jp/kaisha/"
+    schedule: null
+    enabled: true
+
+  - site_id: suumo_buy
+    name: "SUUMO新築・中古物件"
+    module: "portal.suumo_buy"
+    url: "https://suumo.jp/ms/shinchiku/"
+    schedule: null
+    enabled: true
+
+  - site_id: suumo_guide
+    name: "SUUMO不動産会社ガイド"
+    module: "portal.suumo_guide"
+    url: "https://suumo.jp/jj/guide/"
+    schedule: null
+    enabled: true
+
+  - site_id: yameshi_shokokai
+    name: "八女市商工会"
+    module: "government.yameshi_shokokai"
+    url: "https://www.yameshi-shokokai.jp/member/"
+    schedule: null
+    enabled: true
+
+  - site_id: ogori_shokokai
+    name: "小郡市商工会"
+    module: "government.ogori_shokokai"
+    url: "https://ogori-shoukoukai.com/companycat/"
+    schedule: null
+    enabled: true
+
+  - site_id: kawachinagano_shokokai
+    name: "河内長野市商工会"
+    module: "government.kawachinagano_shokokai"
+    url: "http://www.ksci.or.jp/web.html"
+    schedule: null
+    enabled: true
+
+  - site_id: ai_med
+    name: "アイメッド"
+    module: "medical.ai_med"
+    url: "https://ai-med.jp/hospitals"
+    schedule: null
+    enabled: true
+
+  - site_id: challenge_plus
+    name: "チャレンジプラス"
+    module: "portal.challenge_plus"
+    url: "https://www.challenge-plus.jp/list/"
+    schedule: null
+    enabled: true
+
+  - site_id: entre_net
+    name: "アントレ"
+    module: "jobs.entre_net"
+    url: "https://entrenet.jp/dokuritsu/?cbn=top_src_fw"
+    schedule: null
+    enabled: true
+
+  - site_id: gappori
+    name: "ガッポリ"
+    module: "jobs.gappori"
+    url: "https://gappori.jp/a_search/w_/"
+    schedule: null
+    enabled: true
+
+  - site_id: hanacupid
+    name: "花キューピット"
+    module: "portal.hanacupid"
+    url: "https://www.hanacupid.or.jp/stores/"
+    schedule: null
+    enabled: true
+
+  - site_id: dan_work
+    name: "男ワーク"
+    module: "jobs.dan_work"
+    url: "https://www.dan-work.com"
+    schedule: null
+    enabled: true
+
+  - site_id: hamanight
+    name: "ハマんナイト"
+    module: "jobs.hamanight"
+    url: "http://www.hamanight.com"
+    schedule: null
+    enabled: true
+
+  - site_id: tainew_otoko
+    name: "メンズ体入"
+    module: "jobs.tainew_otoko"
+    url: "https://tainew-otoko.com/shoplist/search/?salary_type=0_1&word="
+    schedule: null
+    enabled: true
+
+  - site_id: epark_dental
+    name: "EPARK歯科"
+    module: "medical.epark_dental"
+    url: "https://haisha-yoyaku.jp/bun2sdental/list/"
+    schedule: null
+    enabled: true
+
+  - site_id: jobcon_driver
+    name: "ジョブコンプラスD"
+    module: "jobs.jobcon_driver"
+    url: "https://job-con.jp/driver/search"
+    schedule: null
+    enabled: true
+
+  - site_id: jobcon_security
+    name: "ジョブコンプラスS"
+    module: "jobs.jobcon_security"
+    url: "https://job-con.jp/security/search"
+    schedule: null
+    enabled: true
+
+  - site_id: job_chocolat
+    name: "ジョブショコラ"
+    module: "jobs.job_chocolat"
+    url: "https://job-chocolat.jp/"
+    schedule: null
+    enabled: true
+
+  - site_id: doraever
+    name: "ドラEVER"
+    module: "jobs.doraever"
+    url: "https://doraever.jp/job-lists/1"
+    schedule: null
+    enabled: true
+
+  - site_id: jwarm
+    name: "ジェイウォーム"
+    module: "jobs.jwarm"
+    url: "https://www.jwarm.net/uni_items.php?pg=1&ig=i"
+    schedule: null
+    enabled: true
+
+  - site_id: kyujin_journal_net
+    name: "求人ジャーナルネット"
+    module: "jobs.kyujin_journal_net"
+    url: "https://www.job-j.net"
+    schedule: null
+    enabled: true
+
+  - site_id: baitoru
+    name: "バイトル"
+    module: "jobs.baitoru"
+    url: "https://baitoru.com/search/list/"
+    schedule: null
+    enabled: true
+
+  - site_id: townwork
+    name: "タウンワーク"
+    module: "jobs.townwork"
+    url: "https://townwork.net/"
+    schedule: null
+    enabled: true
+
+  - site_id: rikunabi_next_syataku
+    name: "リクナビNEXT社宅"
+    module: "jobs.rikunabi_next_syataku"
+    url: "https://next.rikunabi.com/job_search/kw/%E7%A4%BE%E5%AE%85/"
+    schedule: null
+    enabled: true
+
+  - site_id: rikunabi_next_syayosha
+    name: "リクナビNEXT社用車"
+    module: "jobs.rikunabi_next_syayosha"
+    url: "https://next.rikunabi.com/job_search/kw/%E7%A4%BE%E7%94%A8%E8%BB%8A%E5%88%B6%E5%BA%A6/"
+    schedule: null
+    enabled: true
+
+  - site_id: caloo
+    name: "Caloo病院検索"
+    module: "medical.caloo"
+    url: "https://caloo.jp/hospitals/search/01/all"
+    schedule: null
+    enabled: true
+
+  - site_id: gaten_job
+    name: "ガテン系仕事ナビ"
+    module: "jobs.gaten_job"
+    url: "https://gaten-job.com/sitemap.xml"
+    schedule: null
+    enabled: true
+
+  - site_id: jobpost
+    name: "ジョブポスト"
+    module: "jobs.jobpost"
+    url: "https://jobpost.jp/search/g:1/"
+    schedule: null
+    enabled: true
+
+  - site_id: trck_job
+    name: "トラッカーズジョブ"
+    module: "jobs.trck_job"
+    url: "https://job.trck.jp/sitemap.xml"
+    schedule: null
+    enabled: true
+
+  - site_id: barberin
+    name: "バーバリン"
+    module: "portal.barberin"
+    url: "https://barberin.jp/"
+    schedule: null
+    enabled: true
+
+  - site_id: fc_kamei
+    name: "フランチャイズ加盟募集"
+    module: "portal.fc_kamei"
+    url: "https://fc-kamei.net"
+    schedule: null
+    enabled: true
+
+  - site_id: benrishi_navi
+    name: "弁理士ナビ"
+    module: "portal.benrishi_navi"
+    url: "https://www.benrishi-navi.com"
+    schedule: null
+    enabled: true
+
+  - site_id: prtimes
+    name: "PRTIMES"
+    module: "corporate.prtimes"
+    url: "https://prtimes.jp/technology/"
+    schedule: null
+    enabled: true
+
+  - site_id: kessan_kokoku
+    name: "決算公告（catr.jp）"
+    module: "corporate.kessan_kokoku"
+    url: "https://catr.jp/cities/0"
+    schedule: null
+    enabled: true
