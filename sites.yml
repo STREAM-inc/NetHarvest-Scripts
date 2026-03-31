@@ -69,13 +69,6 @@ sites:
     url: "https://shisha-suitai.com/sitemap.xml"
     schedule: null
     enabled: true
-    
-  - site_id: beauty_park
-    name: "ビューティパーク"
-    module: "portal.beauty_park"
-    url: "https://www.beauty-park.jp/sitemap.xml"
-    schedule: null
-    enabled: true
 
   - site_id: refonavi
     name: "リフォーム評価ナビ"
@@ -84,37 +77,163 @@ sites:
     schedule: null
     enabled: true
 
-#  - site_id: froma_navi
-#    name: "フロム・エー ナビ"
-#    module: "jobs.froma_navi"
-#    url: "https://www.froma.com/prefectures/"
-#    schedule: null
-#    enabled: true
+  - site_id: hairlog
+    name: "HAIRLOG"
+    module: "portal.hairlog"
+    url: "https://hairlog.jp/sitemap.xml"
+    schedule: null
+    enabled: true
 
-#  - site_id: minimo
-#    name: "minimo"
-#    module: "portal.minimo"
-#    url: "https://minimodel.jp/sitemap.xml"
-#    schedule: null
-#    enabled: true
+  - site_id: rakuten_beauty
+    name: "楽天ビューティ"
+    module: "portal.rakuten_beauty"
+    url: "https://beauty.rakuten.co.jp/sitemap.xml"
+    schedule: null
+    enabled: true
 
-#  - site_id: ozmall_hair_salon
-#    name: "OZmallヘアサロン"
-#    module: "portal.ozmall_hair_salon"
-#    url: "https://www.ozmall.co.jp/hairsalon/list/"
-#    schedule: null
-#    enabled: true
+  - site_id: goonet
+    name: "グーネット"
+    module: "portal.goonet"
+    url: "https://www.goo-net.com/sitemap_index.xml.gz"
+    schedule: null
+    enabled: true
 
-#  - site_id: qlife
-#    name: "QLIFE"
-#    module: "medical.qlife"
-#    url: "https://www.qlife.jp/search_hospital11b_0_13_0_1"
-#    schedule: null
-#    enabled: true
+  - site_id: goonet_pit
+    name: "グーネットピット"
+    module: "portal.goonet_pit"
+    url: "https://www.goo-net.com/pit/sitemap_index.xml"
+    schedule: null
+    enabled: true
 
-#  - site_id: byoinnavi
-#    name: "病院なび"
-#    module: "medical.byoinnavi"
-#    url: "https://byoinnavi.jp/sitemaps/sitemap.xml.gz"
-#    schedule: null
-#    enabled: true
+  - site_id: ii_ie
+    name: "いい部屋ネット"
+    module: "portal.ii_ie"
+    url: "https://www.ii-ie2.net/sitemap.xml"
+    schedule: null
+    enabled: true
+
+  - site_id: ielove
+    name: "いえらぶ"
+    module: "portal.ielove"
+    url: "https://www.ielove.co.jp/sitemap/sitemap-company.xml"
+    schedule: null
+    enabled: true
+
+  - site_id: ju_ren
+    name: "充レン"
+    module: "portal.ju_ren"
+    url: "https://ju-ren.jp/location/stands/"
+    schedule: null
+    enabled: true
+
+  - site_id: franchise_web_repo
+    name: "フランチャイズWEBリポート"
+    module: "portal.franchise_web_repo"
+    url: "https://web-repo.jp/sitemap.xml"
+    schedule: null
+    enabled: true
+
+  - site_id: yourmystar
+    name: "ユアマイスター"
+    module: "portal.yourmystar"
+    url: "https://yourmystar.jp/sitemap.xml"
+    schedule: null
+    enabled: true
+
+  - site_id: meetsmore
+    name: "ミツモア"
+    module: "portal.meetsmore"
+    url: "https://meetsmore.com/services"
+    schedule: null
+    enabled: true
+
+  - site_id: bilax_net
+    name: "びらくネット"
+    module: "portal.bilax_net"
+    url: "https://bilax.net/sitemap.xml"
+    schedule: null
+    enabled: true
+
+  - site_id: dokenchiku
+    name: "ドケンチク"
+    module: "portal.dokenchiku"
+    url: "https://dokenchiku.com/company/1"
+    schedule: null
+    enabled: true
+
+  - site_id: koujishi
+    name: "工事士.com"
+    module: "portal.koujishi"
+    url: "https://koujishi.com/list/denkikoujishi-first/"
+    schedule: null
+    enabled: true
+
+  - site_id: dairitenfc
+    name: "代理店FC"
+    module: "portal.dairitenfc"
+    url: "https://dairitenfc.com"
+    schedule: null
+    enabled: true
+
+  - site_id: hakkosha
+    name: "白光舎"
+    module: "portal.hakkosha"
+    url: "https://www.hakkosha.com/shop/"
+    schedule: null
+    enabled: true
+
+  - site_id: hitosara
+    name: "ヒトサラ"
+    module: "food.hitosara"
+    url: "https://hitosara.com/sitemap_index.xml"
+    schedule: null
+    enabled: true
+
+  - site_id: doctor_map
+    name: "ドクターマップ"
+    module: "medical.doctor_map"
+    url: "https://www.doctor-map.info/sitemap.xml"
+    schedule: null
+    enabled: true
+
+  - site_id: torabayu
+    name: "とらばーゆ"
+    module: "jobs.torabayu"
+    url: "https://toranet.jp/prefectures/"
+    schedule: null
+    enabled: true
+
+  - site_id: million_job
+    name: "ミリオンジョブ"
+    module: "jobs.million_job"
+    url: "https://www.million-job.com"
+    schedule: null
+    enabled: true
+
+  - site_id: refjob
+    name: "リフラクジョブ"
+    module: "jobs.refjob"
+    url: "https://refjob.jp"
+    schedule: null
+    enabled: true
+
+  - site_id: tainyu_chocolat
+    name: "体入ショコラ"
+    module: "jobs.tainyu_chocolat"
+    url: "https://chocolat.work/sitemap_index.xml"
+    schedule: null
+    enabled: true
+
+  - site_id: tainyu_macaron
+    name: "体入マカロン"
+    module: "jobs.tainyu_macaron"
+    url: "https://picsastock.com/sitemap.xml"
+    schedule: null
+    enabled: true
+
+  - site_id: tadaoka_shoko
+    name: "忠岡町商工会"
+    module: "government.tadaoka_shoko"
+    url: "https://www.tadaoka.or.jp/kaiin.html"
+    schedule: null
+    enabled: true
