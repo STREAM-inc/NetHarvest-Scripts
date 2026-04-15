@@ -71,15 +71,17 @@ class Mynavi2027Scraper(DynamicCrawler):
                 continue
 
     def _collect_corp_urls(self, list_url: str) -> list[str]:
+        """一覧ページから企業詳細URLを収集する（ページネーションのクリック対応）"""
         urls: list[str] = []
         seen: set[str] = set()
-        current = list_url
+        
+        # 最初のページを開く
+        soup = self.get_soup(list_url, wait_until="domcontentloaded")
+        if soup is None:
+            return urls
 
-        while current:
-            soup = self.get_soup(current, wait_until="domcontentloaded")
-            if soup is None:
-                break
-
+        while True:
+            # 現在表示されているページの企業リンクを収集
             for a in soup.select("a[href*='/27/pc/search/corp'][href*='/outline.html']"):
                 href = a.get("href", "").strip()
                 full = href if href.startswith("http") else BASE_URL + href
@@ -87,17 +89,43 @@ class Mynavi2027Scraper(DynamicCrawler):
                     seen.add(full)
                     urls.append(full)
 
+            # ページネーション: 「次の100社」リンクを探す
             next_a = (
                 soup.find("a", string=lambda t: t and "次の100社" in t)
                 or soup.find("a", string=lambda t: t and "次へ" in t)
                 or soup.select_one("a[rel='next']")
                 or soup.select_one(".pager a.next, .boxpager a.next, [class*='pager'] a.next")
             )
-            if next_a and next_a.get("href"):
-                next_url = urljoin(BASE_URL, next_a["href"])
-                current = next_url if next_url != current else None
+
+            # 次へボタンがなければ終了
+            if not next_a:
+                break
+
+            href = next_a.get("href", "")
+            
+            # --- 修正箇所: JavaScriptリンクの場合はクリック操作を行う ---
+            if href.startswith("javascript:"):
+                try:
+                    text_to_click = next_a.get_text(strip=True)
+                    self.logger.info(f"ページ切り替え: 「{text_to_click}」をクリックします")
+                    
+                    # リンクテキストを指定してクリック
+                    self.page.locator(f"a:has-text('{text_to_click}')").first.click()
+                    
+                    # 次のページが読み込まれるまで待機
+                    self.page.wait_for_timeout(3000)
+                    
+                    # 新しくなった画面のHTMLを取得
+                    soup = BeautifulSoup(self.page.content(), "html.parser")
+                except Exception as e:
+                    self.logger.warning(f"次へボタンのクリックに失敗しました: {e}")
+                    break
             else:
-                current = None
+                # 通常のURL遷移の場合
+                next_url = urljoin(BASE_URL, href)
+                soup = self.get_soup(next_url, wait_until="domcontentloaded")
+                if soup is None:
+                    break
 
         return urls
 
@@ -247,3 +275,5 @@ if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.INFO)
     Mynavi2027Scraper().execute("https://job.mynavi.jp/2027/")
+
+
