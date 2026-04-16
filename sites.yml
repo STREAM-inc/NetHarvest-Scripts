@@ -478,7 +478,7 @@ sites:
 
   - site_id: barberin
     name: "バーバリン"
-    module: "portal.barberin"
+    module: "beauty.barberin"
     url: "https://barberin.jp/"
     schedule: "40 3 1-7 * SUN"
     enabled: true
@@ -537,4 +537,18 @@ sites:
     module: "jobs.kyujin_box_tokutei"
     url: "https://xn--pckua2a7gp15o89zb.com/%E7%89%B9%E5%AE%9A%E6%8A%80%E8%83%BD%E3%81%AE%E4%BB%95%E4%BA%8B"
     schedule: "0 4 1-7 * SUN"
+    enabled: true
+
+  - site_id: kkhashi
+    name: "カケハシ"
+    module: "agency_franchise.kkhashi"
+    url: "https://www.kkhashi.com/matters?ref=%E5%85%A8%E3%81%A6%E3%81%AE%E6%A1%88%E4%BB%B6%E3%81%8B%E3%82%89%E6%8E%A2%E3%81%99"
+    schedule: "0 4 1-7 * SAT"
+    enabled: true
+
+  - site_id: bahn_rep
+    name: "バーン代理店"
+    module: "agency_franchise.bahn_rep"
+    url: "https://bahn-rep.com/category/allarea/page/1"
+    schedule: null
     enabled: true
