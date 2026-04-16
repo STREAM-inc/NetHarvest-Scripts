@@ -510,3 +510,10 @@ sites:
     url: "https://catr.jp/cities/0"
     schedule: null
     enabled: true
+
+  - site_id: host_para
+    name: "ホスパラ"
+    module: "portal.host_para"
+    url: "https://host-paradise.jp/"
+    schedule: null
+    enabled: true
