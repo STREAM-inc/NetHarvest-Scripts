@@ -30,154 +30,154 @@ sites:
 
   - site_id: shinq_compass
     name: "鍼灸コンパス"
-    module: "portal.shinq_compass"
+    module: "medical.shinq_compass"
     url: "https://www.shinq-compass.jp/area/list/?page=1"
     schedule: "0 1 1-7 * SUN"
     enabled: true
 
   - site_id: seitainavi
     name: "整体ナビ"
-    module: "portal.seitainavi"
+    module: "medical.seitainavi"
     url: "https://seitainavi.jp/seitai_sekkotsu"
     schedule: "0 1 8-14 * SAT"
     enabled: true
 
   - site_id: imitsu_sales_agent
     name: "PRONIアイミツ_営業代行"
-    module: "portal.imitsu"
+    module: "service.imitsu"
     url: "https://imitsu.jp/ct-sales-agent/search/"
     schedule: "0 1 8-14 * SUN"
     enabled: true
 
   - site_id: biz_sales_outsourcing
     name: "比較ビズ_営業代行"
-    module: "portal.biz_sales_outsourcing"
+    module: "service.biz_sales_outsourcing"
     url: "https://www.biz.ne.jp/list/sales-outsourcing/"
     schedule: "0 1 15-21 * SAT"
     enabled: true
 
   - site_id: reshop-navi
     name: "リショップナビ"
-    module: "portal.reshop_navi"
+    module: "realestate.reshop_navi"
     url: "https://rehome-navi.com/shops"
     schedule: "0 1 15-21 * SUN"
     enabled: true
 
   - site_id: shisha-suitai
     name: "シーシャスイタイ"
-    module: "portal.shisha-suitai"
+    module: "nightlife.shisha_suitai"
     url: "https://shisha-suitai.com/sitemap.xml"
     schedule: "0 1 22-28 * SAT"
     enabled: true
 
   - site_id: refonavi
     name: "リフォーム評価ナビ"
-    module: "portal.refonavi"
+    module: "realestate.refonavi"
     url: "https://www.refonavi.or.jp"
     schedule: "0 1 22-28 * SUN"
     enabled: true
 
   - site_id: hairlog
     name: "HAIRLOG"
-    module: "portal.hairlog"
+    module: "beauty.hairlog"
     url: "https://hairlog.jp/sitemap.xml"
     schedule: "20 1 1-7 * SAT"
     enabled: true
 
   - site_id: rakuten_beauty
     name: "楽天ビューティ"
-    module: "portal.rakuten_beauty"
+    module: "beauty.rakuten_beauty"
     url: "https://beauty.rakuten.co.jp/sitemap.xml"
     schedule: "20 1 1-7 * SUN"
     enabled: true
 
   - site_id: goonet
     name: "グーネット"
-    module: "portal.goonet"
+    module: "auto.goonet"
     url: "https://www.goo-net.com/sitemap_index.xml.gz"
     schedule: "20 1 8-14 * SAT"
     enabled: true
 
   - site_id: goonet_pit
     name: "グーネットピット"
-    module: "portal.goonet_pit"
+    module: "auto.goonet_pit"
     url: "https://www.goo-net.com/pit/sitemap_index.xml"
     schedule: "20 1 8-14 * SUN"
     enabled: true
 
   - site_id: ii_ie
     name: "いい部屋ネット"
-    module: "portal.ii_ie"
+    module: "realestate.ii_ie"
     url: "https://www.ii-ie2.net/sitemap.xml"
     schedule: "20 1 15-21 * SAT"
     enabled: true
 
   - site_id: ielove
     name: "いえらぶ"
-    module: "portal.ielove"
+    module: "realestate.ielove"
     url: "https://www.ielove.co.jp/sitemap/sitemap-company.xml"
     schedule: "20 1 15-21 * SUN"
     enabled: true
 
   - site_id: ju_ren
     name: "充レン"
-    module: "portal.ju_ren"
+    module: "service.ju_ren"
     url: "https://ju-ren.jp/location/stands/"
     schedule: "20 1 22-28 * SAT"
     enabled: true
 
   - site_id: franchise_web_repo
     name: "フランチャイズWEBリポート"
-    module: "portal.franchise_web_repo"
+    module: "agency_franchise.franchise_web_repo"
     url: "https://web-repo.jp/sitemap.xml"
     schedule: "20 1 22-28 * SUN"
     enabled: true
 
   - site_id: yourmystar
     name: "ユアマイスター"
-    module: "portal.yourmystar"
+    module: "service.yourmystar"
     url: "https://yourmystar.jp/sitemap.xml"
     schedule: "40 1 1-7 * SAT"
     enabled: true
 
   - site_id: meetsmore
     name: "ミツモア"
-    module: "portal.meetsmore"
+    module: "service.meetsmore"
     url: "https://meetsmore.com/services"
     schedule: "40 1 1-7 * SUN"
     enabled: true
 
   - site_id: bilax_net
     name: "びらくネット"
-    module: "portal.bilax_net"
+    module: "service.bilax_net"
     url: "https://bilax.net/sitemap.xml"
     schedule: "40 1 8-14 * SAT"
     enabled: true
 
   - site_id: dokenchiku
     name: "ドケンチク"
-    module: "portal.dokenchiku"
+    module: "construction.dokenchiku"
     url: "https://dokenchiku.com/company/1"
     schedule: "40 1 8-14 * SUN"
     enabled: true
 
   - site_id: koujishi
     name: "工事士.com"
-    module: "portal.koujishi"
+    module: "construction.koujishi"
     url: "https://koujishi.com/list/denkikoujishi-first/"
     schedule: "40 1 15-21 * SAT"
     enabled: true
 
   - site_id: dairitenfc
     name: "代理店FC"
-    module: "portal.dairitenfc"
+    module: "agency_franchise.dairitenfc"
     url: "https://dairitenfc.com"
     schedule: "40 1 15-21 * SUN"
     enabled: true
 
   - site_id: hakkosha
     name: "白光舎"
-    module: "portal.hakkosha"
+    module: "service.hakkosha"
     url: "https://www.hakkosha.com/shop/"
     schedule: "40 1 22-28 * SAT"
     enabled: true
@@ -275,21 +275,21 @@ sites:
 
   - site_id: suumo
     name: "SUUMO不動産会社"
-    module: "portal.suumo"
+    module: "realestate.suumo"
     url: "https://suumo.jp/kaisha/"
     schedule: "20 2 15-21 * SAT"
     enabled: true
 
   - site_id: suumo_buy
     name: "SUUMO新築・中古物件"
-    module: "portal.suumo_buy"
+    module: "realestate.suumo_buy"
     url: "https://suumo.jp/ms/shinchiku/"
     schedule: "20 2 15-21 * SUN"
     enabled: true
 
   - site_id: suumo_guide
     name: "SUUMO不動産会社ガイド"
-    module: "portal.suumo_guide"
+    module: "realestate.suumo_guide"
     url: "https://suumo.jp/jj/guide/"
     schedule: "20 2 22-28 * SAT"
     enabled: true
@@ -324,7 +324,7 @@ sites:
 
   - site_id: challenge_plus
     name: "チャレンジプラス"
-    module: "portal.challenge_plus"
+    module: "agency_franchise.challenge_plus"
     url: "https://www.challenge-plus.jp/list/"
     schedule: "40 2 8-14 * SUN"
     enabled: true
@@ -345,7 +345,7 @@ sites:
 
   - site_id: hanacupid
     name: "花キューピット"
-    module: "portal.hanacupid"
+    module: "service.hanacupid"
     url: "https://www.hanacupid.or.jp/stores/"
     schedule: "40 2 22-28 * SAT"
     enabled: true
@@ -485,7 +485,7 @@ sites:
 
   - site_id: fc_kamei
     name: "フランチャイズ加盟募集"
-    module: "portal.fc_kamei"
+    module: "agency_franchise.fc_kamei"
     url: "https://fc-kamei.net"
     schedule: "40 3 8-14 * SAT"
     enabled: true
@@ -513,7 +513,7 @@ sites:
 
   - site_id: host_para
     name: "ホスパラ"
-    module: "portal.host_para"
+    module: "nightlife.host_para"
     url: "https://host-paradise.jp/"
     schedule: "40 3 22-28 * SAT"
     enabled: true
