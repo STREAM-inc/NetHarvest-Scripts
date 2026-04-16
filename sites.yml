@@ -517,3 +517,24 @@ sites:
     url: "https://host-paradise.jp/"
     schedule: null
     enabled: true
+
+  - site_id: mynavi_tenshoku
+    name: "マイナビ転職"
+    module: "jobs.mynavi_tenshoku"
+    url: "https://tenshoku.mynavi.jp/list/pg1/"
+    schedule: null
+    enabled: true
+
+  - site_id: en_tenshoku
+    name: "エン転職"
+    module: "jobs.en_tenshoku"
+    url: "https://employment.en-japan.com/k_tokyo/"
+    schedule: null
+    enabled: true
+
+  - site_id: kyujin_box_tokutei
+    name: "求人ボックス（特定技能の仕事）"
+    module: "jobs.kyujin_box_tokutei"
+    url: "https://xn--pckua2a7gp15o89zb.com/%E7%89%B9%E5%AE%9A%E6%8A%80%E8%83%BD%E3%81%AE%E4%BB%95%E4%BA%8B"
+    schedule: null
+    enabled: true
