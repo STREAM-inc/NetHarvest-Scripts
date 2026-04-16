@@ -9,7 +9,7 @@
     2. 各詳細ページから企業情報を抽出
 
 実行方法:
-    python scripts/sites/portal/hnavi.py
+    python scripts/sites/corporate/hnavi.py
     python bin/run_flow.py --site-id hnavi
 """
 

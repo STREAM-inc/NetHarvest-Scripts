@@ -1,4 +1,4 @@
-# scripts/sites/portal/curama.py
+# scripts/sites/service/curama.py
 import re
 import sys
 import time

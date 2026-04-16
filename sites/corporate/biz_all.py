@@ -14,7 +14,7 @@
     会社の詳細URLで重複排除する。
 
 実行方法:
-    python scripts/sites/portal/biz_all.py
+    python scripts/sites/corporate/biz_all.py
     python bin/run_flow.py --site-id biz_all
 """
 

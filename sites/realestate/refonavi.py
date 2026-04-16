@@ -1,4 +1,4 @@
-# scripts/sites/portal/refonavi.py
+# scripts/sites/realestate/refonavi.py
 """
 リフォーム評価ナビ (refonavi.or.jp) — リフォーム会社情報スクレイパー
 
@@ -10,7 +10,7 @@
 
 実行方法:
     # ローカルテスト
-    python scripts/sites/portal/refonavi.py
+    python scripts/sites/realestate/refonavi.py
 
     # Prefect Flow 経由
     python bin/run_flow.py --site-id refonavi

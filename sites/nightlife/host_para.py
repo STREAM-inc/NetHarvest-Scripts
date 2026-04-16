@@ -1,4 +1,4 @@
-# scripts/sites/portal/my_site.py
+# scripts/sites/nightlife/my_site.py
 
 # ===== 【pip install -e . を実行していない場合のみ必要】===========
 # 実行済みなら、この5行は丸ごと削除してOK。

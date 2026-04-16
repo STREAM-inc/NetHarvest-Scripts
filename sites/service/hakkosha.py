@@ -1,4 +1,4 @@
-# scripts/sites/portal/hakkosha.py
+# scripts/sites/service/hakkosha.py
 """
 白光舎 (hakkosha.com) — クリーニング店舗スクレイパー
 
@@ -12,7 +12,7 @@
 
 実行方法:
     # ローカルテスト
-    python scripts/sites/portal/hakkosha.py
+    python scripts/sites/service/hakkosha.py
 
     # Prefect Flow 経由
     python bin/run_flow.py --site-id hakkosha

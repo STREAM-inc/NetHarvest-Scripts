@@ -1,4 +1,4 @@
-# scripts/sites/portal/imitsu_sales_agent.py
+# scripts/sites/service/imitsu_sales_agent.py
 """
 PRONIアイミツ — 営業代行会社スクレイパー
 対象URL: https://imitsu.jp/ct-sales-agent/search/
@@ -20,7 +20,7 @@ PRONIアイミツ — 営業代行会社スクレイパー
 
 実行方法:
     # ローカルテスト（テストページ数で上限あり）
-    python scripts/sites/portal/imitsu.py
+    python scripts/sites/service/imitsu.py
 
     # Prefect Flow 経由（全件）
     python bin/run_flow.py --site-id imitsu
@@ -32,7 +32,7 @@ import time
 from pathlib import Path
 
 # プロジェクトルートを sys.path に追加（ローカル直接実行対応）
-# scripts/sites/portal/xxx.py → .parent×4 でプロジェクトルートを取得
+# scripts/sites/service/xxx.py → .parent×4 でプロジェクトルートを取得
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))

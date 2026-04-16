@@ -10,7 +10,7 @@ kyozon — 法人向けクラウドサービス・SaaS・IT製品の比較・資
       → 各サービス詳細ページを解析
 
 実行方法:
-    python scripts/sites/portal/kyozon.py
+    python scripts/sites/corporate/kyozon.py
     python bin/run_flow.py --site-id kyozon
 """
 

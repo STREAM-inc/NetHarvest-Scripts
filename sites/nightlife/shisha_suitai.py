@@ -1,4 +1,4 @@
-# scripts/sites/portal/shisha_suitai.py
+# scripts/sites/nightlife/shisha_suitai.py
 """
 シーシャスイタイ (shisha-suitai.com) — シーシャ店舗スクレイパー
 
@@ -15,7 +15,7 @@
 
 実行方法:
     # ローカルテスト
-    python scripts/sites/portal/shisha_suitai.py
+    python scripts/sites/nightlife/shisha_suitai.py
 
     # Prefect Flow 経由
     python bin/run_flow.py --site-id shisha_suitai

@@ -1,4 +1,4 @@
-# scripts/sites/portal/pitta_lab.py
+# scripts/sites/corporate/pitta_lab.py
 """
 ピタットラボ (pitta-lab.com) — BtoB企業比較サイト スクレイパー
 
@@ -16,7 +16,7 @@
 
 実行方法:
     # ローカルテスト（最初の3カテゴリのみ）
-    python scripts/sites/portal/pitta_lab.py
+    python scripts/sites/corporate/pitta_lab.py
 
     # Prefect Flow 経由（全カテゴリ）
     python bin/run_flow.py --site-id pitta_lab

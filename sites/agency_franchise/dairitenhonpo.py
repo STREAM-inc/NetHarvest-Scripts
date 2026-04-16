@@ -1,4 +1,4 @@
-# scripts/sites/portal/dairitenboshu.py
+# scripts/sites/agency_franchise/dairitenboshu.py
 """
 代理店本舗 — 代理店募集スクレイパー
 対象URL: https://dairitenboshu.com/search/
@@ -17,7 +17,7 @@
 
 実行方法:
     # ローカル直接実行
-    python scripts/sites/portal/dairitenboshu.py
+    python scripts/sites/agency_franchise/dairitenboshu.py
 
     # Prefect Flow 経由
     python bin/run_flow.py --site-id dairitenboshu
@@ -31,7 +31,7 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 # プロジェクトルートを sys.path に追加（ローカル直接実行対応）
-# scripts/sites/portal/xxx.py → .parent×4 でプロジェクトルートを取得
+# scripts/sites/agency_franchise/xxx.py → .parent×4 でプロジェクトルートを取得
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))

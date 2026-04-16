@@ -1,4 +1,4 @@
-# scripts/sites/portal/scrape_biz_training.py
+# scripts/sites/service/scrape_biz_training.py
 """
 比較ビズ — 営業代行会社スクレイパー
 対象URL: https://www.biz.ne.jp/list/sales-outsourcing/
@@ -12,7 +12,7 @@
 
 実行方法:
     # ローカルテスト（全件）
-    python scripts/sites/portal/scrape_biz_training.py
+    python scripts/sites/service/scrape_biz_training.py
 
     # Prefect Flow 経由（全件）
     python bin/run_flow.py --site-id biz_sales_outsourcing
@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 # プロジェクトルートを sys.path に追加（ローカル直接実行対応）
-# scripts/sites/portal/xxx.py → .parent×4 でプロジェクトルートを取得
+# scripts/sites/service/xxx.py → .parent×4 でプロジェクトルートを取得
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
