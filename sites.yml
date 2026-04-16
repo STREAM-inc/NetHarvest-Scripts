@@ -25,516 +25,516 @@ sites:
     name: "イーアイデム"
     module: "jobs.eaidem"
     url: "https://www.e-aidem.com/aps/list.htm?region_id=06&district_id=31"
-    schedule: "0 3 1 * *"
+    schedule: "0 1 1-7 * SAT"
     enabled: true
 
   - site_id: shinq_compass
     name: "鍼灸コンパス"
     module: "portal.shinq_compass"
     url: "https://www.shinq-compass.jp/area/list/?page=1"
-    schedule: null
+    schedule: "0 1 1-7 * SUN"
     enabled: true
 
   - site_id: seitainavi
     name: "整体ナビ"
     module: "portal.seitainavi"
     url: "https://seitainavi.jp/seitai_sekkotsu"
-    schedule: null
+    schedule: "0 1 8-14 * SAT"
     enabled: true
 
   - site_id: imitsu_sales_agent
     name: "PRONIアイミツ_営業代行"
     module: "portal.imitsu"
     url: "https://imitsu.jp/ct-sales-agent/search/"
-    schedule: null
+    schedule: "0 1 8-14 * SUN"
     enabled: true
 
   - site_id: biz_sales_outsourcing
     name: "比較ビズ_営業代行"
     module: "portal.biz_sales_outsourcing"
     url: "https://www.biz.ne.jp/list/sales-outsourcing/"
-    schedule: null
+    schedule: "0 1 15-21 * SAT"
     enabled: true
 
   - site_id: reshop-navi
     name: "リショップナビ"
     module: "portal.reshop_navi"
     url: "https://rehome-navi.com/shops"
-    schedule: null
+    schedule: "0 1 15-21 * SUN"
     enabled: true
 
   - site_id: shisha-suitai
     name: "シーシャスイタイ"
     module: "portal.shisha-suitai"
     url: "https://shisha-suitai.com/sitemap.xml"
-    schedule: null
+    schedule: "0 1 22-28 * SAT"
     enabled: true
 
   - site_id: refonavi
     name: "リフォーム評価ナビ"
     module: "portal.refonavi"
     url: "https://www.refonavi.or.jp"
-    schedule: null
+    schedule: "0 1 22-28 * SUN"
     enabled: true
 
   - site_id: hairlog
     name: "HAIRLOG"
     module: "portal.hairlog"
     url: "https://hairlog.jp/sitemap.xml"
-    schedule: null
+    schedule: "20 1 1-7 * SAT"
     enabled: true
 
   - site_id: rakuten_beauty
     name: "楽天ビューティ"
     module: "portal.rakuten_beauty"
     url: "https://beauty.rakuten.co.jp/sitemap.xml"
-    schedule: null
+    schedule: "20 1 1-7 * SUN"
     enabled: true
 
   - site_id: goonet
     name: "グーネット"
     module: "portal.goonet"
     url: "https://www.goo-net.com/sitemap_index.xml.gz"
-    schedule: null
+    schedule: "20 1 8-14 * SAT"
     enabled: true
 
   - site_id: goonet_pit
     name: "グーネットピット"
     module: "portal.goonet_pit"
     url: "https://www.goo-net.com/pit/sitemap_index.xml"
-    schedule: null
+    schedule: "20 1 8-14 * SUN"
     enabled: true
 
   - site_id: ii_ie
     name: "いい部屋ネット"
     module: "portal.ii_ie"
     url: "https://www.ii-ie2.net/sitemap.xml"
-    schedule: null
+    schedule: "20 1 15-21 * SAT"
     enabled: true
 
   - site_id: ielove
     name: "いえらぶ"
     module: "portal.ielove"
     url: "https://www.ielove.co.jp/sitemap/sitemap-company.xml"
-    schedule: null
+    schedule: "20 1 15-21 * SUN"
     enabled: true
 
   - site_id: ju_ren
     name: "充レン"
     module: "portal.ju_ren"
     url: "https://ju-ren.jp/location/stands/"
-    schedule: null
+    schedule: "20 1 22-28 * SAT"
     enabled: true
 
   - site_id: franchise_web_repo
     name: "フランチャイズWEBリポート"
     module: "portal.franchise_web_repo"
     url: "https://web-repo.jp/sitemap.xml"
-    schedule: null
+    schedule: "20 1 22-28 * SUN"
     enabled: true
 
   - site_id: yourmystar
     name: "ユアマイスター"
     module: "portal.yourmystar"
     url: "https://yourmystar.jp/sitemap.xml"
-    schedule: null
+    schedule: "40 1 1-7 * SAT"
     enabled: true
 
   - site_id: meetsmore
     name: "ミツモア"
     module: "portal.meetsmore"
     url: "https://meetsmore.com/services"
-    schedule: null
+    schedule: "40 1 1-7 * SUN"
     enabled: true
 
   - site_id: bilax_net
     name: "びらくネット"
     module: "portal.bilax_net"
     url: "https://bilax.net/sitemap.xml"
-    schedule: null
+    schedule: "40 1 8-14 * SAT"
     enabled: true
 
   - site_id: dokenchiku
     name: "ドケンチク"
     module: "portal.dokenchiku"
     url: "https://dokenchiku.com/company/1"
-    schedule: null
+    schedule: "40 1 8-14 * SUN"
     enabled: true
 
   - site_id: koujishi
     name: "工事士.com"
     module: "portal.koujishi"
     url: "https://koujishi.com/list/denkikoujishi-first/"
-    schedule: null
+    schedule: "40 1 15-21 * SAT"
     enabled: true
 
   - site_id: dairitenfc
     name: "代理店FC"
     module: "portal.dairitenfc"
     url: "https://dairitenfc.com"
-    schedule: null
+    schedule: "40 1 15-21 * SUN"
     enabled: true
 
   - site_id: hakkosha
     name: "白光舎"
     module: "portal.hakkosha"
     url: "https://www.hakkosha.com/shop/"
-    schedule: null
+    schedule: "40 1 22-28 * SAT"
     enabled: true
 
   - site_id: hitosara
     name: "ヒトサラ"
     module: "food.hitosara"
     url: "https://hitosara.com/sitemap_index.xml"
-    schedule: null
+    schedule: "40 1 22-28 * SUN"
     enabled: true
 
   - site_id: doctor_map
     name: "ドクターマップ"
     module: "medical.doctor_map"
     url: "https://www.doctor-map.info/sitemap.xml"
-    schedule: null
+    schedule: "0 2 1-7 * SAT"
     enabled: true
 
   - site_id: torabayu
     name: "とらばーゆ"
     module: "jobs.torabayu"
     url: "https://toranet.jp/prefectures/"
-    schedule: null
+    schedule: "0 2 1-7 * SUN"
     enabled: true
 
   - site_id: million_job
     name: "ミリオンジョブ"
     module: "jobs.million_job"
     url: "https://www.million-job.com"
-    schedule: null
+    schedule: "0 2 8-14 * SAT"
     enabled: true
 
   - site_id: refjob
     name: "リフラクジョブ"
     module: "jobs.refjob"
     url: "https://refjob.jp"
-    schedule: null
+    schedule: "0 2 8-14 * SUN"
     enabled: true
 
   - site_id: tainyu_chocolat
     name: "体入ショコラ"
     module: "jobs.tainyu_chocolat"
     url: "https://chocolat.work/sitemap_index.xml"
-    schedule: null
+    schedule: "0 2 15-21 * SAT"
     enabled: true
 
   - site_id: tainyu_macaron
     name: "体入マカロン"
     module: "jobs.tainyu_macaron"
     url: "https://picsastock.com/sitemap.xml"
-    schedule: null
+    schedule: "0 2 15-21 * SUN"
     enabled: true
 
   - site_id: tadaoka_shoko
     name: "忠岡町商工会"
     module: "government.tadaoka_shoko"
     url: "https://www.tadaoka.or.jp/kaiin.html"
-    schedule: null
+    schedule: "0 2 22-28 * SAT"
     enabled: true
 
   - site_id: bepro
     name: "美プロ"
     module: "jobs.bepro"
     url: "https://www.kenkou-job.com"
-    schedule: null
+    schedule: "0 2 22-28 * SUN"
     enabled: true
 
   - site_id: yakukyari
     name: "薬キャリ（法人）"
     module: "jobs.yakukyari"
     url: "https://pcareer.m3.com/shokubanavi/companies"
-    schedule: null
+    schedule: "20 2 1-7 * SAT"
     enabled: true
 
   - site_id: yakukyari_office
     name: "薬キャリ（事業所）"
     module: "jobs.yakukyari_office"
     url: "https://pcareer.m3.com/shokubanavi/offices"
-    schedule: null
+    schedule: "20 2 1-7 * SUN"
     enabled: true
 
   - site_id: kaiten_heiten
     name: "開店閉店ドットコム"
     module: "portal.kaiten_heiten"
     url: "https://kaiten-heiten-24.com"
-    schedule: null
+    schedule: "20 2 8-14 * SAT"
     enabled: true
 
   - site_id: inshokuten_job
     name: "求人飲食店ドットコム"
     module: "food.inshokuten_job"
     url: "https://job.inshokuten.com/sitemapindex.xml"
-    schedule: null
+    schedule: "20 2 8-14 * SUN"
     enabled: true
 
   - site_id: suumo
     name: "SUUMO不動産会社"
     module: "portal.suumo"
     url: "https://suumo.jp/kaisha/"
-    schedule: null
+    schedule: "20 2 15-21 * SAT"
     enabled: true
 
   - site_id: suumo_buy
     name: "SUUMO新築・中古物件"
     module: "portal.suumo_buy"
     url: "https://suumo.jp/ms/shinchiku/"
-    schedule: null
+    schedule: "20 2 15-21 * SUN"
     enabled: true
 
   - site_id: suumo_guide
     name: "SUUMO不動産会社ガイド"
     module: "portal.suumo_guide"
     url: "https://suumo.jp/jj/guide/"
-    schedule: null
+    schedule: "20 2 22-28 * SAT"
     enabled: true
 
   - site_id: yameshi_shokokai
     name: "八女市商工会"
     module: "government.yameshi_shokokai"
     url: "https://www.yameshi-shokokai.jp/member/"
-    schedule: null
+    schedule: "20 2 22-28 * SUN"
     enabled: true
 
   - site_id: ogori_shokokai
     name: "小郡市商工会"
     module: "government.ogori_shokokai"
     url: "https://ogori-shoukoukai.com/companycat/"
-    schedule: null
+    schedule: "40 2 1-7 * SAT"
     enabled: true
 
   - site_id: kawachinagano_shokokai
     name: "河内長野市商工会"
     module: "government.kawachinagano_shokokai"
     url: "http://www.ksci.or.jp/web.html"
-    schedule: null
+    schedule: "40 2 1-7 * SUN"
     enabled: true
 
   - site_id: ai_med
     name: "アイメッド"
     module: "medical.ai_med"
     url: "https://ai-med.jp/hospitals"
-    schedule: null
+    schedule: "40 2 8-14 * SAT"
     enabled: true
 
   - site_id: challenge_plus
     name: "チャレンジプラス"
     module: "portal.challenge_plus"
     url: "https://www.challenge-plus.jp/list/"
-    schedule: null
+    schedule: "40 2 8-14 * SUN"
     enabled: true
 
   - site_id: entre_net
     name: "アントレ"
     module: "jobs.entre_net"
     url: "https://entrenet.jp/dokuritsu/?cbn=top_src_fw"
-    schedule: null
+    schedule: "40 2 15-21 * SAT"
     enabled: true
 
   - site_id: gappori
     name: "ガッポリ"
     module: "jobs.gappori"
     url: "https://gappori.jp/a_search/w_/"
-    schedule: null
+    schedule: "40 2 15-21 * SUN"
     enabled: true
 
   - site_id: hanacupid
     name: "花キューピット"
     module: "portal.hanacupid"
     url: "https://www.hanacupid.or.jp/stores/"
-    schedule: null
+    schedule: "40 2 22-28 * SAT"
     enabled: true
 
   - site_id: dan_work
     name: "男ワーク"
     module: "jobs.dan_work"
     url: "https://www.dan-work.com"
-    schedule: null
+    schedule: "40 2 22-28 * SUN"
     enabled: true
 
   - site_id: hamanight
     name: "ハマんナイト"
     module: "jobs.hamanight"
     url: "http://www.hamanight.com"
-    schedule: null
+    schedule: "0 3 1-7 * SAT"
     enabled: true
 
   - site_id: tainew_otoko
     name: "メンズ体入"
     module: "jobs.tainew_otoko"
     url: "https://tainew-otoko.com/shoplist/search/?salary_type=0_1&word="
-    schedule: null
+    schedule: "0 3 1-7 * SUN"
     enabled: true
 
   - site_id: epark_dental
     name: "EPARK歯科"
     module: "medical.epark_dental"
     url: "https://haisha-yoyaku.jp/bun2sdental/list/"
-    schedule: null
+    schedule: "0 3 8-14 * SAT"
     enabled: true
 
   - site_id: jobcon_driver
     name: "ジョブコンプラスD"
     module: "jobs.jobcon_driver"
     url: "https://job-con.jp/driver/search"
-    schedule: null
+    schedule: "0 3 8-14 * SUN"
     enabled: true
 
   - site_id: jobcon_security
     name: "ジョブコンプラスS"
     module: "jobs.jobcon_security"
     url: "https://job-con.jp/security/search"
-    schedule: null
+    schedule: "0 3 15-21 * SAT"
     enabled: true
 
   - site_id: job_chocolat
     name: "ジョブショコラ"
     module: "jobs.job_chocolat"
     url: "https://job-chocolat.jp/"
-    schedule: null
+    schedule: "0 3 15-21 * SUN"
     enabled: true
 
   - site_id: doraever
     name: "ドラEVER"
     module: "jobs.doraever"
     url: "https://doraever.jp/job-lists/1"
-    schedule: null
+    schedule: "0 3 22-28 * SAT"
     enabled: true
 
   - site_id: jwarm
     name: "ジェイウォーム"
     module: "jobs.jwarm"
     url: "https://www.jwarm.net/uni_items.php?pg=1&ig=i"
-    schedule: null
+    schedule: "0 3 22-28 * SUN"
     enabled: true
 
   - site_id: kyujin_journal_net
     name: "求人ジャーナルネット"
     module: "jobs.kyujin_journal_net"
     url: "https://www.job-j.net"
-    schedule: null
+    schedule: "20 3 1-7 * SAT"
     enabled: true
 
   - site_id: baitoru
     name: "バイトル"
     module: "jobs.baitoru"
     url: "https://baitoru.com/search/list/"
-    schedule: null
+    schedule: "20 3 1-7 * SUN"
     enabled: true
 
   - site_id: townwork
     name: "タウンワーク"
     module: "jobs.townwork"
     url: "https://townwork.net/"
-    schedule: null
+    schedule: "20 3 8-14 * SAT"
     enabled: true
 
   - site_id: rikunabi_next_syataku
     name: "リクナビNEXT社宅"
     module: "jobs.rikunabi_next_syataku"
     url: "https://next.rikunabi.com/job_search/kw/%E7%A4%BE%E5%AE%85/"
-    schedule: null
+    schedule: "20 3 8-14 * SUN"
     enabled: true
 
   - site_id: rikunabi_next_syayosha
     name: "リクナビNEXT社用車"
     module: "jobs.rikunabi_next_syayosha"
     url: "https://next.rikunabi.com/job_search/kw/%E7%A4%BE%E7%94%A8%E8%BB%8A%E5%88%B6%E5%BA%A6/"
-    schedule: null
+    schedule: "20 3 15-21 * SAT"
     enabled: true
 
   - site_id: caloo
     name: "Caloo病院検索"
     module: "medical.caloo"
     url: "https://caloo.jp/hospitals/search/01/all"
-    schedule: null
+    schedule: "20 3 15-21 * SUN"
     enabled: true
 
   - site_id: gaten_job
     name: "ガテン系仕事ナビ"
     module: "jobs.gaten_job"
     url: "https://gaten-job.com/sitemap.xml"
-    schedule: null
+    schedule: "20 3 22-28 * SAT"
     enabled: true
 
   - site_id: jobpost
     name: "ジョブポスト"
     module: "jobs.jobpost"
     url: "https://jobpost.jp/search/g:1/"
-    schedule: null
+    schedule: "20 3 22-28 * SUN"
     enabled: true
 
   - site_id: trck_job
     name: "トラッカーズジョブ"
     module: "jobs.trck_job"
     url: "https://job.trck.jp/sitemap.xml"
-    schedule: null
+    schedule: "40 3 1-7 * SAT"
     enabled: true
 
   - site_id: barberin
     name: "バーバリン"
     module: "portal.barberin"
     url: "https://barberin.jp/"
-    schedule: null
+    schedule: "40 3 1-7 * SUN"
     enabled: true
 
   - site_id: fc_kamei
     name: "フランチャイズ加盟募集"
     module: "portal.fc_kamei"
     url: "https://fc-kamei.net"
-    schedule: null
+    schedule: "40 3 8-14 * SAT"
     enabled: true
 
   - site_id: benrishi_navi
     name: "弁理士ナビ"
     module: "portal.benrishi_navi"
     url: "https://www.benrishi-navi.com"
-    schedule: null
+    schedule: "40 3 8-14 * SUN"
     enabled: true
 
   - site_id: prtimes
     name: "PRTIMES"
     module: "corporate.prtimes"
     url: "https://prtimes.jp/technology/"
-    schedule: null
+    schedule: "40 3 15-21 * SAT"
     enabled: true
 
   - site_id: kessan_kokoku
     name: "決算公告（catr.jp）"
     module: "corporate.kessan_kokoku"
     url: "https://catr.jp/cities/0"
-    schedule: null
+    schedule: "40 3 15-21 * SUN"
     enabled: true
 
   - site_id: host_para
     name: "ホスパラ"
     module: "portal.host_para"
     url: "https://host-paradise.jp/"
-    schedule: null
+    schedule: "40 3 22-28 * SAT"
     enabled: true
 
   - site_id: mynavi_tenshoku
     name: "マイナビ転職"
     module: "jobs.mynavi_tenshoku"
     url: "https://tenshoku.mynavi.jp/list/pg1/"
-    schedule: null
+    schedule: "40 3 22-28 * SUN"
     enabled: true
 
   - site_id: en_tenshoku
     name: "エン転職"
     module: "jobs.en_tenshoku"
     url: "https://employment.en-japan.com/k_tokyo/"
-    schedule: null
+    schedule: "0 4 1-7 * SAT"
     enabled: true
 
   - site_id: kyujin_box_tokutei
     name: "求人ボックス（特定技能の仕事）"
     module: "jobs.kyujin_box_tokutei"
     url: "https://xn--pckua2a7gp15o89zb.com/%E7%89%B9%E5%AE%9A%E6%8A%80%E8%83%BD%E3%81%AE%E4%BB%95%E4%BA%8B"
-    schedule: null
+    schedule: "0 4 1-7 * SUN"
     enabled: true
