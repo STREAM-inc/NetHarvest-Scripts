@@ -273,6 +273,13 @@ sites:
     schedule: "20 2 8-14 * SUN"
     enabled: true
 
+  - site_id: paypaygourmet
+    name: "PayPayグルメ"
+    module: "food.paypaygourmet"
+    url: "https://paypaygourmet.yahoo.co.jp/"
+    schedule: "0 1 22-28 * SUN"
+    enabled: true
+
   - site_id: suumo
     name: "SUUMO不動産会社"
     module: "realestate.suumo"
