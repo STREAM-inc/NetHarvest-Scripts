@@ -4,6 +4,7 @@
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 from typing import Generator
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
@@ -24,6 +25,51 @@ class PaypayGourmetScraper(StaticCrawler):
         "FAX",
         "メール",
     ]
+    HOMEPAGE_BLOCKED_DOMAINS = {
+        "paypaygourmet.yahoo.co.jp",
+        "help.ikyu.com",
+        "restaurant.ikyu.com",
+        "ikyu.com",
+        "lycorp.co.jp",
+        "privacy.lycorp.co.jp",
+        "yahoo.co.jp",
+    }
+
+    def _is_valid_homepage_url(self, href: str) -> bool:
+        if not href.startswith("http"):
+            return False
+        host = (urlparse(href).hostname or "").lower()
+        if not host:
+            return False
+        return all(not (host == d or host.endswith("." + d)) for d in self.HOMEPAGE_BLOCKED_DOMAINS)
+
+    def _collect_links(
+        self,
+        soup,
+        homepage: str,
+        instagram: str,
+        facebook: str,
+        x_url: str,
+        line_official: str,
+        emails: set[str],
+    ) -> tuple[str, str, str, str, str, set[str]]:
+        for a_tag in soup.select("a[href]"):
+            href = a_tag.get("href", "").strip()
+            if not href:
+                continue
+            if href.startswith("mailto:"):
+                emails.add(href.replace("mailto:", "", 1).strip())
+            elif "instagram.com" in href and not instagram:
+                instagram = href
+            elif "facebook.com" in href and not facebook:
+                facebook = href
+            elif ("twitter.com" in href or "x.com" in href) and not x_url:
+                x_url = href
+            elif "line.me" in href and not line_official:
+                line_official = href
+            elif not homepage and self._is_valid_homepage_url(href):
+                homepage = href
+        return homepage, instagram, facebook, x_url, line_official, emails
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         index_url = self.SITEMAP_INDEX_URL
@@ -126,26 +172,37 @@ class PaypayGourmetScraper(StaticCrawler):
             facebook = ""
             x_url = ""
             line_official = ""
-            for a_tag in store_soup.select("a[href]"):
-                href = a_tag.get("href", "").strip()
-                if not href:
-                    continue
-                if href.startswith("mailto:"):
-                    emails.add(href.replace("mailto:", "", 1).strip())
-                elif "instagram.com" in href and not instagram:
-                    instagram = href
-                elif "facebook.com" in href and not facebook:
-                    facebook = href
-                elif ("twitter.com" in href or "x.com" in href) and not x_url:
-                    x_url = href
-                elif "line.me" in href and not line_official:
-                    line_official = href
-                elif (
-                    "paypaygourmet.yahoo.co.jp" not in href
-                    and href.startswith("http")
-                    and not homepage
-                ):
-                    homepage = href
+            homepage, instagram, facebook, x_url, line_official, emails = self._collect_links(
+                store_soup,
+                homepage,
+                instagram,
+                facebook,
+                x_url,
+                line_official,
+                emails,
+            )
+
+            if not homepage:
+                for suffix in ("/detail", "/access"):
+                    try:
+                        extra_soup = self.get_soup(f"{store_url}{suffix}")
+                    except Exception:
+                        continue
+                    homepage, instagram, facebook, x_url, line_official, emails = self._collect_links(
+                        extra_soup,
+                        homepage,
+                        instagram,
+                        facebook,
+                        x_url,
+                        line_official,
+                        emails,
+                    )
+                    if homepage:
+                        break
+
+            # 最終ガード: 共通ヘルプ等のURLが紛れた場合は出力しない
+            if homepage and not self._is_valid_homepage_url(homepage):
+                homepage = ""
 
             yield {
                 Schema.NAME: name,
