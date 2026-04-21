@@ -221,7 +221,7 @@ sites:
     name: "体入ショコラ"
     module: "jobs.tainyu_chocolat"
     url: "https://chocolat.work/sitemap_index.xml"
-    schedule: "0 2 * * SAT"
+    schedule: "10 18 * * TUE"
     enabled: true
 
   - site_id: tainyu_macaron
@@ -431,7 +431,7 @@ sites:
     name: "バイトル"
     module: "jobs.baitoru"
     url: "https://baitoru.com/search/list/"
-    schedule: "20 3 * * SAT"
+    schedule: "10 18 * * TUE"
     enabled: true
 
   - site_id: townwork
