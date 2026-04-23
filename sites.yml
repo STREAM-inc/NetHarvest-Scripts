@@ -594,3 +594,24 @@ sites:
     url: "https://etsuran2.mlit.go.jp/TAKKEN/kensetuKensaku.do?outPutKbn=1"
     schedule: "0 4 8-14 * SAT"
     enabled: true    
+
+  - site_id: epark_personal_gym
+    name: "EPARK【パーソナルジム】"
+    module: "service.epark_personal_gym"
+    url: "https://epark.jp/lesson/list/cat_220200/"
+    schedule: null
+    enabled: true
+
+  - site_id: homepro
+    name: "ホームプロ"
+    module: "construction.homepro"
+    url: "https://www.homepro.jp/"
+    schedule: null
+    enabled: true
+
+  - site_id: nurikae
+    name: "ヌリカエ"
+    module: "construction.nurikae"
+    url: "https://www.nuri-kae.jp/"
+    schedule: null
+    enabled: true
