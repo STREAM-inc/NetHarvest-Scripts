@@ -622,3 +622,18 @@ sites:
     url: "https://www.nuri-kae.jp/"
     schedule: null
     enabled: true
+
+  - site_id: aupay
+    name: "aupay"
+    module: "service.aupay"
+    url: "https://aupay.auone.jp/"
+    schedule: null
+    enabled: true
+
+  - site_id: tabelog
+    name: "食べログ"
+    module: "food.tabelog"
+    url: "https://tabelog.com/"
+    schedule: null
+    enabled: true
+
