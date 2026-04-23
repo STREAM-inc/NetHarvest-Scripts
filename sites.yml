@@ -573,3 +573,24 @@ sites:
     url: "https://xn--pckua2a7gp15o89zb.com/"
     schedule: "0 4 8-14 * SAT"
     enabled: true
+
+    - site_id: b_seeds
+    name: "Bシーズ"
+    module: "portal.b_seeds"
+    url: "https://b-seeds.com/news/"
+    schedule: "0 4 8-14 * SAT"
+    enabled: true
+
+  - site_id: bgent
+    name: "ビジェント"
+    module: "portal.bgent"
+    url: "https://www.bgent.net/search"
+    schedule: "0 4 8-14 * SAT"
+    enabled: true
+
+  - site_id: mlit_kensetsu
+    name: "国交省建設業者検索_建設業"
+    module: "construction.mlit_kensetsu"
+    url: "https://etsuran2.mlit.go.jp/TAKKEN/kensetuKensaku.do?outPutKbn=1"
+    schedule: "0 4 8-14 * SAT"
+    enabled: true    
