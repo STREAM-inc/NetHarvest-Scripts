@@ -566,3 +566,10 @@ sites:
     url: "https://bahn-rep.com/category/allarea/page/1"
     schedule: null
     enabled: true
+
+  - site_id: kyujinbox
+    name: "求人ボックス（携帯販売・通信系）"
+    module: "jobs.kyujinbox"
+    url: "https://xn--pckua2a7gp15o89zb.com/"
+    schedule: "0 4 8-14 * SAT"
+    enabled: true
