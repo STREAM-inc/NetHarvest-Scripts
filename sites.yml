@@ -594,3 +594,10 @@ sites:
     url: "https://etsuran2.mlit.go.jp/TAKKEN/kensetuKensaku.do?outPutKbn=1"
     schedule: "0 4 8-14 * SAT"
     enabled: true    
+
+  - site_id: mlit_takken
+    name: "建設業者・宅建業者等企業情報検索システム【賃貸住宅管理業者】"
+    module: "realestate.mlit_takken"
+    url: "https://etsuran2.mlit.go.jp/TAKKEN/takkenKensaku.do"
+    schedule: "0 4 8-14 * SAT"
+    enabled: true
