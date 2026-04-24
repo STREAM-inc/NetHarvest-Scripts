@@ -1177,6 +1177,20 @@ sites:
     schedule: "20 5 22-28 * SUN"
     enabled: true
 
+  - site_id: job_medley
+    name: "ジョブメドレー"
+    module: "jobs.job_medley"
+    url: "https://job-medley.com/mas/"
+    schedule: null
+    enabled: true
+
+  - site_id: guppy
+    name: "GUPPY"
+    module: "jobs.guppy"
+    url: "https://www.guppy.jp/"
+    schedule: null
+    enabled: true
+
   - site_id: hikariweb_search
     name: "ひかりWeb NTT東日本特約店・販売委託店"
     module: "agency_franchise.hikariweb_search"
@@ -1197,3 +1211,10 @@ sites:
     url: "https://nightstyle.jp"
     schedule: "40 7 22-28 * SAT"
     enabled: true
+  - site_id: baitoru_nightwork
+    name: "バイトル（ナイトワーク系）"
+    module: "jobs.baitoru_nightwork"
+    url: "https://www.baitoru.com/lp/jobcategory/"
+    schedule: "30 4 * * MON"
+    enabled: true
+
