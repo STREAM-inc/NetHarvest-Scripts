@@ -1308,4 +1308,10 @@ sites:
     module: "nightlife.philippine_pub"
     url: "https://philippine-pub.com/"
     schedule: "30 4 8-14 * SUN"
+
+  - site_id: mynavi2027
+    name: "マイナビ2027"
+    module: "jobs.mynavi2027"
+    url: "https://job.mynavi.jp/2027/"
+    schedule: null
     enabled: true
