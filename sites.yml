@@ -1190,3 +1190,10 @@ sites:
     url: "https://hikariweb.ntt-east.co.jp/general/cancell/list.php?keyword=1"
     schedule: "20 5 22-28 * SAT"
     enabled: true
+
+  - site_id: nightstyle
+    name: "ナイトスタイル"
+    module: "nightlife.nightstyle"
+    url: "https://nightstyle.jp"
+    schedule: "40 7 22-28 * SAT"
+    enabled: true
