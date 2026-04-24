@@ -1176,3 +1176,17 @@ sites:
     url: "https://www.vinty.jp/search"
     schedule: "20 5 22-28 * SUN"
     enabled: true
+
+  - site_id: hikariweb_search
+    name: "ひかりWeb NTT東日本特約店・販売委託店"
+    module: "agency_franchise.hikariweb_search"
+    url: "https://hikariweb.ntt-east.co.jp/general/search/list.php?keyword=1"
+    schedule: "20 5 22-28 * SAT"
+    enabled: true
+
+  - site_id: hikariweb_cancell
+    name: "ひかりWeb NTT東日本解約特約店・販売委託店"
+    module: "agency_franchise.hikariweb_cancell"
+    url: "https://hikariweb.ntt-east.co.jp/general/cancell/list.php?keyword=1"
+    schedule: "20 5 22-28 * SAT"
+    enabled: true
