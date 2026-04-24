@@ -873,13 +873,6 @@ sites:
     schedule: "40 4 1-7 * SAT"
     enabled: true
 
-  - site_id: baseconnect
-    name: "Baseconnect"
-    module: "corporate.baseconnect"
-    url: "https://baseconnect.in/"
-    schedule: "40 4 1-7 * SUN"
-    enabled: true
-
   - site_id: biz_all
     name: "比較ビズ（全業種）"
     module: "corporate.biz_all"
