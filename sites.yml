@@ -437,7 +437,7 @@ sites:
   - site_id: baitoru
     name: "バイトル"
     module: "jobs.baitoru"
-    url: "https://www.baitoru.com/kanto/jlist/tokyo/"
+    url: "https://www.baitoru.com/"
     schedule: "10 16 * * WED"
     enabled: true
 
