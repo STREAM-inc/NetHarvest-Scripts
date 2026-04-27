@@ -14,18 +14,11 @@
 # =============================================================================
 
 sites:
-  - site_id: epark_hotel
-    name: "EPARKホテル・宿泊"
-    module: "portal.epark_hotel"
-    url: "https://epark.jp/hotel-stay/list/"
-    schedule: "0 7 1-7 * SUN"
-    enabled: true
-
   - site_id: dummy
     name: "ダミー"
     module: "test.dummy"
     url: "https://example.com"
-    schedule: "20 7 22-28 * SAT"
+    schedule: null
     enabled: true
 
   - site_id: eaidem
@@ -228,7 +221,7 @@ sites:
     name: "体入ショコラ"
     module: "jobs.tainyu_chocolat"
     url: "https://chocolat.work/sitemap_index.xml"
-    schedule: "10 16 * * WED"
+    schedule: "10 18 * * TUE"
     enabled: true
 
   - site_id: tainyu_macaron
@@ -437,8 +430,8 @@ sites:
   - site_id: baitoru
     name: "バイトル"
     module: "jobs.baitoru"
-    url: "https://www.baitoru.com/"
-    schedule: "10 16 * * WED"
+    url: "https://baitoru.com/search/list/"
+    schedule: "10 18 * * TUE"
     enabled: true
 
   - site_id: townwork
