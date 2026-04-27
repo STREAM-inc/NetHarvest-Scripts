@@ -1142,8 +1142,8 @@ sites:
     schedule: "0 5 22-28 * SAT"
     enabled: true
 
-  - site_id: jinzai_hellowork
-    name: "人材銀行（ハローワーク）"
+  - site_id: jinzai_hellowork_syokugyo_syoukai
+    name: "人材サービス総合【職業紹介】"
     module: "jobs.jinzai_hellowork"
     url: "https://jinzai.hellowork.mhlw.go.jp/JinzaiWeb"
     schedule: "0 5 22-28 * SUN"

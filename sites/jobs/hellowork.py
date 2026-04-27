@@ -2,13 +2,16 @@
 ハローワーク (ハローワークインターネットサービス) 求人情報スクレイパー
 
 取得対象:
-    - https://www.hellowork.mhlw.go.jp/ の公開求人 (デフォルト=一般求人)
+    - https://www.hellowork.mhlw.go.jp/ の公開求人 (一般求人)
     - 一覧ページ → 詳細ページの 2 段構成。求人カード 1 件ごとに 1 行のレコードを生成する。
 
 取得フロー:
-    1. Playwright で検索ページ (GECA110010) にアクセスし、空条件で検索ボタン押下
-    2. 検索結果一覧 (50件/ページ) のページネーションを「次へ＞」ボタンで巡回し、
-       各カードの詳細ページ URL (action=dispDetailBtn, jGSHNo 付き) を収集
+    1. Playwright で検索ページ (GECA110010) にアクセス
+    2. 47 都道府県を 1 つずつ todohukenHidden に設定して検索 (件数の多い都道府県は
+       一般求人内のフルタイム/パートで更にサブ分割)。各バッチで「次へ＞」ボタンで
+       全ページ巡回し、各カードの詳細ページ URL (action=dispDetailBtn, jGSHNo 付き) を収集。
+       バッチ単位で分割しているのは、全件 (約 100 万件超) を 1 セッションで巡回すると
+       途中でセッション切れ／ナビゲーション失敗が発生し早期終了するため。
     3. requests で各詳細ページを取得し、74 個前後の <th>/<td> ペアを解析
     4. 事業所名・所在地・代表者・法人番号 等を Schema 列に、
        求人特有の属性 (求人番号、職種、賃金 等) を EXTRA_COLUMNS に格納
@@ -37,6 +40,32 @@ from src.const.schema import Schema
 
 BASE_URL = "https://www.hellowork.mhlw.go.jp/kensaku"
 SEARCH_URL = f"{BASE_URL}/GECA110010.do?action=initDisp&screenId=GECA110010"
+
+# 都道府県コード (hellowork 検索フォームの skCheckXX value / todohukenHidden に渡す値)
+_PREFECTURES: list[tuple[str, str]] = [
+    ("01", "北海道"), ("02", "青森県"), ("03", "岩手県"), ("04", "宮城県"),
+    ("05", "秋田県"), ("06", "山形県"), ("07", "福島県"), ("08", "茨城県"),
+    ("09", "栃木県"), ("10", "群馬県"), ("11", "埼玉県"), ("12", "千葉県"),
+    ("13", "東京都"), ("14", "神奈川県"), ("15", "新潟県"), ("16", "富山県"),
+    ("17", "石川県"), ("18", "福井県"), ("19", "山梨県"), ("20", "長野県"),
+    ("21", "岐阜県"), ("22", "静岡県"), ("23", "愛知県"), ("24", "三重県"),
+    ("25", "滋賀県"), ("26", "京都府"), ("27", "大阪府"), ("28", "兵庫県"),
+    ("29", "奈良県"), ("30", "和歌山県"), ("31", "鳥取県"), ("32", "島根県"),
+    ("33", "岡山県"), ("34", "広島県"), ("35", "山口県"), ("36", "徳島県"),
+    ("37", "香川県"), ("38", "愛媛県"), ("39", "高知県"), ("40", "福岡県"),
+    ("41", "佐賀県"), ("42", "長崎県"), ("43", "熊本県"), ("44", "大分県"),
+    ("45", "宮崎県"), ("46", "鹿児島県"), ("47", "沖縄県"),
+]
+
+# 都道府県内をさらにサブ分割するしきい値 (件)
+# 1 セッションで「次へ＞」ボタンを連打して安定して取得しきれる目安 (経験則)
+_SUBDIVIDE_THRESHOLD = 25_000
+
+# 一般求人 (kjKbnRadioBtn=1) の内訳: フルタイム / パート
+_IPPAN_SUBTYPES: list[tuple[str, str]] = [
+    ("1", "フルタイム"),
+    ("2", "パート"),
+]
 
 _PREF_PATTERN = re.compile(
     r"^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|"
@@ -90,13 +119,33 @@ class HelloworkScraper(DynamicCrawler):
             self.session.close()
 
     def parse(self, url: str):
-        # --- 1. Playwright で検索 → 全ページの詳細URLを収集 ---
-        detail_urls = self._collect_detail_urls()
-        self.total_items = len(detail_urls)
-        self.logger.info("詳細ページURL収集完了: %d 件", len(detail_urls))
+        # --- 1. Playwright で 47 都道府県を順に検索し、全ページの詳細URLを収集 ---
+        seen: set[str] = set()
+        all_urls: list[str] = []
+
+        for code, name in _PREFECTURES:
+            try:
+                urls = self._collect_detail_urls_for_pref(code, name)
+            except Exception as e:
+                self.logger.warning("[%s] 検索全体でエラー: %s", name, e)
+                continue
+
+            new_count = 0
+            for u in urls:
+                if u not in seen:
+                    seen.add(u)
+                    all_urls.append(u)
+                    new_count += 1
+            self.logger.info(
+                "[%s] 取得 %d 件 (新規 %d / 累計 %d)",
+                name, len(urls), new_count, len(all_urls),
+            )
+
+        self.total_items = len(all_urls)
+        self.logger.info("詳細ページURL収集完了: %d 件", len(all_urls))
 
         # --- 2. requests で各詳細ページを取得 ---
-        for i, detail_url in enumerate(detail_urls):
+        for i, detail_url in enumerate(all_urls):
             try:
                 item = self._scrape_detail(detail_url)
                 if item:
@@ -104,27 +153,87 @@ class HelloworkScraper(DynamicCrawler):
             except Exception as e:
                 self.logger.warning(
                     "詳細ページ取得失敗 [%d/%d]: %s (%s)",
-                    i + 1, len(detail_urls), detail_url, e,
+                    i + 1, len(all_urls), detail_url, e,
                 )
                 continue
 
     # ------------------------------------------------------------------
     # 一覧ページ (Playwright)
     # ------------------------------------------------------------------
-    def _collect_detail_urls(self) -> list[str]:
-        """検索フォームを送信し、ページ送りで全詳細URLを収集"""
-        detail_urls: list[str] = []
+    def _collect_detail_urls_for_pref(self, pref_code: str, pref_name: str) -> list[str]:
+        """指定都道府県の全求人 URL を収集する。
+
+        件数が _SUBDIVIDE_THRESHOLD を超える場合は、一般求人 (フルタイム/パート/その他) と
+        新卒・季節・出稼ぎ・障害者向け を別バッチで検索しサブ分割する。
+        """
+        # 件数を確認するための予備検索 (条件なし、kjKbnRadioBtn=1 がデフォルト)
+        total = self._search_with_pref(pref_code, ippan_subtype=None)
+        if total is None:
+            self.logger.warning("[%s] 検索結果総数の取得に失敗", pref_name)
+            total = 0
+
+        self.logger.info("[%s] 検索結果: 約 %d 件", pref_name, total)
+
+        # しきい値以下ならそのまま全件取得
+        if total <= _SUBDIVIDE_THRESHOLD:
+            return self._paginate_collect(label=pref_name)
+
+        # しきい値超: 一般求人 (kjKbnRadioBtn=1) をフルタイム/パートで分割。
+        # 一般求人以外 (新卒/季節/出稼ぎ/障害者) は件数が小さいので 1 バッチで取得。
+        self.logger.info(
+            "[%s] %d 件 > %d 件のためサブ分割で取得",
+            pref_name, total, _SUBDIVIDE_THRESHOLD,
+        )
+
+        urls: list[str] = []
         seen: set[str] = set()
 
-        self.logger.info("検索ページにアクセス中...")
+        for sub_code, sub_name in _IPPAN_SUBTYPES:
+            self._search_with_pref(pref_code, ippan_subtype=sub_code)
+            label = f"{pref_name}/一般求人/{sub_name}"
+            for u in self._paginate_collect(label=label):
+                if u not in seen:
+                    seen.add(u)
+                    urls.append(u)
+
+        return urls
+
+    def _search_with_pref(self, pref_code: str, ippan_subtype: str | None) -> int | None:
+        """検索ページを開き、都道府県と (任意で) 一般求人サブ種別を指定して検索を実行。
+
+        Args:
+            pref_code: skCheck の値 ("01" 〜 "47")
+            ippan_subtype: ippanCKBox の値。"1"=フルタイム, "2"=パート, None=指定なし
+
+        Returns:
+            int | None: 検索結果の総件数。読み取り失敗時は None。
+        """
         self.page.goto(SEARCH_URL, wait_until="domcontentloaded")
 
-        # 1ページ目を表示する: 「検索する」を submit
-        self.logger.info("検索ボタンをクリック (デフォルト条件) ...")
-        with self.page.expect_navigation(wait_until="domcontentloaded", timeout=60000):
-            self.page.click("#ID_searchBtn")
+        # JS から hidden を直接設定して検索 (本来 UI はモーダルで都道府県を選ばせる仕組みだが、
+        # サーバーは todohukenHidden の値だけを参照するため直接代入で十分)
+        js = (
+            f"document.querySelector('#ID_todohukenHidden').value = '{pref_code}';"
+        )
+        if ippan_subtype is not None:
+            # 一般求人ラジオを選択 (デフォルトのままだが念のため)
+            js += "document.querySelector('#ID_kjKbnRadioBtn1').checked = true;"
+            # ippanCKBox は複数選択可だが、ここでは 1 つだけ ON にする
+            js += "document.querySelectorAll('input[name=\"ippanCKBox\"]').forEach(el => el.checked = false);"
+            js += (
+                f"document.querySelector('#ID_ippanCKBox{ippan_subtype}').checked = true;"
+            )
+        self.page.evaluate(js)
 
-        # 50件/ページに切替えて巡回数を減らす
+        try:
+            with self.page.expect_navigation(wait_until="domcontentloaded", timeout=60000):
+                self.page.click("#ID_searchBtn")
+        except Exception as e:
+            self.logger.warning("検索ボタン押下後の遷移失敗 [pref=%s sub=%s]: %s",
+                                pref_code, ippan_subtype, e)
+            return None
+
+        # 50 件/ページに切替 (失敗してもデフォルトで続行)
         try:
             self.page.select_option("#ID_fwListNaviDispTop", "50")
             with self.page.expect_navigation(wait_until="domcontentloaded", timeout=60000):
@@ -132,19 +241,25 @@ class HelloworkScraper(DynamicCrawler):
                     "document.forms['form_1'].submit && document.forms['form_1'].submit()"
                 )
         except Exception:
-            # 50件切替に失敗してもデフォルト30件で続行
             self.logger.debug("表示件数の切替に失敗。デフォルト件数で続行")
 
-        # 総件数 (例: "全 268 件")
-        total = self._read_total_count()
-        if total:
-            self.logger.info("検索結果: 約 %d 件", total)
+        return self._read_total_count()
 
+    def _paginate_collect(self, label: str) -> list[str]:
+        """現在表示中の一覧ページを起点に、最終ページまで詳細 URL を収集する。
+
+        Args:
+            label: ログ出力用のバッチ識別ラベル (例: "東京都/一般求人/フルタイム")
+        """
+        detail_urls: list[str] = []
+        seen: set[str] = set()
         page_num = 1
-        while True:
-            self.logger.info("一覧ページ %d を解析中... (累計: %d件)", page_num, len(detail_urls))
-            soup = BeautifulSoup(self.page.content(), "html.parser")
+        consecutive_failures = 0
+        MAX_FAILURES = 3
 
+        while True:
+            soup = BeautifulSoup(self.page.content(), "html.parser")
+            before = len(detail_urls)
             for a in soup.select('a[href*="action=dispDetailBtn"]'):
                 href = a.get("href", "").strip()
                 if not href:
@@ -156,11 +271,13 @@ class HelloworkScraper(DynamicCrawler):
                 if href not in seen:
                     seen.add(href)
                     detail_urls.append(href)
+            if page_num % 20 == 1 or page_num == 1:
+                self.logger.info("[%s] ページ %d 解析 (累計 %d 件)",
+                                 label, page_num, len(detail_urls))
 
-            # 「次へ＞」ボタン: input[name=fwListNaviBtnNext]
             next_btn = self.page.query_selector('input[name="fwListNaviBtnNext"]')
             if not next_btn:
-                self.logger.info("次へボタンが見つからないため終了")
+                self.logger.info("[%s] 次へボタンなし。終了", label)
                 break
 
             try:
@@ -168,15 +285,30 @@ class HelloworkScraper(DynamicCrawler):
             except Exception:
                 disabled = False
             if disabled:
-                self.logger.info("最終ページに到達 (次へが無効)")
+                self.logger.info("[%s] 最終ページに到達 (次へ無効)", label)
+                break
+
+            # 同一ページから新規 URL が 1 件も増えなければ末尾と判断
+            if len(detail_urls) == before and page_num > 1:
+                self.logger.info("[%s] 新規 URL がなくなったため終了", label)
                 break
 
             try:
                 with self.page.expect_navigation(wait_until="domcontentloaded", timeout=60000):
                     next_btn.click()
+                consecutive_failures = 0
             except Exception as e:
-                self.logger.info("次へボタン押下後の遷移なし。終了 (%s)", e)
-                break
+                consecutive_failures += 1
+                self.logger.warning(
+                    "[%s] ページ %d 遷移失敗 (連続 %d/%d): %s",
+                    label, page_num, consecutive_failures, MAX_FAILURES, e,
+                )
+                if consecutive_failures >= MAX_FAILURES:
+                    self.logger.warning("[%s] リトライ上限到達のためバッチ打ち切り", label)
+                    break
+                time.sleep(2)
+                continue
+
             page_num += 1
             time.sleep(0.3)
 
@@ -187,6 +319,10 @@ class HelloworkScraper(DynamicCrawler):
             text = self.page.inner_text("body")
         except Exception:
             return None
+        # "1142398件中 1～30 件を表示" のようなパターンを優先
+        m = re.search(r"([\d,]+)\s*件中", text)
+        if m:
+            return int(m.group(1).replace(",", ""))
         m = re.search(r"全\s*([\d,]+)\s*件|該当件数\s*([\d,]+)\s*件|([\d,]+)\s*件", text)
         if not m:
             return None
