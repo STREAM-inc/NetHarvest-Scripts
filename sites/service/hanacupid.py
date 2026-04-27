@@ -32,7 +32,7 @@ class HanacupidScraper(StaticCrawler):
     """花キューピット 加盟店舗スクレイパー（hanacupid.or.jp）"""
 
     DELAY = 0.5
-    EXTRA_COLUMNS = ["名称_フリガナ", "FAX番号", "営業時間", "配達エリア"]
+    EXTRA_COLUMNS = ["名称_フリガナ", "FAX番号", "配達エリア"]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         seen: set[str] = set()
