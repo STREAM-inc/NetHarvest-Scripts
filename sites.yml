@@ -1137,7 +1137,7 @@ sites:
 
   - site_id: jinzai_hellowork_syokugyo_syoukai
     name: "人材サービス総合【職業紹介】"
-    module: "jobs.jinzai_hellowork"
+    module: "jobs.jinzai_hellowork_syokugyo_syoukai"
     url: "https://jinzai.hellowork.mhlw.go.jp/JinzaiWeb"
     schedule: "0 5 22-28 * SUN"
     enabled: true
