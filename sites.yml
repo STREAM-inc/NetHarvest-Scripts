@@ -14,13 +14,6 @@
 # =============================================================================
 
 sites:
-  - site_id: dummy
-    name: "ダミー"
-    module: "test.dummy"
-    url: "https://example.com"
-    schedule: null
-    enabled: true
-
   - site_id: eaidem
     name: "イーアイデム"
     module: "jobs.eaidem"
