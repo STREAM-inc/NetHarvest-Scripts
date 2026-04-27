@@ -1173,7 +1173,7 @@ sites:
   - site_id: job_medley
     name: "ジョブメドレー"
     module: "jobs.job_medley"
-    url: "https://job-medley.com/mas/"
+    url: "https://job-medley.com/"
     schedule: null
     enabled: true
 
