@@ -41,7 +41,6 @@ class TorabayuScraper(DynamicCrawler):
     """とらばーゆ(toranet.jp) 企業情報スクレイパー"""
 
     DELAY = 1.0
-    EXTRA_COLUMNS = ["事業内容"]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         """全都道府県の求人一覧 → 企業詳細ページをスクレイプ"""
@@ -103,7 +102,7 @@ class TorabayuScraper(DynamicCrawler):
                     value = value[m.end():].strip()
                 data.setdefault(Schema.ADDR, value)
             elif "事業内容" in label:
-                data.setdefault("事業内容", value)
+                data.setdefault(Schema.LOB, value)
             elif any(k in label for k in ("ホームページ", "HP")):
                 data.setdefault(Schema.HP, href or value)
             elif any(k in label for k in ("電話番号", "TEL", "代表電話番号")):
