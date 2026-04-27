@@ -1204,10 +1204,32 @@ sites:
     url: "https://nightstyle.jp"
     schedule: "40 7 22-28 * SAT"
     enabled: true
+    
   - site_id: baitoru_nightwork
     name: "バイトル（ナイトワーク系）"
     module: "jobs.baitoru_nightwork"
     url: "https://www.baitoru.com/lp/jobcategory/"
     schedule: "30 4 * * MON"
+    enabled: true
+
+  - site_id: casmoo
+    name: "ウィリスト"
+    module: "nightlife.casmoo"
+    url: "https://casmoo.jp/"
+    schedule: null
+    enabled: true
+
+  - site_id: bizresearch
+    name: "ビズリサーチ"
+    module: "agency_franchise.bizresearch"
+    url: "https://bizresearch.net/"
+    schedule: null
+    enabled: true
+
+  - site_id: tokyo_bm_recruit
+    name: "ビルメン"
+    module: "jobs.tokyo_bm_recruit"
+    url: "https://www.tokyo-bm-recruit.jp/"
+    schedule: null
     enabled: true
 
