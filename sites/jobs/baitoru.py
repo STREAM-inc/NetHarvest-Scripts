@@ -1,280 +1,148 @@
-"""
-バイトル — 全国求人企業情報スクレイパー（baitoru.com）
-
-取得対象:
-    - 詳細ページの企業情報セクション (div.detail-companyInfo)
-        社名, 所在地(住所+TEL), 代表者名, 事業内容, HP URL, サービス地域
-    - 詳細ページの基本情報セクション (div.detail-basicInfo)
-        職種, 給与, 勤務時間
-    - 詳細ページの募集情報セクション (div.detail-recruitInfo)
-        仕事内容
-
-取得フロー:
-    7地方 × 47都道府県ループ
-    → 一覧ページ /{region}/jlist/{pref}/ を link[rel="next"] でページ巡回
-    → 各求人詳細ページから企業・求人情報を取得
-    → 詳細URLで重複除外
-
-実行方法:
-    python scripts/sites/jobs/baitoru.py
-    python bin/run_flow.py --site-id baitoru
-"""
-
 import re
 import sys
 from pathlib import Path
 from typing import Generator
-from urllib.parse import urljoin
+
+from bs4 import BeautifulSoup
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from src.framework.static import StaticCrawler
+from src.framework.dynamic import DynamicCrawler
 from src.const.schema import Schema
 
-BASE_URL = "https://www.baitoru.com"
+BASE_URL = "https://baitoru.com"
 
-# (region, pref_roman, pref_ja) — バイトル独自表記: gumma(群馬), nigata(新潟)
-PREFECTURES: list[tuple[str, str, str]] = [
-    ("tohoku", "hokkaido", "北海道"),
-    ("tohoku", "aomori", "青森県"),
-    ("tohoku", "iwate", "岩手県"),
-    ("tohoku", "miyagi", "宮城県"),
-    ("tohoku", "akita", "秋田県"),
-    ("tohoku", "yamagata", "山形県"),
-    ("tohoku", "fukushima", "福島県"),
-    ("kanto", "ibaraki", "茨城県"),
-    ("kanto", "tochigi", "栃木県"),
-    ("kanto", "gumma", "群馬県"),
-    ("kanto", "saitama", "埼玉県"),
-    ("kanto", "chiba", "千葉県"),
-    ("kanto", "tokyo", "東京都"),
-    ("kanto", "kanagawa", "神奈川県"),
-    ("koshinetsu", "nigata", "新潟県"),
-    ("koshinetsu", "toyama", "富山県"),
-    ("koshinetsu", "ishikawa", "石川県"),
-    ("koshinetsu", "fukui", "福井県"),
-    ("koshinetsu", "yamanashi", "山梨県"),
-    ("koshinetsu", "nagano", "長野県"),
-    ("tokai", "gifu", "岐阜県"),
-    ("tokai", "shizuoka", "静岡県"),
-    ("tokai", "aichi", "愛知県"),
-    ("tokai", "mie", "三重県"),
-    ("kansai", "shiga", "滋賀県"),
-    ("kansai", "kyoto", "京都府"),
-    ("kansai", "osaka", "大阪府"),
-    ("kansai", "hyogo", "兵庫県"),
-    ("kansai", "nara", "奈良県"),
-    ("kansai", "wakayama", "和歌山県"),
-    ("chushikoku", "tottori", "鳥取県"),
-    ("chushikoku", "shimane", "島根県"),
-    ("chushikoku", "okayama", "岡山県"),
-    ("chushikoku", "hiroshima", "広島県"),
-    ("chushikoku", "yamaguchi", "山口県"),
-    ("chushikoku", "tokushima", "徳島県"),
-    ("chushikoku", "kagawa", "香川県"),
-    ("chushikoku", "ehime", "愛媛県"),
-    ("chushikoku", "kochi", "高知県"),
-    ("kyushu", "fukuoka", "福岡県"),
-    ("kyushu", "saga", "佐賀県"),
-    ("kyushu", "nagasaki", "長崎県"),
-    ("kyushu", "kumamoto", "熊本県"),
-    ("kyushu", "oita", "大分県"),
-    ("kyushu", "miyazaki", "宮崎県"),
-    ("kyushu", "kagoshima", "鹿児島県"),
-    ("kyushu", "okinawa", "沖縄県"),
+PREFS = [
+    "hokkaido", "aomori", "iwate", "miyagi", "akita", "yamagata", "fukushima",
+    "ibaraki", "tochigi", "gunma", "saitama", "chiba", "tokyo", "kanagawa",
+    "niigata", "toyama", "ishikawa", "fukui", "yamanashi", "nagano", "gifu",
+    "shizuoka", "aichi", "mie", "shiga", "kyoto", "osaka", "hyogo", "nara",
+    "wakayama", "tottori", "shimane", "okayama", "hiroshima", "yamaguchi",
+    "tokushima", "kagawa", "ehime", "kochi", "fukuoka", "saga", "nagasaki",
+    "kumamoto", "oita", "miyazaki", "kagoshima", "okinawa",
 ]
 
-_PREF_RE = re.compile(
-    r"^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県"
-    r"|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県"
-    r"|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県"
-    r"|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県"
-    r"|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
-)
+PREF_JA = {
+    "hokkaido": "北海道", "aomori": "青森県", "iwate": "岩手県", "miyagi": "宮城県",
+    "akita": "秋田県", "yamagata": "山形県", "fukushima": "福島県", "ibaraki": "茨城県",
+    "tochigi": "栃木県", "gunma": "群馬県", "saitama": "埼玉県", "chiba": "千葉県",
+    "tokyo": "東京都", "kanagawa": "神奈川県", "niigata": "新潟県", "toyama": "富山県",
+    "ishikawa": "石川県", "fukui": "福井県", "yamanashi": "山梨県", "nagano": "長野県",
+    "gifu": "岐阜県", "shizuoka": "静岡県", "aichi": "愛知県", "mie": "三重県",
+    "shiga": "滋賀県", "kyoto": "京都府", "osaka": "大阪府", "hyogo": "兵庫県",
+    "nara": "奈良県", "wakayama": "和歌山県", "tottori": "鳥取県", "shimane": "島根県",
+    "okayama": "岡山県", "hiroshima": "広島県", "yamaguchi": "山口県",
+    "tokushima": "徳島県", "kagawa": "香川県", "ehime": "愛媛県", "kochi": "高知県",
+    "fukuoka": "福岡県", "saga": "佐賀県", "nagasaki": "長崎県", "kumamoto": "熊本県",
+    "oita": "大分県", "miyazaki": "宮崎県", "kagoshima": "鹿児島県", "okinawa": "沖縄県",
+}
 
-_TEL_RE = re.compile(r"TEL[:：]\s*([0-9０-９()\-－\s]+)")
 
-
-def _clean(text) -> str:
-    if text is None:
+def _clean(s) -> str:
+    if s is None:
         return ""
-    return re.sub(r"\s+", " ", str(text)).strip()
+    return re.sub(r"\s+", " ", str(s)).strip()
 
 
-class BaitoruScraper(StaticCrawler):
-    """バイトル 求人企業情報スクレイパー（全国47都道府県巡回）"""
+class BaitoruScraper(DynamicCrawler):
+    """バイトル 求人企業情報スクレイパー（baitoru.com）"""
 
     DELAY = 1.0
-    EXTRA_COLUMNS = ["サービス地域", "職種", "給与", "勤務時間", "仕事内容"]
+    EXTRA_COLUMNS = ["業種", "代表者", "採用人数"]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        seen_details: set[str] = set()
-        for region, pref_roman, pref_ja in PREFECTURES:
-            list_url = f"{BASE_URL}/{region}/jlist/{pref_roman}/"
-            self.logger.info("都道府県: %s (%s)", pref_ja, list_url)
-            yield from self._scrape_pref(list_url, pref_ja, seen_details)
+        seen_companies: set[str] = set()
+        for pref in PREFS:
+            pref_ja = PREF_JA.get(pref, pref)
+            list_url = f"{BASE_URL}/search/list/?searchWord=&searchArea={pref}"
+            self.logger.info("都道府県: %s", pref_ja)
+            yield from self._scrape_pref(list_url, pref_ja, seen_companies)
 
-    def _scrape_pref(
-        self, list_url: str, pref_ja: str, seen: set
-    ) -> Generator[dict, None, None]:
-        current = list_url
-        while current:
-            soup = self.get_soup(current)
-            if soup is None:
-                break
+    def _scrape_pref(self, list_url: str, pref_ja: str, seen: set) -> Generator[dict, None, None]:
+        try:
+            self.page.goto(list_url, wait_until="domcontentloaded")
+            self.page.wait_for_selector("article", timeout=8000)
+        except Exception:
+            return
+        soup = BeautifulSoup(self.page.content(), "html.parser")
 
-            articles = soup.select("article.list-jobListDetail")
-            if not articles:
-                break
+        visited_jobs: set[str] = set()
+        for article in soup.select("article"):
+            a = article.select_one("a[href*='/job']")
+            if not a:
+                continue
+            href = re.sub(r"\?.*$", "", a.get("href", "").strip())
+            job_url = href if href.startswith("http") else "https://www.baitoru.com" + href
+            if job_url in visited_jobs:
+                continue
+            visited_jobs.add(job_url)
 
-            for article in articles:
-                a = article.select_one("h3 a[href]") or article.select_one(
-                    "a[href*='/job']"
-                )
-                if not a:
-                    continue
-                href = a.get("href", "").strip()
-                detail_url = href if href.startswith("http") else urljoin(BASE_URL, href)
-                # クエリ除去（?pname=... など）で重複判定を正規化
-                detail_url = detail_url.split("?")[0]
-                if detail_url in seen:
-                    continue
-                seen.add(detail_url)
+            item = self._scrape_detail(job_url, pref_ja)
+            if not item or not item.get(Schema.NAME):
+                continue
 
-                item = self._scrape_detail(detail_url, pref_ja)
-                if item and item.get(Schema.NAME):
-                    yield item
-
-            next_link = soup.find("link", rel="next")
-            if next_link and next_link.get("href"):
-                href = next_link["href"]
-                next_url = href if href.startswith("http") else urljoin(BASE_URL, href)
-                current = next_url if next_url != current else None
-            else:
-                current = None
+            company_url = item.get(Schema.URL, job_url)
+            if company_url in seen:
+                continue
+            seen.add(company_url)
+            yield item
 
     def _scrape_detail(self, url: str, pref_ja: str) -> dict | None:
-        soup = self.get_soup(url)
-        if soup is None:
+        try:
+            self.page.goto(url, wait_until="domcontentloaded")
+            self.page.wait_for_selector("div.detail-companyInfo", timeout=10000)
+        except Exception:
             return None
+        soup = BeautifulSoup(self.page.content(), "html.parser")
 
         data = {Schema.URL: url, Schema.PREF: pref_ja}
 
-        company = soup.select_one("div.detail-companyInfo")
-        if not company:
-            return None
+        company_info = soup.find("div", class_="detail-companyInfo")
+        if company_info:
+            # 企業ページURL（/cjlist:id/）を取得して重複排除に使う
+            link01 = company_info.find("a", class_="link01")
+            if link01:
+                cj_href = link01.get("href", "").split("#")[0].rstrip("/")
+                if cj_href:
+                    data[Schema.URL] = (cj_href if cj_href.startswith("http")
+                                        else "https://www.baitoru.com" + cj_href)
 
-        # 会社名: .pt02 > 最初のdd > 最初のp
-        pt02 = company.select_one(".pt02")
-        if pt02:
-            first_dd = pt02.select_one("dd")
-            if first_dd:
-                first_p = first_dd.select_one("p")
-                if first_p:
-                    data[Schema.NAME] = _clean(first_p.get_text())
-                else:
-                    # フォールバック: dd全テキストから「この会社の…」を除外
-                    raw = first_dd.get_text(" ", strip=True)
-                    raw = re.sub(r"この会社の[^\s]+", "", raw)
-                    data[Schema.NAME] = _clean(raw)
+            pt02 = company_info.find("div", class_="pt02")
+            if pt02:
+                p = pt02.find("p")
+                if p:
+                    a = p.find("a")
+                    data[Schema.NAME] = _clean(a.get_text() if a else p.get_text())
 
-        # ラベル–値ペア
-        for dl in company.select(".pt03 > dl"):
-            dt = dl.select_one("dt")
-            dd = dl.select_one("dd")
-            if not dt or not dd:
-                continue
-            label = dt.get_text(strip=True)
-
-            if label == "所在地":
-                p = dd.select_one("p") or dd
-                text = p.get_text("\n").strip()
-                lines = [l.strip() for l in text.splitlines() if l.strip()]
-                addr_parts = []
-                for line in lines:
-                    if "TEL" in line:
-                        m = _TEL_RE.search(line)
-                        if m:
-                            tel = m.group(1).strip()
-                            # FAX部分を除去
-                            tel = re.split(r"FAX|ＦＡＸ", tel)[0].strip()
-                            if tel:
-                                data[Schema.TEL] = tel
-                        # TEL 行にも住所が混ざっている場合に備え、TEL: より前を住所候補に
-                        addr_part = re.split(r"TEL[:：]", line)[0].strip()
-                        if addr_part:
-                            addr_parts.append(addr_part)
-                    elif "FAX" in line or "ＦＡＸ" in line:
+            pt03 = company_info.find("div", class_="pt03")
+            if pt03:
+                for dl in pt03.find_all("dl"):
+                    dt = dl.find("dt")
+                    dd = dl.find("dd")
+                    if not dt or not dd:
                         continue
-                    else:
-                        addr_parts.append(line)
-                if addr_parts:
-                    addr = " ".join(addr_parts)
-                    m = _PREF_RE.match(addr)
-                    if m:
-                        data[Schema.PREF] = m.group(1)
-                        data[Schema.ADDR] = addr[m.end():].strip()
-                    else:
-                        data[Schema.ADDR] = addr
+                    key = dt.get_text(strip=True)
+                    val = _clean(dd.get_text(" "))
+                    if "所在地" in key:
+                        data[Schema.ADDR] = val
+                    elif "代表電話番号" in key or "電話番号" in key:
+                        data[Schema.TEL] = val
+                    elif "代表者" in key:
+                        data[Schema.REP_NM] = val
+                    elif "事業内容" in key or "業種" in key:
+                        data["業種"] = val
+                    elif "ホームページ" in key or "URL" in key:
+                        a = dd.find("a", href=True)
+                        data[Schema.HP] = a["href"] if a else val
+                    elif "採用予定人数" in key:
+                        data["採用人数"] = val
 
-            elif label == "代表者名" or label == "代表者":
-                data[Schema.REP_NM] = _clean(dd.get_text())
-
-            elif label == "事業内容":
-                data[Schema.LOB] = _clean(dd.get_text())
-
-            elif label == "URL" or label == "ホームページ":
-                a = dd.select_one("a[href]")
-                if a:
-                    data[Schema.HP] = a["href"].strip()
-                else:
-                    data[Schema.HP] = _clean(dd.get_text())
-
-            elif label == "サービス地域":
-                data["サービス地域"] = _clean(dd.get_text())
-
-        # 基本情報セクション
-        basic = soup.select_one("div.detail-basicInfo")
-        if basic:
-            dl01 = basic.select_one("dl.dl01")
-            if dl01:
-                dd = dl01.select_one("dd")
-                if dd:
-                    data["職種"] = _clean(dd.get_text(" "))[:500]
-
-            dl02 = basic.select_one("dl.dl02")
-            if dl02:
-                dd = dl02.select_one("dd")
-                if dd:
-                    data["給与"] = _clean(dd.get_text(" "))[:500]
-
-            dl03 = basic.select_one("dl.dl03")
-            if dl03:
-                dd = dl03.select_one("dd")
-                if dd:
-                    data["勤務時間"] = _clean(dd.get_text(" "))[:500]
-
-        # 募集情報セクション — 仕事内容
-        recruit = soup.select_one("div.detail-recruitInfo")
-        if recruit:
-            for dl in recruit.select("dl"):
-                dt = dl.select_one("dt")
-                dd = dl.select_one("dd")
-                if not dt or not dd:
-                    continue
-                if dt.get_text(strip=True) == "仕事内容":
-                    data["仕事内容"] = _clean(dd.get_text(" "))[:500]
-                    break
-
-        # 会社名フォールバック: h1 から「〜の求人情報」を削除
         if not data.get(Schema.NAME):
             h1 = soup.select_one("h1")
             if h1:
-                name = _clean(h1.get_text())
-                name = re.sub(r"のアルバイト・パートの求人情報.*$", "", name)
-                data[Schema.NAME] = name
+                data[Schema.NAME] = _clean(h1.get_text())
 
         if not data.get(Schema.NAME):
             return None
@@ -283,14 +151,5 @@ class BaitoruScraper(StaticCrawler):
 
 if __name__ == "__main__":
     import logging
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
-
-    scraper = BaitoruScraper()
-    scraper.execute(f"{BASE_URL}/kanto/jlist/tokyo/")
-
-    print(f"\n出力ファイル: {scraper.output_filepath}")
-    print(f"取得件数: {scraper.item_count}")
+    logging.basicConfig(level=logging.INFO)
+    BaitoruScraper().execute("https://baitoru.com/search/list/")

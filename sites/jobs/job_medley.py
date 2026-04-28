@@ -1,22 +1,21 @@
 # scripts/sites/jobs/job_medley.py
 """
-ジョブメドレー (job-medley.com) — あん摩マッサージ指圧師 求人スクレイパー
+ジョブメドレー (job-medley.com) — 事業所単位 全職種 求人スクレイパー
 
 取得対象:
-    - 全国 47 都道府県の /mas/pref{N}/ 一覧 (約 7,570 件)
-    - 各求人詳細ページから 24 カラム
-      * Schema: URL, NAME, PREF, ADDR, LOB, CAT_SITE, TIME, HOLIDAY, OPEN_DATE
-      * EXTRA : 求人タイトル, 雇用形態, 募集職種, 給与, 給与の備考, 待遇,
-               教育体制・研修, 勤務時間, 休日, 長期休暇・特別休暇,
-               応募要件, 歓迎要件, 選考プロセス, 最寄り駅, 事業所スタッフ構成
+    - 全国 47 都道府県 × 58 職種コード の一覧から事業所URLを集約
+    - 同一事業所が複数職種を募集している場合は 1 レコードに集約
+    - 推定対象: 約 15〜20 万事業所
+
+取得カラム:
+    Schema (8): URL(=facility URL), NAME, PREF, ADDR, CAT_SITE, TIME, HOLIDAY, OPEN_DATE
+    EXTRA (5): 募集職種, 最寄り駅, 事業所スタッフ構成, 診療科目・サービス形態, 初出時の職種コード
 
 取得フロー:
-    都道府県 (pref1..pref47) をループ
-      → /mas/prefN/?page=M を最終ページまで取得
-      → .c-job-offer-card から詳細 URL を重複除外しつつ収集
-    各詳細ページ (/mas/{job_id}/) を取得
-      → 事業所情報セクション + 募集内容セクション + h1 を解析
-      → Schema / EXTRA にマッピング
+    1. 58 職種 × 47 都道府県 の一覧をページネーションで全巡回し求人URL集合を作成
+    2. 各求人詳細にアクセスし、事業所URL (/facility/{id}/) を抽出
+    3. 事業所URLが初出のときのみ、その求人詳細ページの「事業所情報」セクションから
+       事業所単位のレコードを構築して yield
 
 実行方法:
     # ローカルテスト
@@ -41,6 +40,26 @@ from src.const.schema import Schema
 _BASE_URL = "https://job-medley.com"
 _PREF_IDS = list(range(1, 48))  # pref1..pref47
 
+# ジョブメドレーの全職種コード（58 種）— トップページの「職種を選択」から抽出
+_JOB_CODES = [
+    # 医科 (16)
+    "dr", "apo", "ans", "mn", "phn", "na", "rt", "mt", "ce",
+    "nrd", "cp", "csw", "otc", "mc", "crc", "pc",
+    # 歯科 (4)
+    "dds", "dh", "dt", "da",
+    # 介護 (14)
+    "hh", "la", "cm", "mg", "km", "ls", "fss", "nm", "dcm",
+    "apl", "ck", "ctd", "cc", "dm",
+    # 保育 (4)
+    "cw", "kt", "acw", "asc",
+    # リハビリ／代替医療 (8)
+    "pt", "st", "ot", "ort", "jdr", "mas", "acu", "bwt",
+    # ヘルスケア／美容 (7)
+    "hs", "bar", "nt", "et", "est", "ba", "ins",
+    # 共通職 (5)
+    "sr", "ow", "clr", "drv", "etc",
+]
+
 _PREF_PATTERN = re.compile(
     r"^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|"
     r"埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|"
@@ -51,176 +70,192 @@ _PREF_PATTERN = re.compile(
 
 
 class JobMedleyScraper(StaticCrawler):
-    """ジョブメドレー あん摩マッサージ指圧師 求人スクレイパー"""
+    """ジョブメドレー 全職種 事業所単位 スクレイパー"""
 
-    DELAY = 1.5
+    DELAY = 0.7
     EXTRA_COLUMNS = [
-        "求人タイトル",
-        "雇用形態",
         "募集職種",
-        "給与",
-        "給与の備考",
-        "待遇",
-        "教育体制・研修",
-        "勤務時間",
-        "休日",
-        "長期休暇・特別休暇",
-        "応募要件",
-        "歓迎要件",
-        "選考プロセス",
         "最寄り駅",
         "事業所スタッフ構成",
+        "診療科目・サービス形態",
+        "初出時の職種コード",
     ]
 
     def parse(self, url: str):
         """
-        47 都道府県の一覧を巡回して詳細 URL を収集し、各詳細を解析して yield する。
-        引数 `url` (sites.yml の起点 URL) は参照のみで使用しない。
+        58 職種 × 47 都道府県の一覧を全巡回 → 求人URL収集 → 詳細から事業所URL抽出 →
+        事業所単位で重複排除しレコード化する。引数 `url` は参照のみで使用しない。
         """
         detail_urls = self._collect_all_detail_urls()
         self.total_items = len(detail_urls)
-        self.logger.info("詳細ページ URL 収集完了: %d 件", self.total_items)
+        self.logger.info("求人 URL 収集完了: %d 件", self.total_items)
 
-        for d_url in detail_urls:
+        seen_facilities: set[str] = set()
+        for d_url, job_code in detail_urls:
             try:
-                item = self._scrape_detail(d_url)
+                soup = self.get_soup(d_url)
+                if soup is None:
+                    continue
+
+                facility_url = self._extract_facility_url(soup)
+                if not facility_url or facility_url in seen_facilities:
+                    continue
+                seen_facilities.add(facility_url)
+
+                item = self._build_facility_record(soup, facility_url, job_code)
                 if item:
                     yield item
             except Exception as e:
-                self.logger.warning("詳細ページ取得失敗: %s (%s)", d_url, e)
+                self.logger.warning("求人詳細取得失敗: %s (%s)", d_url, e)
                 continue
 
-    def _collect_all_detail_urls(self) -> list[str]:
-        """全都道府県 × 全ページから詳細 URL を重複除外しつつ収集する"""
+        self.logger.info(
+            "事業所収集完了: 求人 %d 件 → 事業所 %d 件",
+            len(detail_urls), len(seen_facilities),
+        )
+
+    # ------------------------------------------------------------------
+    # 求人URL収集 (58 職種 × 47 都道府県 × 全ページ)
+    # ------------------------------------------------------------------
+
+    def _collect_all_detail_urls(self) -> list[tuple[str, str]]:
+        """全職種・全都道府県・全ページから求人URLを (url, job_code) のタプルで返す"""
         seen: set[str] = set()
-        urls: list[str] = []
+        urls: list[tuple[str, str]] = []
 
-        for pref_id in _PREF_IDS:
-            pref_base = f"{_BASE_URL}/mas/pref{pref_id}/"
-            page = 1
-            while True:
-                list_url = f"{pref_base}?page={page}"
-                soup = self.get_soup(list_url)
-                if soup is None:
-                    break
+        for job_code in _JOB_CODES:
+            job_total_before = len(urls)
+            for pref_id in _PREF_IDS:
+                pref_base = f"{_BASE_URL}/{job_code}/pref{pref_id}/"
+                page = 1
+                while True:
+                    list_url = f"{pref_base}?page={page}"
+                    soup = self.get_soup(list_url)
+                    if soup is None:
+                        break
 
-                cards = soup.select(".c-job-offer-card")
-                if not cards:
-                    break
+                    cards = soup.select(".c-job-offer-card")
+                    if not cards:
+                        break
 
-                new_on_page = 0
-                for card in cards:
-                    a = card.select_one("h3 a")
-                    if not a:
-                        continue
-                    href = a.get("href", "")
-                    if not href:
-                        continue
-                    if href.startswith("/"):
-                        href = _BASE_URL + href
-                    # /mas/XXXX/?ref_page=... → /mas/XXXX/
-                    href = re.sub(r"\?.*$", "", href)
-                    if href in seen:
-                        continue
-                    seen.add(href)
-                    urls.append(href)
-                    new_on_page += 1
+                    new_on_page = 0
+                    for card in cards:
+                        a = card.select_one("h3 a")
+                        if not a:
+                            continue
+                        href = a.get("href", "")
+                        if not href:
+                            continue
+                        if href.startswith("/"):
+                            href = _BASE_URL + href
+                        href = re.sub(r"[?#].*$", "", href)
+                        if href in seen:
+                            continue
+                        seen.add(href)
+                        urls.append((href, job_code))
+                        new_on_page += 1
 
-                self.logger.info(
-                    "pref%d page=%d: %d cards, %d new (累計 %d)",
-                    pref_id, page, len(cards), new_on_page, len(urls),
-                )
+                    self.logger.info(
+                        "%s pref%d page=%d: %d cards, %d new (累計 %d)",
+                        job_code, pref_id, page, len(cards), new_on_page, len(urls),
+                    )
 
-                # 「次へ」(page+1) 相当のリンクがなければ最終ページ
-                next_link = soup.select_one(f'a[href*="page={page + 1}"]')
-                if not next_link:
-                    break
-                page += 1
+                    next_link = soup.select_one(f'a[href*="page={page + 1}"]')
+                    if not next_link:
+                        break
+                    page += 1
+
+            self.logger.info(
+                "職種 %s 収集完了: %d 件 (累計 %d)",
+                job_code, len(urls) - job_total_before, len(urls),
+            )
 
         return urls
 
-    def _scrape_detail(self, detail_url: str) -> dict | None:
-        """詳細ページを解析して 1 レコード分の dict を返す"""
-        soup = self.get_soup(detail_url)
-        if soup is None:
+    # ------------------------------------------------------------------
+    # 詳細ページ → 事業所URL抽出 / 事業所レコード構築
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_facility_url(soup) -> str | None:
+        """求人詳細ページから事業所URL (/facility/{id}/) を抽出して正規化する"""
+        a = soup.select_one('a[href*="/facility/"]')
+        if not a:
+            return None
+        href = a.get("href", "") or ""
+        if not href:
+            return None
+        if href.startswith("/"):
+            href = _BASE_URL + href
+        href = re.sub(r"[?#].*$", "", href)
+        if not href.endswith("/"):
+            href += "/"
+        return href
+
+    def _build_facility_record(
+        self, soup, facility_url: str, job_code: str
+    ) -> dict | None:
+        """求人詳細ページの「事業所情報」セクションから事業所単位のレコードを構築する"""
+        item: dict = {Schema.URL: facility_url}
+
+        facility_section = self._find_section(soup, "事業所情報")
+        if facility_section is None:
             return None
 
-        item: dict = {Schema.URL: detail_url}
+        fac_name_el = facility_section.select_one('a[href*="/facility/"]')
+        if fac_name_el:
+            item[Schema.NAME] = fac_name_el.get_text(strip=True)
 
-        # h1 → 求人タイトル, 雇用形態
-        h1 = soup.select_one("h1")
-        if h1:
-            title = h1.get_text(strip=True)
-            item["求人タイトル"] = title
-            m = re.search(r"（([^（）]+)）$", title)
-            if m:
-                item["雇用形態"] = m.group(1)
+        # アクセス: 住所 (<p> 1つめ), 最寄り駅 (<p> 2つめ)
+        access_h3 = self._find_h3(facility_section, "アクセス")
+        if access_h3:
+            access_body = access_h3.find_next_sibling()
+            if access_body:
+                ps = access_body.find_all("p")
+                address_text = ps[0].get_text(" ", strip=True) if len(ps) >= 1 else ""
+                station_text = ps[1].get_text("\n", strip=True) if len(ps) >= 2 else ""
+                if address_text:
+                    m = _PREF_PATTERN.match(address_text)
+                    if m:
+                        item[Schema.PREF] = m.group(1)
+                        item[Schema.ADDR] = address_text[m.end():].strip()
+                    else:
+                        item[Schema.ADDR] = address_text
+                if station_text:
+                    item["最寄り駅"] = station_text
 
-        # 事業所情報 セクション
-        facility_section = self._find_section(soup, "事業所情報")
-        if facility_section:
-            fac_name = facility_section.select_one('a[href*="/facility/"]')
-            if fac_name:
-                item[Schema.NAME] = fac_name.get_text(strip=True)
+        fac_fields = self._extract_h3_pairs(
+            facility_section, skip={"アクセス", "法人・施設名"}
+        )
+        if "施設・サービス形態" in fac_fields:
+            item[Schema.CAT_SITE] = fac_fields["施設・サービス形態"]
+        if "設立年月日" in fac_fields:
+            item[Schema.OPEN_DATE] = fac_fields["設立年月日"]
+        if "営業時間" in fac_fields:
+            item[Schema.TIME] = fac_fields["営業時間"]
+        if "休業日" in fac_fields:
+            item[Schema.HOLIDAY] = fac_fields["休業日"]
+        if "スタッフ構成" in fac_fields:
+            item["事業所スタッフ構成"] = fac_fields["スタッフ構成"]
+        if "募集職種" in fac_fields:
+            item["募集職種"] = fac_fields["募集職種"]
 
-            # アクセス: 住所 (<p> 1つめ), 最寄り駅 (<p> 2つめ)
-            access_h3 = self._find_h3(facility_section, "アクセス")
-            if access_h3:
-                access_body = access_h3.find_next_sibling()
-                if access_body:
-                    ps = access_body.find_all("p")
-                    address_text = ps[0].get_text(" ", strip=True) if len(ps) >= 1 else ""
-                    station_text = ps[1].get_text("\n", strip=True) if len(ps) >= 2 else ""
-                    if address_text:
-                        m = _PREF_PATTERN.match(address_text)
-                        if m:
-                            item[Schema.PREF] = m.group(1)
-                            item[Schema.ADDR] = address_text[m.end():].strip()
-                        else:
-                            item[Schema.ADDR] = address_text
-                    if station_text:
-                        item["最寄り駅"] = station_text
-
-            fac_fields = self._extract_h3_pairs(
-                facility_section, skip={"アクセス", "募集職種", "法人・施設名"}
-            )
-            if "施設・サービス形態" in fac_fields:
-                item[Schema.CAT_SITE] = fac_fields["施設・サービス形態"]
-            if "設立年月日" in fac_fields:
-                item[Schema.OPEN_DATE] = fac_fields["設立年月日"]
-            if "営業時間" in fac_fields:
-                item[Schema.TIME] = fac_fields["営業時間"]
-            if "休業日" in fac_fields:
-                item[Schema.HOLIDAY] = fac_fields["休業日"]
-            if "スタッフ構成" in fac_fields:
-                item["事業所スタッフ構成"] = fac_fields["スタッフ構成"]
-
-        # 募集内容 セクション
+        # 募集内容 → 診療科目・サービス形態（医科系で出現する追加ラベル）
         content_section = self._find_section(soup, "募集内容")
         if content_section:
             content_fields = self._extract_h3_pairs(content_section)
-            mapping: dict[str, object] = {
-                "募集職種": "募集職種",
-                "仕事内容": Schema.LOB,
-                "給与": "給与",
-                "給与の備考": "給与の備考",
-                "待遇": "待遇",
-                "教育体制・研修": "教育体制・研修",
-                "勤務時間": "勤務時間",
-                "休日": "休日",
-                "長期休暇・特別休暇": "長期休暇・特別休暇",
-                "応募要件": "応募要件",
-                "歓迎要件": "歓迎要件",
-                "選考プロセス": "選考プロセス",
-            }
-            for label, key in mapping.items():
-                v = content_fields.get(label)
-                if v:
-                    item[key] = v
+            if "診療科目・サービス形態" in content_fields:
+                item["診療科目・サービス形態"] = content_fields["診療科目・サービス形態"]
+
+        item["初出時の職種コード"] = job_code
 
         if Schema.NAME not in item:
             return None
         return item
+
+    # ------------------------------------------------------------------
+    # ヘルパー
+    # ------------------------------------------------------------------
 
     @staticmethod
     def _find_section(soup, heading: str):
@@ -264,7 +299,7 @@ if __name__ == "__main__":
     )
 
     scraper = JobMedleyScraper()
-    scraper.execute("https://job-medley.com/mas/")
+    scraper.execute("https://job-medley.com/")
 
     print("\n" + "=" * 60)
     print("📊 実行結果サマリ")

@@ -15,20 +15,6 @@
 # =============================================================================
 
 sites:
-  - site_id: epark_hotel
-    name: "EPARKホテル・宿泊"
-    module: "portal.epark_hotel"
-    url: "https://epark.jp/hotel-stay/list/"
-    schedule: "0 7 1-7 * SUN"
-    enabled: true
-
-  - site_id: dummy
-    name: "ダミー"
-    module: "test.dummy"
-    url: "https://example.com"
-    schedule: "20 7 22-28 * SAT"
-    enabled: true
-
   - site_id: eaidem
     name: "イーアイデム"
     module: "jobs.eaidem"
@@ -229,7 +215,7 @@ sites:
     name: "体入ショコラ"
     module: "jobs.tainyu_chocolat"
     url: "https://chocolat.work/sitemap_index.xml"
-    schedule: "10 16 * * WED"
+    schedule: "10 18 * * TUE"
     enabled: true
 
   - site_id: tainyu_macaron
@@ -438,8 +424,8 @@ sites:
   - site_id: baitoru
     name: "バイトル"
     module: "jobs.baitoru"
-    url: "https://www.baitoru.com/kanto/jlist/tokyo/"
-    schedule: "10 16 * * WED"
+    url: "https://baitoru.com/search/list/"
+    schedule: "10 18 * * TUE"
     enabled: true
 
   - site_id: townwork
@@ -1150,9 +1136,9 @@ sites:
     schedule: "0 5 22-28 * SAT"
     enabled: true
 
-  - site_id: jinzai_hellowork
-    name: "人材銀行（ハローワーク）"
-    module: "jobs.jinzai_hellowork"
+  - site_id: jinzai_hellowork_syokugyo_syoukai
+    name: "人材サービス総合【職業紹介】"
+    module: "jobs.jinzai_hellowork_syokugyo_syoukai"
     url: "https://jinzai.hellowork.mhlw.go.jp/JinzaiWeb"
     schedule: "0 5 22-28 * SUN"
     enabled: true
@@ -1174,7 +1160,7 @@ sites:
   - site_id: job_medley
     name: "ジョブメドレー"
     module: "jobs.job_medley"
-    url: "https://job-medley.com/mas/"
+    url: "https://job-medley.com/"
     schedule: null
     enabled: true
 
@@ -1205,6 +1191,7 @@ sites:
     url: "https://nightstyle.jp"
     schedule: "40 7 22-28 * SAT"
     enabled: true
+    
   - site_id: baitoru_nightwork
     name: "バイトル（ナイトワーク系）"
     module: "jobs.baitoru_nightwork"
@@ -2434,3 +2421,58 @@ sites:
     schedule: null
     enabled: true
 >>>>>>> Stashed changes
+  - site_id: casmoo
+    name: "ウィリスト"
+    module: "nightlife.casmoo"
+    url: "https://casmoo.jp/"
+    schedule: null
+    enabled: true
+
+  - site_id: bizresearch
+    name: "ビズリサーチ"
+    module: "agency_franchise.bizresearch"
+    url: "https://bizresearch.net/"
+    schedule: null
+    enabled: true
+
+  - site_id: tokyo_bm_recruit
+    name: "ビルメン"
+    module: "jobs.tokyo_bm_recruit"
+    url: "https://www.tokyo-bm-recruit.jp/"
+    schedule: null
+    enabled: true
+
+  - site_id: housing_bazar
+    name: "ハウジングバザール"
+    module: "construction.housing_bazar"
+    url: "https://www.housingbazar.jp/vendors/search.php?p[]="
+    schedule: null
+    enabled: true
+    
+  - site_id: girlsbaito
+    name: "ガールズバイト"
+    module: "portal.GirlsBaito_scrape"
+    url: "https://girlsbaito.jp/kanto"
+    schedule: "30 3 15-21 * 6"
+    enabled: true
+    
+  - site_id: gb-walker
+    name: "ガールズバーウォーカー"
+    module: "portal.GirlsbarWalker_scrape"
+    url: "https://www.gb-walker.jp/"
+    schedule: "30 5 15-21 * 6"
+    enabled: true
+
+  - site_id: lounge-tapioka
+    name: "ラウンジタピオカガールズバー"
+    module: "portal.LoungeTapiokaGirlsbar"
+    url: "https://lounge-tapioca.com/"
+    schedule: "30 4 15-21 * 6"
+    enabled: true
+
+  - site_id: hoskyu
+    name: "ホスト求人ドットコム"
+    module: "portal.HostKyuzinDotcom_scrape"
+    url: "https://www.hoskyu.com/"
+    schedule: "30 1 15-21 * 6"
+    enabled: true
