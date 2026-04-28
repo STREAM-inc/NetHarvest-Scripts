@@ -1225,4 +1225,11 @@ sites:
     url: "https://www.housingbazar.jp/vendors/search.php?p[]="
     schedule: null
     enabled: true
-
+    
+  - site_id: girlsbaito
+    name: "ガールズバイト"
+    module: "portal.GirlsBaito_scrape"
+    url: "https://girlsbaito.jp/kanto"
+    schedule: "30 3 15-21 * 6"
+    enabled: true
+    
