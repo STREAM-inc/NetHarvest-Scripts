@@ -2,7 +2,8 @@ import re
 import sys
 from pathlib import Path
 from typing import Generator
-from urllib.parse import urljoin
+
+from bs4 import BeautifulSoup
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -60,37 +61,54 @@ class BaitoruScraper(DynamicCrawler):
             yield from self._scrape_pref(list_url, pref_ja, seen_companies)
 
     def _scrape_pref(self, list_url: str, pref_ja: str, seen: set) -> Generator[dict, None, None]:
-        current = list_url
-        while current:
-            soup = self.get_soup(current, wait_until="networkidle")
-            if soup is None:
-                break
+        try:
+            self.page.goto(list_url, wait_until="domcontentloaded")
+            self.page.wait_for_selector("article", timeout=8000)
+        except Exception:
+            return
+        soup = BeautifulSoup(self.page.content(), "html.parser")
 
-            for a in soup.select("a[href*='/contents/']"):
-                href = a.get("href", "").strip()
-                full = href if href.startswith("http") else BASE_URL + href
-                if full not in seen:
-                    seen.add(full)
-                    item = self._scrape_detail(full, pref_ja)
-                    if item and item.get(Schema.NAME):
-                        yield item
+        visited_jobs: set[str] = set()
+        for article in soup.select("article"):
+            a = article.select_one("a[href*='/job']")
+            if not a:
+                continue
+            href = re.sub(r"\?.*$", "", a.get("href", "").strip())
+            job_url = href if href.startswith("http") else "https://www.baitoru.com" + href
+            if job_url in visited_jobs:
+                continue
+            visited_jobs.add(job_url)
 
-            next_a = soup.select_one("a[rel='next'], a.pager-next, a.next")
-            if next_a and next_a.get("href"):
-                next_url = urljoin(BASE_URL, next_a["href"])
-                current = next_url if next_url != current else None
-            else:
-                current = None
+            item = self._scrape_detail(job_url, pref_ja)
+            if not item or not item.get(Schema.NAME):
+                continue
+
+            company_url = item.get(Schema.URL, job_url)
+            if company_url in seen:
+                continue
+            seen.add(company_url)
+            yield item
 
     def _scrape_detail(self, url: str, pref_ja: str) -> dict | None:
-        soup = self.get_soup(url, wait_until="networkidle")
-        if soup is None:
+        try:
+            self.page.goto(url, wait_until="domcontentloaded")
+            self.page.wait_for_selector("div.detail-companyInfo", timeout=10000)
+        except Exception:
             return None
+        soup = BeautifulSoup(self.page.content(), "html.parser")
 
         data = {Schema.URL: url, Schema.PREF: pref_ja}
 
         company_info = soup.find("div", class_="detail-companyInfo")
         if company_info:
+            # 企業ページURL（/cjlist:id/）を取得して重複排除に使う
+            link01 = company_info.find("a", class_="link01")
+            if link01:
+                cj_href = link01.get("href", "").split("#")[0].rstrip("/")
+                if cj_href:
+                    data[Schema.URL] = (cj_href if cj_href.startswith("http")
+                                        else "https://www.baitoru.com" + cj_href)
+
             pt02 = company_info.find("div", class_="pt02")
             if pt02:
                 p = pt02.find("p")

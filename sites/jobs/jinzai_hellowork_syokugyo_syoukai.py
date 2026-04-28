@@ -98,12 +98,21 @@ class JinzaiHelloworkScraper(DynamicCrawler):
 
     def _post_and_wait(self, js_expr: str):
         """JSでフォームsubmitを発火し、ナビゲーション完了を確実に待つ"""
-        with self.page.expect_navigation(wait_until="networkidle", timeout=60000):
+        with self.page.expect_navigation(wait_until="domcontentloaded", timeout=90000):
             self.page.evaluate(js_expr)
 
     def _navigate_to_page(self, page_num: int):
-        """ページネーションで指定ページへ遷移し、読み込み完了を待つ"""
-        self._post_and_wait(f"doPostAction('page','{page_num}')")
+        """ページネーションで指定ページへ遷移し、読み込み完了を待つ（最大3回リトライ）"""
+        for attempt in range(3):
+            try:
+                self._post_and_wait(f"doPostAction('page','{page_num}')")
+                return
+            except Exception as e:
+                if attempt < 2:
+                    self.logger.warning("ページ %d への遷移タイムアウト (試行 %d/3): %s", page_num, attempt + 1, e)
+                    time.sleep(5)
+                else:
+                    raise
 
     def _execute_search_and_collect(self) -> list[str]:
         """Playwright で検索フォームを操作し、全ページの詳細ページURLを収集する"""
@@ -112,7 +121,7 @@ class JinzaiHelloworkScraper(DynamicCrawler):
 
         # トップページへアクセス
         self.logger.info("検索ページにアクセス中...")
-        self.page.goto(SEARCH_URL, wait_until="networkidle")
+        self.page.goto(SEARCH_URL, wait_until="load")
 
         # 「職業紹介事業」リンクをクリック
         self._post_and_wait("doPostAction('transition','1')")
