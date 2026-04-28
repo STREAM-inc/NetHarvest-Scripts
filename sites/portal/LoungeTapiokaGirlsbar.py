@@ -5,6 +5,7 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 from collections import deque
+from datetime import datetime
 from pathlib import Path
 from typing import Generator
 from urllib.parse import urljoin, urlparse
@@ -206,6 +207,7 @@ class LoungeDetailCrawler(StaticCrawler):
                 Schema.HP: homepage,
                 Schema.HOLIDAY: rows.get("定休日", ""),
                 Schema.TIME: rows.get("営業時間", ""),
+                "取得日時": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
             if genre:
