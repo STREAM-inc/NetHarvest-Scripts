@@ -1233,3 +1233,23 @@ sites:
     schedule: "30 3 15-21 * 6"
     enabled: true
     
+  - site_id: gb-walker
+    name: "ガールズバーウォーカー"
+    module: "portal.GirlsbarWalker_scrape"
+    url: "https://www.gb-walker.jp/"
+    schedule: "30 5 15-21 * 6"
+    enabled: true
+
+  - site_id: lounge-tapioka
+    name: "ラウンジタピオカガールズバー"
+    module: "portal.LoungeTapiokaGirlsbar"
+    url: "https://lounge-tapioca.com/"
+    schedule: "30 4 15-21 * 6"
+    enabled: true
+
+  - site_id: hoskyu
+    name: "ホスト求人ドットコム"
+    module: "portal.HostKyuzinDotcom_scrape"
+    url: "https://www.hoskyu.com/"
+    schedule: "30 1 15-21 * 6"
+    enabled: true
