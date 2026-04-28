@@ -16,6 +16,7 @@ from usp.tree import sitemap_tree_for_homepage
 from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
+from datetime import datetime
 
 class GBWalkerScraper(StaticCrawler):
     """gb-walker.jp のサイトマップURL収集 + 店舗詳細取得"""
@@ -252,6 +253,7 @@ class GBWalkerScraper(StaticCrawler):
                     Schema.ADDR: self._get_row_text(rows, ["住所"]),
                     Schema.HP: self._get_hp(rows),
                     Schema.URL: detail_url,
+                    "取得日時": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "予約可否": self._get_row_text(rows, ["予約"]),
                     "アクセス": self._get_row_text(rows, ["アクセス"]),
                     "客席数": self._get_row_text(rows, ["客席数"]),
