@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 # =============================================================================
 # NetHarvest サイト設定ファイル
 #
@@ -1211,3 +1212,1225 @@ sites:
     schedule: "30 4 * * MON"
     enabled: true
 
+=======
+# =============================================================================
+# NetHarvest サイト設定ファイル
+#
+# 全クローラーの設定を一元管理する。
+# deploy.py がこのファイルを読み込み、Prefect Deployment を自動登録する。
+#
+# フィールド:
+#   site_id  : システム用の英語ID (DB主キー、ユニーク必須)
+#   name     : 日本語表示名 (CSV ファイル名、ログ、カタログ表示)
+#   module   : クローラーのモジュールパス (scripts/sites/ からの相対パス、ドット区切り)
+#   url      : 対象 URL
+#   schedule : cron 式 (null = 手動実行のみ)
+#   enabled  : false にすると deploy.py がスキップ (Deployment 未登録 = 実行されない)
+# =============================================================================
+
+sites:
+  - site_id: epark_hotel
+    name: "EPARKホテル・宿泊"
+    module: "portal.epark_hotel"
+    url: "https://epark.jp/hotel-stay/list/"
+    schedule: "0 7 1-7 * SUN"
+    enabled: true
+
+  - site_id: dummy
+    name: "ダミー"
+    module: "test.dummy"
+    url: "https://example.com"
+    schedule: "20 7 22-28 * SAT"
+    enabled: true
+
+  - site_id: eaidem
+    name: "イーアイデム"
+    module: "jobs.eaidem"
+    url: "https://www.e-aidem.com/aps/list.htm?region_id=06&district_id=31"
+    schedule: "0 1 1-7 * SAT"
+    enabled: true
+
+  - site_id: shinq_compass
+    name: "鍼灸コンパス"
+    module: "medical.shinq_compass"
+    url: "https://www.shinq-compass.jp/area/list/?page=1"
+    schedule: "0 1 1-7 * SUN"
+    enabled: true
+
+  - site_id: seitainavi
+    name: "整体ナビ"
+    module: "medical.seitainavi"
+    url: "https://seitainavi.jp/seitai_sekkotsu"
+    schedule: "0 1 8-14 * SAT"
+    enabled: true
+
+  - site_id: imitsu_sales_agent
+    name: "PRONIアイミツ_営業代行"
+    module: "service.imitsu"
+    url: "https://imitsu.jp/ct-sales-agent/search/"
+    schedule: "0 1 8-14 * SUN"
+    enabled: true
+
+  - site_id: biz_sales_outsourcing
+    name: "比較ビズ_営業代行"
+    module: "service.biz_sales_outsourcing"
+    url: "https://www.biz.ne.jp/list/sales-outsourcing/"
+    schedule: "0 1 15-21 * SAT"
+    enabled: true
+
+  - site_id: reshop-navi
+    name: "リショップナビ"
+    module: "realestate.reshop_navi"
+    url: "https://rehome-navi.com/shops"
+    schedule: "0 1 15-21 * SUN"
+    enabled: true
+
+  - site_id: shisha-suitai
+    name: "シーシャスイタイ"
+    module: "nightlife.shisha_suitai"
+    url: "https://shisha-suitai.com/sitemap.xml"
+    schedule: "0 1 22-28 * SAT"
+    enabled: true
+
+  - site_id: refonavi
+    name: "リフォーム評価ナビ"
+    module: "realestate.refonavi"
+    url: "https://www.refonavi.or.jp"
+    schedule: "0 1 22-28 * SUN"
+    enabled: true
+
+  - site_id: hairlog
+    name: "HAIRLOG"
+    module: "beauty.hairlog"
+    url: "https://hairlog.jp/sitemap.xml"
+    schedule: "20 1 1-7 * SAT"
+    enabled: true
+
+  - site_id: rakuten_beauty
+    name: "楽天ビューティ"
+    module: "beauty.rakuten_beauty"
+    url: "https://beauty.rakuten.co.jp/sitemap.xml"
+    schedule: "20 1 1-7 * SUN"
+    enabled: true
+
+  - site_id: goonet
+    name: "グーネット"
+    module: "auto.goonet"
+    url: "https://www.goo-net.com/sitemap_index.xml.gz"
+    schedule: "20 1 8-14 * SAT"
+    enabled: true
+
+  - site_id: goonet_pit
+    name: "グーネットピット"
+    module: "auto.goonet_pit"
+    url: "https://www.goo-net.com/pit/sitemap_index.xml"
+    schedule: "20 1 8-14 * SUN"
+    enabled: true
+
+  - site_id: ii_ie
+    name: "いい部屋ネット"
+    module: "realestate.ii_ie"
+    url: "https://www.ii-ie2.net/sitemap.xml"
+    schedule: "20 1 15-21 * SAT"
+    enabled: true
+
+  - site_id: ielove
+    name: "いえらぶ"
+    module: "realestate.ielove"
+    url: "https://www.ielove.co.jp/sitemap/sitemap-company.xml"
+    schedule: "20 1 15-21 * SUN"
+    enabled: true
+
+  - site_id: ju_ren
+    name: "充レン"
+    module: "service.ju_ren"
+    url: "https://ju-ren.jp/location/stands/"
+    schedule: "20 1 22-28 * SAT"
+    enabled: true
+
+  - site_id: franchise_web_repo
+    name: "フランチャイズWEBリポート"
+    module: "agency_franchise.franchise_web_repo"
+    url: "https://web-repo.jp/sitemap.xml"
+    schedule: "20 1 22-28 * SUN"
+    enabled: true
+
+  - site_id: yourmystar
+    name: "ユアマイスター"
+    module: "service.yourmystar"
+    url: "https://yourmystar.jp/sitemap.xml"
+    schedule: "40 1 1-7 * SAT"
+    enabled: true
+
+  - site_id: meetsmore
+    name: "ミツモア"
+    module: "service.meetsmore"
+    url: "https://meetsmore.com/services"
+    schedule: "40 1 1-7 * SUN"
+    enabled: true
+
+  - site_id: bilax_net
+    name: "びらくネット"
+    module: "service.bilax_net"
+    url: "https://bilax.net/sitemap.xml"
+    schedule: "40 1 8-14 * SAT"
+    enabled: true
+
+  - site_id: dokenchiku
+    name: "ドケンチク"
+    module: "construction.dokenchiku"
+    url: "https://dokenchiku.com/company/1"
+    schedule: "40 1 8-14 * SUN"
+    enabled: true
+
+  - site_id: koujishi
+    name: "工事士.com"
+    module: "construction.koujishi"
+    url: "https://koujishi.com/list/denkikoujishi-first/"
+    schedule: "40 1 15-21 * SAT"
+    enabled: true
+
+  - site_id: dairitenfc
+    name: "代理店FC"
+    module: "agency_franchise.dairitenfc"
+    url: "https://dairitenfc.com"
+    schedule: "40 1 15-21 * SUN"
+    enabled: true
+
+  - site_id: hakkosha
+    name: "白光舎"
+    module: "service.hakkosha"
+    url: "https://www.hakkosha.com/shop/"
+    schedule: "40 1 22-28 * SAT"
+    enabled: true
+
+  - site_id: hitosara
+    name: "ヒトサラ"
+    module: "food.hitosara"
+    url: "https://hitosara.com/sitemap_index.xml"
+    schedule: "40 1 22-28 * SUN"
+    enabled: true
+
+  - site_id: doctor_map
+    name: "ドクターマップ"
+    module: "medical.doctor_map"
+    url: "https://www.doctor-map.info/sitemap.xml"
+    schedule: "0 2 1-7 * SAT"
+    enabled: true
+
+  - site_id: torabayu
+    name: "とらばーゆ"
+    module: "jobs.torabayu"
+    url: "https://toranet.jp/prefectures/"
+    schedule: "0 2 1-7 * SUN"
+    enabled: true
+
+  - site_id: million_job
+    name: "ミリオンジョブ"
+    module: "jobs.million_job"
+    url: "https://www.million-job.com"
+    schedule: "0 2 8-14 * SAT"
+    enabled: true
+
+  - site_id: refjob
+    name: "リフラクジョブ"
+    module: "jobs.refjob"
+    url: "https://refjob.jp"
+    schedule: "0 2 8-14 * SUN"
+    enabled: true
+
+  - site_id: tainyu_chocolat
+    name: "体入ショコラ"
+    module: "jobs.tainyu_chocolat"
+    url: "https://chocolat.work/sitemap_index.xml"
+    schedule: "10 16 * * WED"
+    enabled: true
+
+  - site_id: tainyu_macaron
+    name: "体入マカロン"
+    module: "jobs.tainyu_macaron"
+    url: "https://picsastock.com/sitemap.xml"
+    schedule: "0 2 15-21 * SUN"
+    enabled: true
+
+  - site_id: tadaoka_shoko
+    name: "忠岡町商工会"
+    module: "government.tadaoka_shoko"
+    url: "https://www.tadaoka.or.jp/kaiin.html"
+    schedule: "0 2 22-28 * SAT"
+    enabled: true
+
+  - site_id: bepro
+    name: "美プロ"
+    module: "jobs.bepro"
+    url: "https://www.kenkou-job.com"
+    schedule: "0 2 22-28 * SUN"
+    enabled: true
+
+  - site_id: yakukyari
+    name: "薬キャリ（法人）"
+    module: "jobs.yakukyari"
+    url: "https://pcareer.m3.com/shokubanavi/companies"
+    schedule: "20 2 1-7 * SAT"
+    enabled: true
+
+  - site_id: yakukyari_office
+    name: "薬キャリ（事業所）"
+    module: "jobs.yakukyari_office"
+    url: "https://pcareer.m3.com/shokubanavi/offices"
+    schedule: "20 2 1-7 * SUN"
+    enabled: true
+
+  - site_id: kaiten_heiten
+    name: "開店閉店ドットコム"
+    module: "portal.kaiten_heiten"
+    url: "https://kaiten-heiten-24.com"
+    schedule: "20 2 8-14 * SAT"
+    enabled: true
+
+  - site_id: inshokuten_job
+    name: "求人飲食店ドットコム"
+    module: "food.inshokuten_job"
+    url: "https://job.inshokuten.com/sitemapindex.xml"
+    schedule: "20 2 8-14 * SUN"
+    enabled: true
+
+  - site_id: paypaygourmet
+    name: "PayPayグルメ"
+    module: "food.paypaygourmet"
+    url: "https://paypaygourmet.yahoo.co.jp/"
+    schedule: "0 1 22-28 * SUN"
+    enabled: true
+
+  - site_id: suumo
+    name: "SUUMO不動産会社"
+    module: "realestate.suumo"
+    url: "https://suumo.jp/kaisha/"
+    schedule: "20 2 15-21 * SAT"
+    enabled: true
+
+  - site_id: suumo_buy
+    name: "SUUMO新築・中古物件"
+    module: "realestate.suumo_buy"
+    url: "https://suumo.jp/ms/shinchiku/"
+    schedule: "20 2 15-21 * SUN"
+    enabled: true
+
+  - site_id: suumo_guide
+    name: "SUUMO不動産会社ガイド"
+    module: "realestate.suumo_guide"
+    url: "https://suumo.jp/jj/guide/"
+    schedule: "20 2 22-28 * SAT"
+    enabled: true
+
+  - site_id: yameshi_shokokai
+    name: "八女市商工会"
+    module: "government.yameshi_shokokai"
+    url: "https://www.yameshi-shokokai.jp/member/"
+    schedule: "20 2 22-28 * SUN"
+    enabled: true
+
+  - site_id: ogori_shokokai
+    name: "小郡市商工会"
+    module: "government.ogori_shokokai"
+    url: "https://ogori-shoukoukai.com/companycat/"
+    schedule: "40 2 1-7 * SAT"
+    enabled: true
+
+  - site_id: kawachinagano_shokokai
+    name: "河内長野市商工会"
+    module: "government.kawachinagano_shokokai"
+    url: "http://www.ksci.or.jp/web.html"
+    schedule: "40 2 1-7 * SUN"
+    enabled: true
+
+  - site_id: ai_med
+    name: "アイメッド"
+    module: "medical.ai_med"
+    url: "https://ai-med.jp/hospitals"
+    schedule: "40 2 8-14 * SAT"
+    enabled: true
+
+  - site_id: challenge_plus
+    name: "チャレンジプラス"
+    module: "agency_franchise.challenge_plus"
+    url: "https://www.challenge-plus.jp/list/"
+    schedule: "40 2 8-14 * SUN"
+    enabled: true
+
+  - site_id: entre_net
+    name: "アントレ"
+    module: "jobs.entre_net"
+    url: "https://entrenet.jp/dokuritsu/?cbn=top_src_fw"
+    schedule: "40 2 15-21 * SAT"
+    enabled: true
+
+  - site_id: gappori
+    name: "ガッポリ"
+    module: "jobs.gappori"
+    url: "https://gappori.jp/a_search/w_/"
+    schedule: "40 2 15-21 * SUN"
+    enabled: true
+
+  - site_id: hanacupid
+    name: "花キューピット"
+    module: "service.hanacupid"
+    url: "https://www.hanacupid.or.jp/stores/"
+    schedule: "40 2 22-28 * SAT"
+    enabled: true
+
+  - site_id: dan_work
+    name: "男ワーク"
+    module: "jobs.dan_work"
+    url: "https://www.dan-work.com"
+    schedule: "40 2 22-28 * SUN"
+    enabled: true
+
+  - site_id: hamanight
+    name: "ハマんナイト"
+    module: "jobs.hamanight"
+    url: "http://www.hamanight.com"
+    schedule: "0 3 1-7 * SAT"
+    enabled: true
+
+  - site_id: tainew_otoko
+    name: "メンズ体入"
+    module: "jobs.tainew_otoko"
+    url: "https://tainew-otoko.com/shoplist/search/?salary_type=0_1&word="
+    schedule: "0 3 1-7 * SUN"
+    enabled: true
+
+  - site_id: epark_dental
+    name: "EPARK歯科"
+    module: "medical.epark_dental"
+    url: "https://haisha-yoyaku.jp/bun2sdental/list/"
+    schedule: "0 3 8-14 * SAT"
+    enabled: true
+
+  - site_id: jobcon_driver
+    name: "ジョブコンプラスD"
+    module: "jobs.jobcon_driver"
+    url: "https://job-con.jp/driver/search"
+    schedule: "0 3 8-14 * SUN"
+    enabled: true
+
+  - site_id: jobcon_security
+    name: "ジョブコンプラスS"
+    module: "jobs.jobcon_security"
+    url: "https://job-con.jp/security/search"
+    schedule: "0 3 15-21 * SAT"
+    enabled: true
+
+  - site_id: job_chocolat
+    name: "ジョブショコラ"
+    module: "jobs.job_chocolat"
+    url: "https://job-chocolat.jp/"
+    schedule: "0 3 15-21 * SUN"
+    enabled: true
+
+  - site_id: doraever
+    name: "ドラEVER"
+    module: "jobs.doraever"
+    url: "https://doraever.jp/job-lists/1"
+    schedule: "0 3 22-28 * SAT"
+    enabled: true
+
+  - site_id: jwarm
+    name: "ジェイウォーム"
+    module: "jobs.jwarm"
+    url: "https://www.jwarm.net/uni_items.php?pg=1&ig=i"
+    schedule: "0 3 22-28 * SUN"
+    enabled: true
+
+  - site_id: kyujin_journal_net
+    name: "求人ジャーナルネット"
+    module: "jobs.kyujin_journal_net"
+    url: "https://www.job-j.net"
+    schedule: "20 3 1-7 * SAT"
+    enabled: true
+
+  - site_id: baitoru
+    name: "バイトル"
+    module: "jobs.baitoru"
+    url: "https://www.baitoru.com/kanto/jlist/tokyo/"
+    schedule: "10 16 * * WED"
+    enabled: true
+
+  - site_id: townwork
+    name: "タウンワーク"
+    module: "jobs.townwork"
+    url: "https://townwork.net/"
+    schedule: "20 3 8-14 * SAT"
+    enabled: true
+
+  - site_id: rikunabi_next_syataku
+    name: "リクナビNEXT社宅"
+    module: "jobs.rikunabi_next_syataku"
+    url: "https://next.rikunabi.com/job_search/kw/%E7%A4%BE%E5%AE%85/"
+    schedule: "20 3 8-14 * SUN"
+    enabled: true
+
+  - site_id: rikunabi_next_syayosha
+    name: "リクナビNEXT社用車"
+    module: "jobs.rikunabi_next_syayosha"
+    url: "https://next.rikunabi.com/job_search/kw/%E7%A4%BE%E7%94%A8%E8%BB%8A%E5%88%B6%E5%BA%A6/"
+    schedule: "20 3 15-21 * SAT"
+    enabled: true
+
+  - site_id: caloo
+    name: "Caloo病院検索"
+    module: "medical.caloo"
+    url: "https://caloo.jp/hospitals/search/01/all"
+    schedule: "20 3 15-21 * SUN"
+    enabled: true
+
+  - site_id: gaten_job
+    name: "ガテン系仕事ナビ"
+    module: "jobs.gaten_job"
+    url: "https://gaten-job.com/sitemap.xml"
+    schedule: "20 3 22-28 * SAT"
+    enabled: true
+
+  - site_id: jobpost
+    name: "ジョブポスト"
+    module: "jobs.jobpost"
+    url: "https://jobpost.jp/search/g:1/"
+    schedule: "20 3 22-28 * SUN"
+    enabled: true
+
+  - site_id: trck_job
+    name: "トラッカーズジョブ"
+    module: "jobs.trck_job"
+    url: "https://job.trck.jp/sitemap.xml"
+    schedule: "40 3 1-7 * SAT"
+    enabled: true
+
+  - site_id: barberin
+    name: "バーバリン"
+    module: "beauty.barberin"
+    url: "https://barberin.jp/"
+    schedule: "40 3 1-7 * SUN"
+    enabled: true
+
+  - site_id: fc_kamei
+    name: "フランチャイズ加盟募集"
+    module: "agency_franchise.fc_kamei"
+    url: "https://fc-kamei.net"
+    schedule: "40 3 8-14 * SAT"
+    enabled: true
+
+  - site_id: benrishi_navi
+    name: "弁理士ナビ"
+    module: "portal.benrishi_navi"
+    url: "https://www.benrishi-navi.com"
+    schedule: "40 3 8-14 * SUN"
+    enabled: true
+
+  - site_id: prtimes
+    name: "PRTIMES"
+    module: "corporate.prtimes"
+    url: "https://prtimes.jp/technology/"
+    schedule: "40 3 15-21 * SAT"
+    enabled: true
+
+  - site_id: kessan_kokoku
+    name: "決算公告（catr.jp）"
+    module: "corporate.kessan_kokoku"
+    url: "https://catr.jp/cities/0"
+    schedule: "40 3 15-21 * SUN"
+    enabled: true
+
+  - site_id: host_para
+    name: "ホスパラ"
+    module: "nightlife.host_para"
+    url: "https://host-paradise.jp/"
+    schedule: "40 3 22-28 * SAT"
+    enabled: true
+
+  - site_id: mynavi_tenshoku
+    name: "マイナビ転職"
+    module: "jobs.mynavi_tenshoku"
+    url: "https://tenshoku.mynavi.jp/list/pg1/"
+    schedule: "40 3 22-28 * SUN"
+    enabled: true
+
+  - site_id: en_tenshoku
+    name: "エン転職"
+    module: "jobs.en_tenshoku"
+    url: "https://employment.en-japan.com/k_tokyo/"
+    schedule: "0 4 1-7 * SAT"
+    enabled: true
+
+  - site_id: kyujin_box_tokutei
+    name: "求人ボックス（特定技能の仕事）"
+    module: "jobs.kyujin_box_tokutei"
+    url: "https://xn--pckua2a7gp15o89zb.com/%E7%89%B9%E5%AE%9A%E6%8A%80%E8%83%BD%E3%81%AE%E4%BB%95%E4%BA%8B"
+    schedule: "0 4 1-7 * SUN"
+    enabled: true
+
+  - site_id: kkhashi
+    name: "カケハシ"
+    module: "agency_franchise.kkhashi"
+    url: "https://www.kkhashi.com/matters?ref=%E5%85%A8%E3%81%A6%E3%81%AE%E6%A1%88%E4%BB%B6%E3%81%8B%E3%82%89%E6%8E%A2%E3%81%99"
+    schedule: "0 4 1-7 * SAT"
+    enabled: true
+
+  - site_id: bahn_rep
+    name: "バーン代理店"
+    module: "agency_franchise.bahn_rep"
+    url: "https://bahn-rep.com/category/allarea/page/1"
+    schedule: "0 7 22-28 * SUN"
+    enabled: true
+
+  - site_id: kyujinbox
+    name: "求人ボックス（携帯販売・通信系）"
+    module: "jobs.kyujinbox"
+    url: "https://xn--pckua2a7gp15o89zb.com/"
+    schedule: "0 4 8-14 * SAT"
+    enabled: true
+
+  - site_id: b_seeds
+    name: "Bシーズ"
+    module: "agency_franchise.b_seeds"
+    url: "https://b-seeds.com/news/"
+    schedule: "0 4 8-14 * SAT"
+    enabled: true
+
+  - site_id: mlit_kensetsu
+    name: "国交省建設業者検索_建設業"
+    module: "construction.mlit_kensetsu"
+    url: "https://etsuran2.mlit.go.jp/TAKKEN/kensetuKensaku.do?outPutKbn=1"
+    schedule: "0 4 8-14 * SAT"
+    enabled: true    
+
+  - site_id: mlit_takken
+    name: "建設業者・宅建業者等企業情報検索システム【賃貸住宅管理業者】"
+    module: "realestate.mlit_takken"
+    url: "https://etsuran2.mlit.go.jp/TAKKEN/takkenKensaku.do"
+    schedule: "0 4 8-14 * SAT"
+    enabled: true   
+
+  - site_id: aupay
+    name: "aupay"
+    module: "service.aupay"
+    url: "https://aupay.auone.jp/"
+    schedule: "0 6 8-14 * SAT"
+    enabled: true
+
+  - site_id: tabelog
+    name: "食べログ"
+    module: "food.tabelog"
+    url: "https://tabelog.com/"
+    schedule: "0 6 1-7 * SAT"
+    enabled: true
+
+
+  - site_id: foodslabo
+    name: "foodslabo"
+    module: "food.foodslabo"
+    url: "https://foods-labo.com/"
+    schedule: "0 6 8-14 * SUN"
+    enabled: true
+
+  - site_id: ivry
+    name: "ivry"
+    module: "corporate.ivry"
+    url: "https://ivry.jp/"
+    schedule: "0 7 8-14 * SAT"
+    enabled: true
+
+  - site_id: kocchake
+    name: "kocchake"
+    module: "jobs.kocchake"
+    url: "https://kocchake.com/"
+    schedule: "40 6 8-14 * SUN"
+    enabled: true
+
+  - site_id: rakuten_beauty_2
+    name: "rakuten_beauty"
+    module: "beauty.rakuten_beauty_2"
+    url: "https://beauty.rakuten.co.jp/"
+    schedule: "0 6 15-21 * SAT"
+    enabled: true
+
+  - site_id: savor_japan
+    name: "savor_japan"
+    module: "food.savor_japan"
+    url: "https://savorjapan.com/"
+    schedule: "20 6 8-14 * SAT"
+    enabled: true
+
+  - site_id: emily_job
+    name: "体入エミリー"
+    module: "nightlife.emily_job"
+    url: "https://emily-job.jp/"
+    schedule: "0 6 15-21 * SUN"
+    enabled: true
+
+  - site_id: suumo_2
+    name: "suumo【不動産会社ガイド】"
+    module: "realestate.suumo_2"
+    url: "https://suumo.jp/fudousankaisha/"
+    schedule: "40 6 1-7 * SUN"
+    enabled: true
+
+  - site_id: agri_navi
+    name: "あぐりナビ"
+    module: "jobs.agri_navi"
+    url: "https://www.agri-navi.com/"
+    schedule: "20 6 8-14 * SUN"
+    enabled: true
+
+  - site_id: o_kuruma
+    name: "おくるまドットコム"
+    module: "auto.o_kuruma"
+    url: "https://www.o-kuruma.com/"
+    schedule: "20 6 15-21 * SAT"
+    enabled: true
+
+  - site_id: curama
+    name: "くらしのマーケット"
+    module: "service.curama"
+    url: "https://curama.jp/"
+    schedule: "0 7 1-7 * SAT"
+    enabled: true
+
+  - site_id: gnavi
+    name: "ぐるなび"
+    module: "food.gnavi"
+    url: "https://www.gnavi.co.jp/"
+    schedule: "20 6 1-7 * SUN"
+    enabled: true
+
+  - site_id: mypl
+    name: "まいぷれ"
+    module: "portal.mypl"
+    url: "https://mypl.net/"
+    schedule: "0 7 8-14 * SUN"
+    enabled: true
+
+  - site_id: moe_navi
+    name: "もえなび"
+    module: "nightlife.moe_navi"
+    url: "https://www.moe-navi.jp/"
+    schedule: "40 6 15-21 * SUN"
+    enabled: true
+
+  - site_id: hosytoru
+    name: "ホストル"
+    module: "nightlife.hosytoru"
+    url: "https://hostle.jp"
+    schedule: "40 5 22-28 * SUN"
+    enabled: true
+
+
+  - site_id: ai_med_2
+    name: "アイメッド"
+    module: "medical.ai_med_2"
+    url: "https://ai-med.jp/"
+    schedule: "20 7 8-14 * SAT"
+    enabled: true
+
+  - site_id: asoview
+    name: "アソビュー"
+    module: "portal.asoview"
+    url: "https://www.asoview.com/"
+    schedule: "40 6 1-7 * SAT"
+    enabled: true
+
+  - site_id: up_stage
+    name: "アップステージ"
+    module: "jobs.up_stage"
+    url: "https://www.up-stage.info/"
+    schedule: "40 6 8-14 * SAT"
+    enabled: true
+
+  - site_id: baito
+    name: "アルバイトナイツ"
+    module: "nightlife.baito"
+    url: "https://baito.nights.fun/"
+    schedule: "40 6 15-21 * SAT"
+    enabled: true
+
+  - site_id: mono
+    name: "イプロス"
+    module: "corporate.mono"
+    url: "https://mono.ipros.com/"
+    schedule: "20 7 1-7 * SUN"
+    enabled: true
+
+  - site_id: carcon
+    name: "カーコンビニ俱楽部"
+    module: "auto.carcon"
+    url: "https://www.carcon.co.jp/"
+    schedule: "40 7 1-7 * SAT"
+    enabled: true
+
+  - site_id: carsensor
+    name: "カーセンサー"
+    module: "auto.carsensor"
+    url: "https://www.carsensor.net/"
+    schedule: "20 6 1-7 * SAT"
+    enabled: true
+
+  - site_id: cabaito
+    name: "キャバイト求人"
+    module: "nightlife.cabaito"
+    url: "https://www.cabaito.jp/"
+    schedule: "20 6 15-21 * SUN"
+    enabled: true
+
+  - site_id: genbars
+    name: "ゲンバーズ"
+    module: "jobs.genbars"
+    url: "https://genbars.jp/"
+    schedule: "0 7 15-21 * SAT"
+    enabled: true
+
+  - site_id: webjobpark
+    name: "ジョブこねっと"
+    module: "jobs.webjobpark"
+    url: "https://webjobpark.kyoto.jp/"
+    schedule: "0 7 15-21 * SUN"
+    enabled: true
+
+  - site_id: job_chocolat_2
+    name: "ジョブショコラ"
+    module: "jobs.job_chocolat_2"
+    url: "https://job-chocolat.jp/"
+    schedule: "20 7 15-21 * SAT"
+    enabled: true
+
+  - site_id: navi
+    name: "ジョブナビ愛知"
+    module: "jobs.navi"
+    url: "https://www.navi.j-kin.com/"
+    schedule: "0 6 22-28 * SAT"
+    enabled: true
+
+  - site_id: zehitomo
+    name: "ゼヒトモ"
+    module: "portal.zehitomo"
+    url: "https://www.zehitomo.com/"
+    schedule: "20 7 1-7 * SAT"
+    enabled: true
+
+  - site_id: concierge
+    name: "ダイエットコンシェルジュ"
+    module: "service.concierge"
+    url: "https://concierge.diet/"
+    schedule: "0 6 22-28 * SUN"
+    enabled: true
+
+  - site_id: moppy_baito
+    name: "ディスカバイト"
+    module: "jobs.moppy_baito"
+    url: "https://moppy-baito.com/"
+    schedule: "40 7 1-7 * SUN"
+    enabled: true
+
+  - site_id: trimtrim_salons
+    name: "トリムトリム【サロン】"
+    module: "beauty.trimtrim_salons"
+    url: "https://trimtrim.jp/salons"
+    schedule: "20 6 22-28 * SAT"
+    enabled: true
+
+  - site_id: trimtrim_hotels
+    name: "トリムトリム【ホテル】"
+    module: "service.trimtrim_hotels"
+    url: "https://trimtrim.jp/hotels"
+    schedule: "20 6 22-28 * SUN"
+    enabled: true
+
+  - site_id: nuri_kae
+    name: "ヌリカエ"
+    module: "construction.nuri_kae"
+    url: "https://www.nuri-kae.jp/"
+    schedule: "40 6 22-28 * SAT"
+    enabled: true
+
+  - site_id: hellowork
+    name: "ハローワーク"
+    module: "jobs.hellowork"
+    url: "https://www.hellowork.mhlw.go.jp/"
+    schedule: "0 6 1-7 * SUN"
+    enabled: true
+
+  - site_id: baitona_joshi
+    name: "バイトな女子"
+    module: "jobs.baitona_joshi"
+    url: "https://baitona-joshi.jp/"
+    schedule: "40 6 22-28 * SUN"
+    enabled: true
+
+  - site_id: com
+    name: "バーバーナビ.com"
+    module: "beauty.com"
+    url: "https://barbernavi.com/"
+    schedule: "0 7 22-28 * SAT"
+    enabled: true
+
+  - site_id: nightstyle
+    name: "ナイトスタイル"
+    module: "nightlife.nightstyle"
+    url: "https://nightstyle.jp"
+    schedule: "40 7 22-28 * SAT"
+    enabled: true
+
+  # === 2026-04 追加 未登録ファイル 46件 (月次、スケジュール分散、大型サイトは月初) ===
+
+  # --- 月初 (1-7日) : 大型サイト ---
+  - site_id: doda
+    name: "doda"
+    module: "jobs.doda"
+    url: "https://doda.jp/DodaFront/View/JobSearchList.action"
+    schedule: "20 4 1-7 * SAT"
+    enabled: true
+
+  - site_id: mynavi2027
+    name: "マイナビ2027"
+    module: "jobs.mynavi2027"
+    url: "https://job.mynavi.jp/2027/"
+    schedule: "20 4 1-7 * SUN"
+    enabled: true
+
+  - site_id: baitoru_next
+    name: "バイトルNEXT"
+    module: "jobs.baitoru_next"
+    url: "https://www.baitoru.com/tohoku/jlist/shain/"
+    schedule: "40 4 1-7 * SAT"
+    enabled: true
+
+  - site_id: baseconnect
+    name: "Baseconnect"
+    module: "corporate.baseconnect"
+    url: "https://baseconnect.in/"
+    schedule: "40 4 1-7 * SUN"
+    enabled: true
+
+  - site_id: biz_all
+    name: "比較ビズ（全業種）"
+    module: "corporate.biz_all"
+    url: "https://www.biz.ne.jp/"
+    schedule: "0 5 1-7 * SAT"
+    enabled: true
+
+  - site_id: activityjapan
+    name: "アクティビティジャパン"
+    module: "service.activityjapan"
+    url: "https://activityjapan.com/publish/feature"
+    schedule: "0 5 1-7 * SUN"
+    enabled: true
+
+  - site_id: qlife
+    name: "QLife"
+    module: "service.qlife"
+    url: "https://www.qlife.co.jp/"
+    schedule: "20 5 1-7 * SAT"
+    enabled: true
+
+  - site_id: kurashinomarket
+    name: "くらしのマーケット（カテゴリ）"
+    module: "service.kurashinomarket"
+    url: "https://curama.jp/category/"
+    schedule: "20 5 1-7 * SUN"
+    enabled: true
+
+  - site_id: kaago
+    name: "Kaago"
+    module: "portal.kaago"
+    url: "https://kaago.com/"
+    schedule: "40 5 1-7 * SAT"
+    enabled: true
+
+  - site_id: lixil_reformshop
+    name: "LIXILリフォームショップ"
+    module: "realestate.lixil_reformshop"
+    url: "https://www.lixil-reformshop.jp/"
+    schedule: "40 5 1-7 * SUN"
+    enabled: true
+
+  - site_id: ozmall_hairsalon
+    name: "オズモール（ヘアサロン）"
+    module: "beauty.ozmall"
+    url: "https://www.ozmall.co.jp/hairsalon"
+    schedule: "0 6 1-7 * SAT"
+    enabled: true
+
+  - site_id: pola
+    name: "POLA"
+    module: "beauty.pola"
+    url: "https://www.pola.co.jp/"
+    schedule: "0 6 1-7 * SUN"
+    enabled: true
+
+  # --- 8-14日 ---
+  - site_id: cookbiz
+    name: "クックビズ"
+    module: "jobs.cookbiz"
+    url: "https://cookbiz.co.jp/companies"
+    schedule: "0 4 8-14 * SUN"
+    enabled: true
+
+  - site_id: rejob
+    name: "Rejob"
+    module: "corporate.rejob"
+    url: "https://rejob.co.jp/"
+    schedule: "20 4 8-14 * SAT"
+    enabled: true
+
+  - site_id: froma_navi
+    name: "フロム・エー"
+    module: "jobs.froma_navi"
+    url: "https://www.froma.com/prefectures/"
+    schedule: "20 4 8-14 * SUN"
+    enabled: true
+
+  - site_id: domonet
+    name: "ドモネット"
+    module: "jobs.domonet"
+    url: "https://domonet.jp/"
+    schedule: "40 4 8-14 * SAT"
+    enabled: true
+
+  - site_id: anny
+    name: "Anny"
+    module: "food.Anny_scrape"
+    url: "https://oiwai.anny.gift/search?numPpl=2"
+    schedule: "40 4 8-14 * SUN"
+    enabled: true
+
+  - site_id: cafe397
+    name: "Cafe397"
+    module: "food.cafe397"
+    url: "https://397.cafe/search.php?mode=&page=1"
+    schedule: "0 5 8-14 * SAT"
+    enabled: true
+
+  - site_id: japan_food_guide
+    name: "Japan Food Guide"
+    module: "food.japan_food_guide"
+    url: "https://japan-food.guide/"
+    schedule: "0 5 8-14 * SUN"
+    enabled: true
+
+  - site_id: ozmall_restaurant
+    name: "オズモール（レストラン）"
+    module: "food.ozmall_2"
+    url: "https://www.ozmall.co.jp/restaurant/list/"
+    schedule: "20 5 8-14 * SAT"
+    enabled: true
+
+  - site_id: beautypark
+    name: "Beauty Park"
+    module: "medical.beautypark"
+    url: "https://www.beauty-park.jp/"
+    schedule: "20 5 8-14 * SUN"
+    enabled: true
+
+  - site_id: hospita
+    name: "HOSPITA"
+    module: "medical.HOSPITA_scrape"
+    url: "https://www.hospita.jp/list/hospital/"
+    schedule: "40 5 8-14 * SAT"
+    enabled: true
+
+  - site_id: caferun
+    name: "カフェラン"
+    module: "portal.caferun"
+    url: "https://caferun.jp/"
+    schedule: "40 5 8-14 * SUN"
+    enabled: true
+
+  - site_id: dartslive
+    name: "DARTSLIVE"
+    module: "portal.dartslive"
+    url: "https://search.dartslive.com/jp/shops/"
+    schedule: "0 6 8-14 * SAT"
+    enabled: true
+
+  # --- 15-21日 ---
+  - site_id: fitmap
+    name: "Fit Map"
+    module: "portal.fitmap"
+    url: "https://fitmap.jp/"
+    schedule: "0 4 15-21 * SAT"
+    enabled: true
+
+  - site_id: imitsu_pr
+    name: "PRONIアイミツ_PR"
+    module: "portal.imitsu_pr"
+    url: "https://imitsu.jp/ct-pr/search/"
+    schedule: "0 4 15-21 * SUN"
+    enabled: true
+
+  - site_id: pepperlikes
+    name: "PepperLikes"
+    module: "portal.pepperlikes"
+    url: "https://www.pepperlikes.com/"
+    schedule: "20 4 15-21 * SAT"
+    enabled: true
+
+  - site_id: manabi_senmon
+    name: "マナビ（専門）"
+    module: "service.manabi_senmon"
+    url: "https://manabi.benesse.ne.jp/senmon"
+    schedule: "20 4 15-21 * SUN"
+    enabled: true
+
+  - site_id: biztel
+    name: "BIZTEL"
+    module: "corporate.biztel"
+    url: "https://biztel.jp/"
+    schedule: "40 4 15-21 * SAT"
+    enabled: true
+
+  - site_id: domo
+    name: "Domo"
+    module: "corporate.domo"
+    url: "https://www.domo.com/jp/customers"
+    schedule: "40 4 15-21 * SUN"
+    enabled: true
+
+  - site_id: hnavi
+    name: "発注ナビ"
+    module: "corporate.hnavi"
+    url: "https://hnavi.co.jp/corporation/"
+    schedule: "0 5 15-21 * SAT"
+    enabled: true
+
+  - site_id: j_lic
+    name: "J-LIC"
+    module: "corporate.j_lic"
+    url: "https://j-lic.com/"
+    schedule: "0 5 15-21 * SUN"
+    enabled: true
+
+  - site_id: kyozon
+    name: "kyozon"
+    module: "corporate.kyozon"
+    url: "https://kyozon.net/service-list/"
+    schedule: "20 5 15-21 * SAT"
+    enabled: true
+
+  - site_id: pitta_lab
+    name: "ピッタラボ"
+    module: "corporate.pitta_lab"
+    url: "https://pitta-lab.com/"
+    schedule: "20 5 15-21 * SUN"
+    enabled: true
+
+  - site_id: dairitenhonpo
+    name: "代理店募集本舗"
+    module: "agency_franchise.dairitenhonpo"
+    url: "https://dairitenboshu.com/search/"
+    schedule: "40 5 15-21 * SAT"
+    enabled: true
+
+  - site_id: panasonic_cycle
+    name: "Panasonic Cycle"
+    module: "agency_franchise.panasonic_cycle"
+    url: "https://cycle.panasonic.com/"
+    schedule: "40 5 15-21 * SUN"
+    enabled: true
+
+  # --- 22-28日 ---
+  - site_id: sumitec_kanto
+    name: "住まいテック関東"
+    module: "construction.sumitec_kanto"
+    url: "https://sumitec-kanto.com/contractor"
+    schedule: "0 4 22-28 * SAT"
+    enabled: true
+
+  - site_id: hiroshima_hitec
+    name: "広島市ハイテクプラザ"
+    module: "government.hiroshima_hitec"
+    url: "https://www.hitec.city.hiroshima.jp/"
+    schedule: "0 4 22-28 * SUN"
+    enabled: true
+
+  - site_id: sanpai_kun
+    name: "さんぱいくん"
+    module: "government.sanpai_kun"
+    url: "https://www2.sanpainet.or.jp/zyohou"
+    schedule: "20 4 22-28 * SAT"
+    enabled: true
+
+  - site_id: ntt_west_hanbaiten
+    name: "NTT西日本特約店・販売委託店一覧"
+    module: "government.ntt_west_hanbaiten"
+    url: "https://www2.hanbaiten.cpe.isp.ntt-west.co.jp/lists"
+    schedule: "0 3 1-7 * MON"
+    enabled: true
+
+  - site_id: alzo
+    name: "アルゾ"
+    module: "jobs.alzo"
+    url: "https://www.alzoweb.jp/search"
+    schedule: "20 4 22-28 * SUN"
+    enabled: true
+
+  - site_id: anokono_ehime
+    name: "あの子のエヒメ"
+    module: "jobs.AnokonoEhime_scrape"
+    url: "https://ano-kono.ehime.jp/search"
+    schedule: "40 4 22-28 * SAT"
+    enabled: true
+
+  - site_id: bejob_navi
+    name: "BEJOBナビ"
+    module: "jobs.bejob_navi"
+    url: "https://www.bejob-navi.jp/"
+    schedule: "40 4 22-28 * SUN"
+    enabled: true
+
+  - site_id: ishikawa_jobnavi
+    name: "石川ジョブナビ"
+    module: "jobs.ishikawa_jobnavi"
+    url: "https://jobnavi-i.jp/"
+    schedule: "0 5 22-28 * SAT"
+    enabled: true
+
+  - site_id: jinzai_hellowork
+    name: "人材銀行（ハローワーク）"
+    module: "jobs.jinzai_hellowork"
+    url: "https://jinzai.hellowork.mhlw.go.jp/JinzaiWeb"
+    schedule: "0 5 22-28 * SUN"
+    enabled: true
+
+  - site_id: kyujin_box_ginoujissyuu
+    name: "求人ボックス（技能実習の仕事）"
+    module: "jobs.kyujin_box_ginoujissyuu"
+    url: "https://xn--pckua2a7gp15o89zb.com/%E6%8A%80%E8%83%BD%E5%AE%9F%E7%BF%92%E3%81%AE%E4%BB%95%E4%BA%8B"
+    schedule: "20 5 22-28 * SAT"
+    enabled: true
+
+  - site_id: vinty
+    name: "VINTY"
+    module: "vinty"
+    url: "https://www.vinty.jp/search"
+    schedule: "20 5 22-28 * SUN"
+    enabled: true
+
+  - site_id: hikariweb_search
+    name: "ひかりWeb NTT東日本特約店・販売委託店"
+    module: "agency_franchise.hikariweb_search"
+    url: "https://hikariweb.ntt-east.co.jp/general/search/list.php?keyword=1"
+    schedule: "20 5 22-28 * SAT"
+    enabled: true
+
+  - site_id: hikariweb_cancell
+    name: "ひかりWeb NTT東日本解約特約店・販売委託店"
+    module: "agency_franchise.hikariweb_cancell"
+    url: "https://hikariweb.ntt-east.co.jp/general/cancell/list.php?keyword=1"
+    schedule: "20 5 22-28 * SAT"
+    enabled: true
+
+  - site_id: jinzai_service
+    name: "人材サービス総合サイト（職業紹介事業）"
+    module: "government.jinzai_service"
+    url: "https://jinzai.hellowork.mhlw.go.jp/JinzaiWeb/GICB101010.do?action=initDisp&screenId=GICB101010"
+    schedule: null
+    enabled: true
+>>>>>>> Stashed changes

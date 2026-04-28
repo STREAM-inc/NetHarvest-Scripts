@@ -38,14 +38,24 @@ from src.framework.static import StaticCrawler
 BASE_URL = "https://www2.hanbaiten.cpe.isp.ntt-west.co.jp"
 LIST_URL  = f"{BASE_URL}/lists"
 
+COL_STATUS       = "ステータス"
+COL_UPDATE       = "更新日時"
+COL_SECTION      = "セクション"
+COL_TAB          = "タブ"
+COL_PARENT       = "販売委託店が契約している特約店名"
+COL_AFTER_MAINT  = "解約後の保守会社"
+COL_MAINT_TEL    = "保守会社連絡先"
+COL_CANCEL_DATE  = "解約申請受理日"
+
 # レスポンス HTML のカラム名 → Schema 定数マッピング
 _COLUMN_MAP: dict[str, str] = {
     # 氏名・社名
-    "会社名":           Schema.NAME,
-    "企業名":           Schema.NAME,
-    "名称":             Schema.NAME,
-    "特約店名":         Schema.NAME,
-    "販売委託店名":     Schema.NAME,
+    "会社名":               Schema.NAME,
+    "企業名":               Schema.NAME,
+    "名称":                 Schema.NAME,
+    "特約店名":             Schema.NAME,
+    "販売委託店名":         Schema.NAME,
+    "特約店・販売委託店名": Schema.NAME,
     # よみがな
     "よみがな":         Schema.NAME_KANA,
     "フリガナ":         Schema.NAME_KANA,
@@ -66,17 +76,20 @@ _COLUMN_MAP: dict[str, str] = {
     "契約形態":         Schema.CAT_SITE,
     "支店名・営業所名": Schema.FAC_NAME,
     "エリア":           Schema.CAT_LV1,
+    # 解約・エリア別セクション固有（EXTRA_COLUMNS として保持）
+    "販売委託店が契約している特約店名": COL_PARENT,
+    "解約後の保守会社":               COL_AFTER_MAINT,
+    "保守会社連絡先":                 COL_MAINT_TEL,
+    "解約申請受理日":                 COL_CANCEL_DATE,
 }
-
-COL_STATUS  = "ステータス"
-COL_UPDATE  = "更新日時"
-COL_SECTION = "セクション"
-COL_TAB     = "タブ"
 
 _META_KEYS  = frozenset({COL_STATUS, COL_UPDATE, COL_SECTION, COL_TAB, Schema.URL})
 # pipeline が許可するカラム名のセット (Schema + EXTRA_COLUMNS)
 _SCHEMA_SET = frozenset(Schema.COLUMNS)
-_EXTRA_SET  = frozenset([COL_STATUS, COL_UPDATE, COL_SECTION, COL_TAB])
+_EXTRA_SET  = frozenset([
+    COL_STATUS, COL_UPDATE, COL_SECTION, COL_TAB,
+    COL_PARENT, COL_AFTER_MAINT, COL_MAINT_TEL, COL_CANCEL_DATE,
+])
 _ALLOWED    = _SCHEMA_SET | _EXTRA_SET
 
 # セクション定義（ページ調査結果から確定）
@@ -136,7 +149,10 @@ class NttWestHanbaitenScraper(StaticCrawler):
 
     DELAY = 0.5
     CONTINUE_ON_ERROR = True
-    EXTRA_COLUMNS = [COL_STATUS, COL_UPDATE, COL_SECTION, COL_TAB]
+    EXTRA_COLUMNS = [
+        COL_STATUS, COL_UPDATE, COL_SECTION, COL_TAB,
+        COL_PARENT, COL_AFTER_MAINT, COL_MAINT_TEL, COL_CANCEL_DATE,
+    ]
 
     def prepare(self):
         # 初期アクセスでセッション Cookie を確立してから POST する
@@ -199,8 +215,16 @@ class NttWestHanbaitenScraper(StaticCrawler):
             text_a / text_b : データセル (交互スタイル)
         """
         # ヘッダー行のカラム名を取得
-        header_cells = soup.find_all("td", class_="head_1")
-        headers = [td.get_text(strip=True) for td in header_cells]
+        # エリア別・解約セクションではページ内にヘッダー行が繰り返し出現するため、
+        # 最初のヘッダーセットのみを使用する（2回目以降の重複を打ち切る）
+        headers: list[str] = []
+        seen_headers: set[str] = set()
+        for td in soup.find_all("td", class_="head_1"):
+            text = td.get_text(strip=True)
+            if text in seen_headers:
+                break
+            seen_headers.add(text)
+            headers.append(text)
         n_cols = len(headers)
 
         if n_cols == 0:
