@@ -3,6 +3,7 @@ Target site: https://www.hoskyu.com/
 """
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Generator
 from urllib.parse import urljoin, urlparse
@@ -19,7 +20,7 @@ from src.framework.static import StaticCrawler
 
 class HostKyuzinDotcomScraper(StaticCrawler):
     DELAY = 3.0
-    EXTRA_COLUMNS = ["携帯TEL", "アクセス", "職種"]
+    EXTRA_COLUMNS = ["携帯TEL", "アクセス", "職種", "取得日時"]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         site_root = "https://www.hoskyu.com/"
@@ -269,6 +270,7 @@ class HostKyuzinDotcomScraper(StaticCrawler):
                 "携帯TEL": mobile_tel,
                 "アクセス": access,
                 "職種": job_type,
+                "取得日時": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
 
             self.logger.info(
