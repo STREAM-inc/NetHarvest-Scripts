@@ -1288,3 +1288,10 @@ sites:
     url: "https://www.hoskyu.com/"
     schedule: "30 1 15-21 * 6"
     enabled: true
+  - site_id: iiyeah_tateru
+    name: "iiYEAH!を建てる"
+    module: "construction.iiyeah_tateru"
+    url: "https://iiyeah-tateru.jp/shops"
+    schedule: null
+    enabled: true
+
