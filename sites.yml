@@ -1057,6 +1057,13 @@ sites:
     schedule: "0 5 15-21 * SUN"
     enabled: true
 
+  - site_id: kepple
+    name: "KEPPLE"
+    module: "corporate.kepple"
+    url: "https://kepple.co.jp/articles/page/1"
+    schedule: null
+    enabled: true
+
   - site_id: kyozon
     name: "kyozon"
     module: "corporate.kyozon"
