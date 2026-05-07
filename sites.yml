@@ -987,7 +987,7 @@ sites:
     enabled: true
 
   - site_id: caferun
-    name: "カフェラン"
+    name: "カフェるん"
     module: "portal.caferun"
     url: "https://caferun.jp/"
     schedule: "40 5 8-14 * SUN"
