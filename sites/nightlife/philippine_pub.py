@@ -1,312 +1,231 @@
-"""
-対象サイト: https://philippine-pub.com/
-"""
-
-from __future__ import annotations
-
-import html
 import re
 import sys
-from pathlib import Path
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import Generator
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from src.const.schema import Schema
 from src.framework.static import StaticCrawler
+from src.const.schema import Schema
 
 
-class PhilippinePubScraper(StaticCrawler):
-    """フィリピンパブスクレイパー"""
+PLACEHOLDERS = {"-", "－", "―", "–", "—", "ー", "なし", "無し"}
+PAYMENT_KEYS = (
+    "クレジットカード", "電子マネー", "QRコード", "QR", "PayPay",
+    "d払い", "楽天ペイ", "au PAY", "Apple Pay", "Google Pay",
+    "交通系", "現金",
+)
 
-    DELAY = 1.0
-    EXTRA_COLUMNS = ["エリア", "FAX", "メール"]
 
-    _SITEMAP_NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+class RePhilippinePubScraper(StaticCrawler):
+    """フィリピンパブどっと混む！！ スクレイパー"""
+
+    DELAY = 1.5
+
+    EXTRA_COLUMNS = ["エリア", "最寄駅"]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        sitemap_index_url = self._resolve_sitemap_index_url(url)
-        shop_urls = self._collect_shop_urls(sitemap_index_url)
-        start_index = getattr(self, "_start_index", 0)
-        if start_index > 0:
-            self.logger.info("再開モード: 先頭 %d 件をスキップします", start_index)
-        shop_urls = shop_urls[start_index:]
+        shop_urls = self._collect_shop_urls(url)
         self.total_items = len(shop_urls)
-        self.logger.info("対象店舗ページ数: %d", self.total_items)
+        self.logger.info(f"対象店舗ページ数: {self.total_items}")
 
         for shop_url in shop_urls:
-            item = self._parse_shop_page(shop_url)
-            if item is not None:
-                yield item
+            yield from self._scrape_detail(shop_url)
 
-    def _resolve_sitemap_index_url(self, seed_url: str) -> str:
+    # サイトマップから店舗ページのURL一覧を作る
+    def _collect_shop_urls(self, seed_url: str) -> list[str]:
         parsed = urlparse(seed_url)
-        if parsed.path.endswith(".xml"):
-            return seed_url
-        return f"{parsed.scheme}://{parsed.netloc}/sitemap_index.xml"
+        base = f"{parsed.scheme}://{parsed.netloc}"
+        index_url = seed_url if parsed.path.endswith(".xml") else urljoin(base + "/", "sitemap_index.xml")
 
-    def _collect_shop_urls(self, sitemap_index_url: str) -> list[str]:
-        all_page_urls: list[str] = []
-        for child_sitemap_url in self._extract_locs_from_sitemap(sitemap_index_url):
-            all_page_urls.extend(self._extract_locs_from_sitemap(child_sitemap_url))
+        urls: list[str] = []
+        seen: set[str] = set()
+        for sm in self._read_sitemap(index_url):
+            if "/post-sitemap" not in sm:
+                continue
+            for page_url in self._read_sitemap(sm):
+                if page_url in seen or not self._looks_like_shop_url(page_url, parsed.netloc):
+                    continue
+                seen.add(page_url)
+                urls.append(page_url)
+        return urls
 
-        deduped = list(dict.fromkeys(all_page_urls))
-        shop_urls: list[str] = []
-        for page_url in deduped:
-            if self._is_possible_shop_url(page_url):
-                shop_urls.append(page_url)
-        return shop_urls
-
-    def _extract_locs_from_sitemap(self, sitemap_url: str) -> list[str]:
+    def _read_sitemap(self, sitemap_url: str) -> list[str]:
         try:
             response = self.session.get(sitemap_url, timeout=self.TIMEOUT)
             response.raise_for_status()
-            root = ET.fromstring(response.text)
+            root = ET.fromstring(response.content)
         except Exception as e:
-            self.logger.warning("サイトマップ取得失敗: %s (%s)", sitemap_url, e)
+            self.logger.warning(f"サイトマップ取得失敗: {sitemap_url} ({e})")
             return []
+        return [el.text.strip() for el in root.iter() if el.tag.endswith("loc") and el.text]
 
-        loc_nodes = root.findall(".//sm:loc", self._SITEMAP_NS)
-        locs = [node.text.strip() for node in loc_nodes if node.text]
-        self.logger.info("URL抽出: %s -> %d件", sitemap_url, len(locs))
-        return locs
-
-    def _is_possible_shop_url(self, page_url: str) -> bool:
+    def _looks_like_shop_url(self, page_url: str, host: str) -> bool:
         parsed = urlparse(page_url)
-        if parsed.netloc != "philippine-pub.com":
-            return False
         path = parsed.path.rstrip("/")
-        if not path or path.count("/") < 2:
+        if parsed.netloc != host or path.count("/") < 2:
             return False
-        if path.endswith(".xml"):
-            return False
-        if any(token in path for token in ("/category/", "/tag/", "/author/", "/feed/")):
-            return False
-        return True
+        return not any(t in path for t in ("/category/", "/tag/", "/author/", "/feed/"))
 
-    def _parse_shop_page(self, page_url: str) -> dict | None:
-        page_html = self._fetch_html_text(page_url)
-        if not page_html:
-            return None
-
-        shop_info = self._extract_labeled_table_from_html(page_html, "Shop Information")
-        if not shop_info:
-            return None
-
-        price_info = self._extract_labeled_table_from_html(page_html, "Price System")
-
-        name = self._first_non_empty(
-            shop_info.get("店名（英）"),
-            shop_info.get("店名"),
-            self._extract_h2_name(page_html),
-        )
-        address = self._clean(shop_info.get("住所"))
-        post_code = self._extract_post_code(address)
-        pref = self._extract_prefecture(address)
-        tel = self._clean(shop_info.get("電話番号"))
-        business = self._clean(shop_info.get("業態"))
-        hp = self._normalize_placeholder(shop_info.get("ウェブサイト"))
-        sns = self._parse_sns(shop_info.get("SNS"))
-        business_hours = self._clean(shop_info.get("営業時間"))
-        plain_text = self._html_to_text(page_html)
-        status = "閉業" if "閉業" in plain_text else ""
-        area = self._extract_area(page_html)
-        fax = self._extract_from_text(r"(?:FAX|ＦＡＸ)\s*[:：]?\s*([0-9\-]{8,15})", plain_text)
-        mail = self._extract_from_text(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", plain_text)
-        payment_text = self._build_payments(price_info, page_html)
-
-        return {
-            Schema.NAME: name,
-            Schema.TEL: tel,
-            Schema.PREF: pref,
-            Schema.POST_CODE: post_code,
-            Schema.ADDR: address,
-            Schema.CAT_SITE: business,
-            Schema.HP: hp,
-            Schema.INSTA: sns.get("insta", ""),
-            Schema.FB: sns.get("fb", ""),
-            Schema.X: sns.get("x", ""),
-            Schema.LINE: sns.get("line", ""),
-            Schema.TIME: business_hours,
-            Schema.STS_NM: status,
-            Schema.PAYMENTS: payment_text,
-            "エリア": area,
-            "FAX": fax,
-            "メール": mail,
-        }
-
-    def _fetch_html_text(self, url: str) -> str:
+    # 詳細ページからデータを抽出するメソッド
+    def _scrape_detail(self, url: str) -> Generator[dict, None, None]:
         try:
-            response = self.session.get(url, timeout=self.TIMEOUT)
-            response.raise_for_status()
-            return self._decode_best_effort(response.content)
+            soup = self.get_soup(url)
+            if soup is None:
+                return
+
+            info_table = self._table_after(soup, anchor_id="shop")
+            if info_table is None:
+                return  # 店舗情報テーブルがない記事ページはスキップ
+
+            data = {
+                Schema.URL: url,
+                Schema.NAME: self._shop_title(soup),
+            }
+
+            # 店舗情報テーブルから Schema 定数へマッピング
+            for tr in info_table.find_all("tr"):
+                cells = tr.find_all(["th", "td"])
+                if len(cells) < 2:
+                    continue
+                key = " ".join(cells[0].get_text(" ", strip=True).split())
+                val = " ".join(cells[1].get_text(" ", strip=True).split())
+                if val in PLACEHOLDERS:
+                    val = ""
+
+                if "業態" in key: data[Schema.CAT_SITE] = val
+                elif "住所" in key:
+                    post_code, pref, addr = self._split_address(val)
+                    data[Schema.POST_CODE] = post_code
+                    data[Schema.PREF] = pref
+                    data[Schema.ADDR] = addr
+                elif "電話番号" in key: data[Schema.TEL] = self._first_tel(val)
+                elif "営業時間" in key: data[Schema.TIME] = val
+                elif "定休日" in key: data[Schema.HOLIDAY] = val
+                elif "ウェブサイト" in key: data[Schema.HP] = val
+                elif "最寄駅" in key: data["最寄駅"] = val
+                elif key == "SNS": data.update(self._extract_sns(cells[1]))
+
+            # 料金表から支払方法を組み立て
+            data[Schema.PAYMENTS] = self._build_payments(self._table_after(soup, anchor_id="system"))
+
+            # パンくずから市区町村＋都道府県
+            data["エリア"] = self._extract_area(soup)
+
+            # 閉業フラグ（1=閉業, 0=営業中）
+            data[Schema.STS_NM] = "1" if self._is_closed(soup) else "0"
+
+            yield data
+
         except Exception as e:
-            self.logger.warning("ページ取得失敗: %s (%s)", url, e)
-            return ""
+            self.logger.warning(f"詳細ページのスキップ: {url} ({e})")
 
-    def _decode_best_effort(self, raw: bytes) -> str:
-        candidates: list[str] = []
-        for enc in ("utf-8", "cp932", "euc-jp"):
-            try:
-                candidates.append(raw.decode(enc))
-            except Exception:
-                continue
-        if not candidates:
-            return raw.decode("utf-8", errors="ignore")
+    # 店舗名は <meta og:title> の " | " 区切り先頭を採用（<h1>はサイトロゴ画像のため）
+    def _shop_title(self, soup) -> str:
+        og = soup.find("meta", attrs={"property": "og:title"})
+        content = og.get("content") if og else None
+        if content:
+            return content.split(" | ", 1)[0].strip()
+        h2 = soup.find("h2")
+        return h2.get_text(strip=True) if h2 else ""
 
-        def score(text: str) -> tuple[int, int]:
-            mojibake_count = text.count("�")
-            jp_char_count = len(re.findall(r"[ぁ-んァ-ン一-龥]", text))
-            return (mojibake_count, -jp_char_count)
+    def _table_after(self, soup, anchor_id: str):
+        anchor = soup.find(id=anchor_id)
+        return anchor.find_next("table") if anchor else None
 
-        return sorted(candidates, key=score)[0]
-
-    def _extract_labeled_table_from_html(self, page_html: str, section_keyword: str) -> dict[str, str]:
-        heading_match = re.search(
-            rf"<h[23][^>]*>[^<]*{re.escape(section_keyword)}.*?</h[23]>",
-            page_html,
-            flags=re.IGNORECASE | re.DOTALL,
-        )
-        if not heading_match:
-            return {}
-
-        after_heading = page_html[heading_match.end() :]
-        table_match = re.search(r"<table[^>]*>(.*?)</table>", after_heading, flags=re.IGNORECASE | re.DOTALL)
-        if not table_match:
-            return {}
-
-        rows: dict[str, str] = {}
-        for tr_html in re.findall(r"<tr[^>]*>(.*?)</tr>", table_match.group(1), flags=re.IGNORECASE | re.DOTALL):
-            cells = re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", tr_html, flags=re.IGNORECASE | re.DOTALL)
-            if len(cells) < 2:
-                continue
-            key = self._clean(self._html_to_text(cells[0]))
-            value = self._clean(self._html_to_text(cells[1]))
-            if key:
-                rows[key] = value
-        return rows
-
-    def _extract_h2_name(self, page_html: str) -> str:
-        m = re.search(r"<h2[^>]*>(.*?)</h2>", page_html, flags=re.IGNORECASE | re.DOTALL)
-        if not m:
-            return ""
-        return self._clean(self._html_to_text(m.group(1)))
-
-    def _extract_post_code(self, address: str) -> str:
+    def _split_address(self, address: str) -> tuple[str, str, str]:
         if not address:
-            return ""
-        m = re.search(r"\d{3}-\d{4}", address)
-        return m.group(0) if m else ""
+            return "", "", ""
+        post_code = ""
+        m = re.search(r"〒?\s*(\d{3}-\d{4})", address)
+        if m:
+            post_code = m.group(1)
+            address = (address[:m.start()] + address[m.end():]).strip()
+        pref = ""
+        rest = address
+        m = re.match(r"\s*(北海道|東京都|(?:京都|大阪)府|.{2,3}県)", address)
+        if m:
+            pref = m.group(1)
+            rest = address[m.end():].lstrip()
+        return post_code, pref, rest
 
-    def _extract_prefecture(self, address: str) -> str:
-        if not address:
-            return ""
-        pref_re = r"(北海道|東京都|(?:京都|大阪)府|..県)"
-        m = re.search(pref_re, address)
-        return m.group(1) if m else ""
-
-    def _parse_sns(self, sns_text: str | None) -> dict[str, str]:
-        if not sns_text:
-            return {"insta": "", "fb": "", "x": "", "line": ""}
-        normalized = self._normalize_placeholder(sns_text)
-        if not normalized:
-            return {"insta": "", "fb": "", "x": "", "line": ""}
-        links = [part.strip() for part in normalized.split() if part.strip()]
-        sns = {"insta": "", "fb": "", "x": "", "line": ""}
-        for link in links:
-            low = link.lower()
-            if "instagram.com" in low:
-                sns["insta"] = link
-            elif "facebook.com" in low:
-                sns["fb"] = link
-            elif "x.com" in low or "twitter.com" in low:
-                sns["x"] = link
-            elif "line.me" in low:
-                sns["line"] = link
-        return sns
-
-    def _extract_area(self, page_html: str) -> str:
-        breadcrumb_match = re.search(
-            r"<ul[^>]*class=[\"'][^\"']*breadcrumb[^\"']*[\"'][^>]*>(.*?)</ul>",
-            page_html,
-            flags=re.IGNORECASE | re.DOTALL,
-        )
-        if not breadcrumb_match:
-            return ""
-        li_values = re.findall(r"<li[^>]*>(.*?)</li>", breadcrumb_match.group(1), flags=re.IGNORECASE | re.DOTALL)
-        if len(li_values) < 2:
-            return ""
-        area_text = self._html_to_text(li_values[-2])
-        return self._clean(area_text.replace(",", " ").replace("，", " "))
-
-    def _build_payments(self, price_info: dict[str, str], page_html: str) -> str:
-        payment_keywords = (
-            "クレジットカード",
-            "カード",
-            "現金",
-            "電子マネー",
-            "QR",
-            "PayPay",
-            "d払い",
-            "楽天ペイ",
-            "au PAY",
-            "Apple Pay",
-            "Google Pay",
-            "交通系",
-        )
-        parts: list[str] = []
-        for key, value in price_info.items():
-            row_text = f"{key}:{value}".strip(":")
-            if any(keyword in row_text for keyword in payment_keywords):
-                parts.append(row_text)
-
-        if "card_all.gif" in page_html and not any("クレジットカード" in p for p in parts):
-            parts.append("クレジットカード:利用可")
-        return " / ".join(parts)
-
-    def _normalize_placeholder(self, value: str | None) -> str:
-        text = self._clean(value)
-        if text in ("-", "－", "―", "–", "ー", "なし", "無し"):
-            return ""
-        return text
-
-    def _clean(self, value: str | None) -> str:
+    def _first_tel(self, value: str) -> str:
         if not value:
             return ""
-        return re.sub(r"\s+", " ", value).strip()
+        s = value.translate(str.maketrans("ーｰ－—–", "-----"))
+        m = re.search(r"\d[\d-]{8,15}", s)
+        return m.group(0) if m else ""
 
-    def _first_non_empty(self, *values: str) -> str:
-        for value in values:
-            cleaned = self._clean(value)
-            if cleaned:
-                return cleaned
-        return ""
+    def _extract_sns(self, cell) -> dict[str, str]:
+        sns = {Schema.INSTA: "", Schema.FB: "", Schema.X: "", Schema.LINE: ""}
+        for a in cell.find_all("a", href=True):
+            href = a["href"].strip()
+            low = href.lower()
+            if "instagram.com" in low:
+                sns[Schema.INSTA] = sns[Schema.INSTA] or href
+            elif "facebook.com" in low:
+                sns[Schema.FB] = sns[Schema.FB] or href
+            elif "x.com" in low or "twitter.com" in low:
+                sns[Schema.X] = sns[Schema.X] or href
+            elif "line.me" in low:
+                sns[Schema.LINE] = sns[Schema.LINE] or href
+        return sns
 
-    def _extract_from_text(self, pattern: str, text: str) -> str:
-        m = re.search(pattern, text)
-        return self._clean(m.group(1) if m and m.groups() else m.group(0) if m else "")
+    def _build_payments(self, price_table) -> str:
+        if price_table is None:
+            return ""
+        out: list[str] = []
+        for tr in price_table.find_all("tr"):
+            cells = tr.find_all(["th", "td"])
+            if len(cells) < 2:
+                continue
+            key = " ".join(cells[0].get_text(" ", strip=True).split())
+            matched = next((p for p in PAYMENT_KEYS if p in key), None)
+            if not matched:
+                continue
+            value_cell = cells[1]
+            text = " ".join(value_cell.get_text(" ", strip=True).split())
+            if value_cell.find("img"):
+                tag = matched
+            elif text and text not in PLACEHOLDERS:
+                tag = f"{matched}:{text}"
+            else:
+                continue
+            if tag not in out:
+                out.append(tag)
+        return " / ".join(out)
 
-    def _html_to_text(self, html_fragment: str) -> str:
-        text = re.sub(r"<[^>]+>", " ", html_fragment)
-        return html.unescape(re.sub(r"\s+", " ", text)).strip()
+    def _extract_area(self, soup) -> str:
+        bc = soup.find(id="bread_crumb")
+        if bc is None:
+            return ""
+        names: list[str] = []
+        for li in bc.find_all("li"):
+            classes = li.get("class") or []
+            if "home" in classes or "last" in classes:
+                continue
+            for span in li.find_all("span", attrs={"itemprop": "name"}):
+                t = span.get_text(strip=True).rstrip(",").rstrip("，").strip()
+                if t and t not in names:
+                    names.append(t)
+        return " ".join(names)
+
+    # 赤色強調表示の「閉業」を検出（例: <p class="has-vivid-red-color ...">閉業</p>）
+    def _is_closed(self, soup) -> bool:
+        for el in soup.find_all(["p", "span", "div", "strong"]):
+            classes = el.get("class") or []
+            if not any("red" in c.lower() for c in classes):
+                continue
+            if "閉業" in el.get_text(strip=True):
+                return True
+        return False
 
 
 if __name__ == "__main__":
-    import argparse
     import logging
-
     logging.basicConfig(level=logging.INFO)
-
-    parser = argparse.ArgumentParser(description="Philippine Pub scraper")
-    parser.add_argument("--url", default="https://philippine-pub.com/", help="seed URL or sitemap URL")
-    parser.add_argument("--start-index", type=int, default=0, help="skip first N shop URLs")
-    args = parser.parse_args()
-
-    crawler = PhilippinePubScraper()
-    crawler._start_index = max(args.start_index, 0)
-    target = args.url
-    crawler.execute(target)
+    RePhilippinePubScraper().execute("https://philippine-pub.com/")
