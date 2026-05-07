@@ -21,7 +21,7 @@ PAYMENT_KEYS = (
 )
 
 
-class RePhilippinePubScraper(StaticCrawler):
+class PhilippinePubScraper(StaticCrawler):
     """フィリピンパブどっと混む！！ スクレイパー"""
 
     DELAY = 1.5
@@ -228,4 +228,4 @@ class RePhilippinePubScraper(StaticCrawler):
 if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.INFO)
-    RePhilippinePubScraper().execute("https://philippine-pub.com/")
+    PhilippinePubScraper().execute("https://philippine-pub.com/")
