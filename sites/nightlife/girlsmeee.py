@@ -1,11 +1,11 @@
 """
-体入ガールズミー — ガールズバー・コンカフェ 体入求人スクレイパー
+体入ガールズミー — ガールズバー・コンカフェ 体入求人スクレイパー（関西地域）
 
 取得対象:
-    - girlsmeee.com 掲載の全店舗詳細ページ
+    - girlsmeee.com の関西地域（kansai）掲載店舗詳細ページ
 
 取得フロー:
-    1. sitemap.xml → 店舗URL一覧を収集 (/{kanto|kansai}/{area}/{id} パターン)
+    1. sitemap.xml → 関西店舗URL収集
     2. 各詳細ページを解析してフィールド取得
 
 実行方法:
@@ -47,7 +47,9 @@ class GirlsmeeeScraper(StaticCrawler):
     EXTRA_COLUMNS = ["エリア", "体入時給", "最低保証時給", "平均時給", "謝礼金", "キャッチフレーズ"]
 
     _SITEMAP_NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
-    _SHOP_URL_RE = re.compile(r"^https://girlsmeee\.com/(?:kanto|kansai)/[^/]+/\d+$")
+    _SHOP_URL_RE = re.compile(
+        r"^https://girlsmeee\.com/kansai/[^/]+/\d+(?:/.*)?$"
+    )
     _SNS_IGNORE = ("girlsmeeekansai", "tainew_girlsmeee")
 
     def parse(self, url: str) -> Generator[dict, None, None]:
@@ -79,6 +81,11 @@ class GirlsmeeeScraper(StaticCrawler):
         return f"{parsed.scheme}://{parsed.netloc}/sitemap.xml"
 
     def _collect_shop_urls(self, sitemap_url: str) -> list[str]:
+        shop_urls = self._collect_sitemap_urls(sitemap_url)
+        self.logger.info("サイトマップ収集: %d 件", len(shop_urls))
+        return shop_urls
+
+    def _collect_sitemap_urls(self, sitemap_url: str) -> list[str]:
         try:
             response = self.session.get(sitemap_url, timeout=self.TIMEOUT)
             response.raise_for_status()
