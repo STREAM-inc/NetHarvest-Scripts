@@ -221,7 +221,7 @@ sites:
     name: "体入マカロン"
     module: "jobs.tainyu_macaron"
     url: "https://picsastock.com/sitemap.xml"
-    schedule: "0 2 15-21 * SUN"
+    schedule: "0 2 * * SUN"
     enabled: true
 
   - site_id: tadaoka_shoko
