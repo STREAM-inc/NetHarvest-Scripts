@@ -1315,3 +1315,10 @@ sites:
     url: "https://job.mynavi.jp/2027/"
     schedule: null
     enabled: true
+
+  - site_id: girlsmeee
+    name: "体入ガールズミー"
+    module: "nightlife.girlsmeee"
+    url: "https://girlsmeee.com"
+    schedule: "30 5 22-28 * SAT"
+    enabled: true

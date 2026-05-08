@@ -1,0 +1,465 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - link "体入ガールズミー ガールズバー、コンカフェの体入求人なら体入ガールズミー" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e7]: 体入ガールズミー
+          - img "ガールズバー、コンカフェの体入求人なら体入ガールズミー" [ref=e8]
+        - list [ref=e9]:
+          - listitem [ref=e10]:
+            - link "トップページ " [ref=e11] [cursor=pointer]:
+              - /url: https://girlsmeee.com
+              - text: トップページ
+              - generic [ref=e13]: 
+          - listitem [ref=e14]:
+            - generic [ref=e15] [cursor=pointer]:
+              - text: 求人を探す
+              - generic [ref=e17]: 
+          - listitem [ref=e18]:
+            - link "体入レポート " [ref=e19] [cursor=pointer]:
+              - /url: /report
+              - text: 体入レポート
+              - generic [ref=e21]: 
+          - listitem [ref=e22]:
+            - link "つぶやき " [ref=e23] [cursor=pointer]:
+              - /url: /tweet
+              - text: つぶやき
+              - generic [ref=e25]: 
+          - listitem [ref=e26]:
+            - link "謝礼金申請 " [ref=e27] [cursor=pointer]:
+              - /url: https://girlsmeee.com/report
+              - text: 謝礼金申請
+              - generic [ref=e29]: 
+          - listitem [ref=e30]:
+            - link "会員登録 " [ref=e31] [cursor=pointer]:
+              - /url: https://girlsmeee.com/register/phone?ref=https%3A%2F%2Fgirlsmeee.com%2Fkanto%2Fsearch
+              - text: 会員登録
+              - generic [ref=e33]: 
+      - generic [ref=e34]:
+        - text: © 2026
+        - link "ガールズバー・コンカフェの体入求人なら 体入ガールズミー" [ref=e35] [cursor=pointer]:
+          - /url: /
+          - text: ガールズバー・コンカフェの体入求人なら
+          - text: 体入ガールズミー
+        - text: All rights reserved.
+    - generic [ref=e36]:
+      - generic [ref=e38]:
+        - link "体入ガールズミー ガールズバー、コンカフェの体入求人なら体入ガールズミー" [ref=e39] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e40]: 体入ガールズミー
+          - img "ガールズバー、コンカフェの体入求人なら体入ガールズミー" [ref=e41]
+        - generic [ref=e43]:
+          - button "Menu MENU" [ref=e44] [cursor=pointer]:
+            - generic [ref=e45]:
+              - img "Menu" [ref=e46]
+              - generic [ref=e47]: MENU
+          - text:               
+      - generic [ref=e49]:
+        - generic [ref=e50]:
+          - link "ガールズバー、コンカフェの体入求人なら体入ガールズミー" [ref=e51] [cursor=pointer]:
+            - /url: /
+            - img "ガールズバー、コンカフェの体入求人なら体入ガールズミー" [ref=e52]
+          - list [ref=e53]
+        - generic [ref=e54]:
+          - heading "申し訳ありません。お探しのページは存在しません。" [level=1] [ref=e55]
+          - link "トップページへ戻る" [ref=e57] [cursor=pointer]:
+            - /url: https://girlsmeee.com
+        - generic [ref=e58]:
+          - generic [ref=e59]:
+            - heading "体入GirlsMeeeについて" [level=2] [ref=e60]
+            - paragraph [ref=e61]: "- ABOUT -"
+          - generic [ref=e62]:
+            - generic [ref=e63]:
+              - link [ref=e64] [cursor=pointer]:
+                - /url: https://girlsmeee.com/register/phone?ref=https%3A%2F%2Fgirlsmeee.com%2Fkanto%2Fsearch
+                - img [ref=e65]
+              - link "会員登録" [ref=e67] [cursor=pointer]:
+                - /url: https://girlsmeee.com/register/phone?ref=https%3A%2F%2Fgirlsmeee.com%2Fkanto%2Fsearch
+            - generic [ref=e68]:
+              - link [ref=e69] [cursor=pointer]:
+                - /url: https://girlsmeee.com/user-manual
+                - img [ref=e70]
+              - link "ご利用方法" [ref=e72] [cursor=pointer]:
+                - /url: https://girlsmeee.com/user-manual
+            - generic [ref=e73]:
+              - link [ref=e74] [cursor=pointer]:
+                - /url: https://girlsmeee.com/help-center
+                - img [ref=e75]
+              - link "ヘルプセンター" [ref=e77] [cursor=pointer]:
+                - /url: https://girlsmeee.com/help-center
+          - generic [ref=e78]:
+            - paragraph [ref=e79]: 求人をお考えの店舗様はこちら
+            - link "簡単 60秒 掲載申し込みする" [ref=e80] [cursor=pointer]:
+              - /url: https://girlsmeee.com/request-create-bar-profile
+              - generic [ref=e81]:
+                - generic [ref=e82]: 簡単
+                - generic [ref=e83]: 60秒
+              - generic [ref=e84]: 掲載申し込みする
+          - link "体入ガールズミー ガールズバー、コンカフェの体入求人なら体入ガールズミー 謝礼金がもらえるガールズバー・コンカフェ求人" [ref=e86] [cursor=pointer]:
+            - /url: /
+            - generic [ref=e87]: 体入ガールズミー
+            - img "ガールズバー、コンカフェの体入求人なら体入ガールズミー" [ref=e88]
+            - generic [ref=e89]: 謝礼金がもらえるガールズバー・コンカフェ求人
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - paragraph [ref=e93]:
+                - link "東京都の体入‧求人" [ref=e94] [cursor=pointer]:
+                  - /url: /kanto/tokyo
+              - list [ref=e95]:
+                - listitem [ref=e96]:
+                  - link "池袋の体入‧求人" [ref=e97] [cursor=pointer]:
+                    - /url: /kanto/tokyo/ikebukuro
+                - listitem [ref=e98]:
+                  - link "上野の体入‧求人" [ref=e99] [cursor=pointer]:
+                    - /url: /kanto/tokyo/ueno
+                - listitem [ref=e100]:
+                  - link "新宿・歌舞伎町の体入‧求人" [ref=e101] [cursor=pointer]:
+                    - /url: /kanto/tokyo/shinjyuku
+                - listitem [ref=e102]:
+                  - link "新橋・銀座の体入‧求人" [ref=e103] [cursor=pointer]:
+                    - /url: /kanto/tokyo/shinbashi
+                - listitem [ref=e104]:
+                  - link "錦糸町・亀戸の体入‧求人" [ref=e105] [cursor=pointer]:
+                    - /url: /kanto/tokyo/kinshicyo
+                - listitem [ref=e106]:
+                  - link "赤羽の体入‧求人" [ref=e107] [cursor=pointer]:
+                    - /url: /kanto/tokyo/akabane
+                - listitem [ref=e108]:
+                  - link "秋葉原の体入‧求人" [ref=e109] [cursor=pointer]:
+                    - /url: /kanto/tokyo/akihabara
+                - listitem [ref=e110]:
+                  - link "吉祥寺の体入‧求人" [ref=e111] [cursor=pointer]:
+                    - /url: /kanto/tokyo/kichijoji
+                - listitem [ref=e112]:
+                  - link "荻窪・高円寺の体入‧求人" [ref=e113] [cursor=pointer]:
+                    - /url: /kanto/tokyo/ogikubo
+                - listitem [ref=e114]:
+                  - link "蒲田・大森の体入‧求人" [ref=e115] [cursor=pointer]:
+                    - /url: /kanto/tokyo/kamata
+                - listitem [ref=e116]:
+                  - link "渋谷の体入‧求人" [ref=e117] [cursor=pointer]:
+                    - /url: /kanto/tokyo/shibuya
+                - listitem [ref=e118]:
+                  - link "中目黒・自由が丘の体入‧求人" [ref=e119] [cursor=pointer]:
+                    - /url: /kanto/tokyo/nakameguro
+                - listitem [ref=e120]:
+                  - link "五反田の体入‧求人" [ref=e121] [cursor=pointer]:
+                    - /url: /kanto/tokyo/gotanda
+                - listitem [ref=e122]:
+                  - link "四ツ谷・神楽坂の体入‧求人" [ref=e123] [cursor=pointer]:
+                    - /url: /kanto/tokyo/yotsuya
+                - listitem [ref=e124]:
+                  - link "北千住・綾瀬の体入‧求人" [ref=e125] [cursor=pointer]:
+                    - /url: /kanto/tokyo/kitasenjyu
+                - listitem [ref=e126]:
+                  - link "神田の体入‧求人" [ref=e127] [cursor=pointer]:
+                    - /url: /kanto/tokyo/kanda
+                - listitem [ref=e128]:
+                  - link "中野の体入‧求人" [ref=e129] [cursor=pointer]:
+                    - /url: /kanto/tokyo/nakano
+                - listitem [ref=e130]:
+                  - link "大塚・巣鴨の体入‧求人" [ref=e131] [cursor=pointer]:
+                    - /url: /kanto/tokyo/otsuka
+                - listitem [ref=e132]:
+                  - link "六本木・赤坂の体入‧求人" [ref=e133] [cursor=pointer]:
+                    - /url: /kanto/tokyo/roppongi
+                - listitem [ref=e134]:
+                  - link "小岩・新小岩の体入‧求人" [ref=e135] [cursor=pointer]:
+                    - /url: /kanto/tokyo/koiwa
+                - listitem [ref=e136]:
+                  - link "高田馬場の体入‧求人" [ref=e137] [cursor=pointer]:
+                    - /url: /kanto/tokyo/takadanobaba
+                - listitem [ref=e138]:
+                  - link "三軒茶屋・二子玉川の体入‧求人" [ref=e139] [cursor=pointer]:
+                    - /url: /kanto/tokyo/sangendyaya
+                - listitem [ref=e140]:
+                  - link "成増・板橋の体入‧求人" [ref=e141] [cursor=pointer]:
+                    - /url: /kanto/tokyo/narimasu
+                - listitem [ref=e142]:
+                  - link "練馬の体入‧求人" [ref=e143] [cursor=pointer]:
+                    - /url: /kanto/tokyo/nerima
+                - listitem [ref=e144]:
+                  - link "立川の体入‧求人" [ref=e145] [cursor=pointer]:
+                    - /url: /kanto/tokyo/tachikawa
+                - listitem [ref=e146]:
+                  - link "品川・大井町の体入‧求人" [ref=e147] [cursor=pointer]:
+                    - /url: /kanto/tokyo/shinagawa
+                - listitem [ref=e148]:
+                  - link "日暮里・鶯谷の体入‧求人" [ref=e149] [cursor=pointer]:
+                    - /url: /kanto/tokyo/nippori
+                - listitem [ref=e150]:
+                  - link "八王子の体入‧求人" [ref=e151] [cursor=pointer]:
+                    - /url: /kanto/tokyo/hachioji
+                - listitem [ref=e152]:
+                  - link "明大前・烏山の体入‧求人" [ref=e153] [cursor=pointer]:
+                    - /url: /kanto/tokyo/meidaimae
+                - listitem [ref=e154]:
+                  - link "恵比寿・目黒の体入‧求人" [ref=e155] [cursor=pointer]:
+                    - /url: /kanto/tokyo/ebisu
+                - listitem [ref=e156]:
+                  - link "門前仲町・東陽町の体入‧求人" [ref=e157] [cursor=pointer]:
+                    - /url: /kanto/tokyo/monzennakacho
+                - listitem [ref=e158]:
+                  - link "町田の体入‧求人" [ref=e159] [cursor=pointer]:
+                    - /url: /kanto/tokyo/machida
+                - listitem [ref=e160]:
+                  - link "府中・多摩の体入‧求人" [ref=e161] [cursor=pointer]:
+                    - /url: /kanto/tokyo/hucyutama
+                - listitem [ref=e162]:
+                  - link "浅草の体入‧求人" [ref=e163] [cursor=pointer]:
+                    - /url: /kanto/tokyo/asakusa
+                - listitem [ref=e164]:
+                  - link "東村山の体入‧求人" [ref=e165] [cursor=pointer]:
+                    - /url: /kanto/tokyo/higashimurayama
+                - listitem [ref=e166]:
+                  - link "亀有・金町の体入‧求人" [ref=e167] [cursor=pointer]:
+                    - /url: /kanto/tokyo/kameari
+                - listitem [ref=e168]:
+                  - link "葛西の体入‧求人" [ref=e169] [cursor=pointer]:
+                    - /url: /kanto/tokyo/kasai
+                - listitem [ref=e170]:
+                  - link "国分寺の体入‧求人" [ref=e171] [cursor=pointer]:
+                    - /url: /kanto/tokyo/kokubunji
+                - listitem [ref=e172]:
+                  - link "ひばりが丘の体入‧求人" [ref=e173] [cursor=pointer]:
+                    - /url: /kanto/tokyo/hibarigaoka
+                - listitem [ref=e174]:
+                  - link "下北沢・経堂の体入‧求人" [ref=e175] [cursor=pointer]:
+                    - /url: /kanto/tokyo/shimokitazawa
+            - generic [ref=e176]:
+              - paragraph [ref=e177]:
+                - link "神奈川県の体入‧求人" [ref=e178] [cursor=pointer]:
+                  - /url: /kanto/kanagawa
+              - list [ref=e179]:
+                - listitem [ref=e180]:
+                  - link "川崎の体入‧求人" [ref=e181] [cursor=pointer]:
+                    - /url: /kanto/kanagawa/kawasaki
+                - listitem [ref=e182]:
+                  - link "関内の体入‧求人" [ref=e183] [cursor=pointer]:
+                    - /url: /kanto/kanagawa/kannai
+                - listitem [ref=e184]:
+                  - link "横浜の体入‧求人" [ref=e185] [cursor=pointer]:
+                    - /url: /kanto/kanagawa/yokohama
+                - listitem [ref=e186]:
+                  - link "桜木町の体入‧求人" [ref=e187] [cursor=pointer]:
+                    - /url: /kanto/kanagawa/sakuragicho
+                - listitem [ref=e188]:
+                  - link "上大岡・戸塚の体入‧求人" [ref=e189] [cursor=pointer]:
+                    - /url: /kanto/kanagawa/kamiooka
+                - listitem [ref=e190]:
+                  - link "本厚木の体入‧求人" [ref=e191] [cursor=pointer]:
+                    - /url: /kanto/kanagawa/honatsugi
+                - listitem [ref=e192]:
+                  - link "新横浜の体入‧求人" [ref=e193] [cursor=pointer]:
+                    - /url: /kanto/kanagawa/shinyokohama
+                - listitem [ref=e194]:
+                  - link "相模原の体入‧求人" [ref=e195] [cursor=pointer]:
+                    - /url: /kanto/kanagawa/sagamihara
+                - listitem [ref=e196]:
+                  - link "藤沢・平塚の体入‧求人" [ref=e197] [cursor=pointer]:
+                    - /url: /kanto/kanagawa/fujisawa
+            - generic [ref=e198]:
+              - paragraph [ref=e199]:
+                - link "千葉県の体入‧求人" [ref=e200] [cursor=pointer]:
+                  - /url: /kanto/chiba
+              - list [ref=e201]:
+                - listitem [ref=e202]:
+                  - link "千葉の体入‧求人" [ref=e203] [cursor=pointer]:
+                    - /url: /kanto/chiba/chiba
+                - listitem [ref=e204]:
+                  - link "柏の体入‧求人" [ref=e205] [cursor=pointer]:
+                    - /url: /kanto/chiba/kashiwa
+                - listitem [ref=e206]:
+                  - link "市川の体入‧求人" [ref=e207] [cursor=pointer]:
+                    - /url: /kanto/chiba/ichikawa
+                - listitem [ref=e208]:
+                  - link "松戸の体入‧求人" [ref=e209] [cursor=pointer]:
+                    - /url: /kanto/chiba/matsudo
+            - generic [ref=e210]:
+              - paragraph [ref=e211]:
+                - link "埼玉県の体入‧求人" [ref=e212] [cursor=pointer]:
+                  - /url: /kanto/saitama
+              - list [ref=e213]:
+                - listitem [ref=e214]:
+                  - link "大宮の体入‧求人" [ref=e215] [cursor=pointer]:
+                    - /url: /kanto/saitama/omiya
+                - listitem [ref=e216]:
+                  - link "川口の体入‧求人" [ref=e217] [cursor=pointer]:
+                    - /url: /kanto/saitama/kawaguchi
+                - listitem [ref=e218]:
+                  - link "越谷の体入‧求人" [ref=e219] [cursor=pointer]:
+                    - /url: /kanto/saitama/koshigaya
+                - listitem [ref=e220]:
+                  - link "所沢の体入‧求人" [ref=e221] [cursor=pointer]:
+                    - /url: /kanto/saitama/tokorozawa
+                - listitem [ref=e222]:
+                  - link "浦和の体入‧求人" [ref=e223] [cursor=pointer]:
+                    - /url: /kanto/saitama/urawa
+                - listitem [ref=e224]:
+                  - link "川越の体入‧求人" [ref=e225] [cursor=pointer]:
+                    - /url: /kanto/saitama/kawagoe
+            - generic [ref=e226]:
+              - paragraph [ref=e227]:
+                - link "大阪府の体入‧求人" [ref=e228] [cursor=pointer]:
+                  - /url: /kansai/osaka
+              - list [ref=e229]:
+                - listitem [ref=e230]:
+                  - link "難波・心斎橋の体入‧求人" [ref=e231] [cursor=pointer]:
+                    - /url: /kansai/osaka/nanba
+                - listitem [ref=e232]:
+                  - link "梅田の体入‧求人" [ref=e233] [cursor=pointer]:
+                    - /url: /kansai/osaka/umeda
+                - listitem [ref=e234]:
+                  - link "日本橋の体入‧求人" [ref=e235] [cursor=pointer]:
+                    - /url: /kansai/osaka/nihonbashi
+                - listitem [ref=e236]:
+                  - link "京橋の体入‧求人" [ref=e237] [cursor=pointer]:
+                    - /url: /kansai/osaka/kyobashi
+                - listitem [ref=e238]:
+                  - link "北新地の体入‧求人" [ref=e239] [cursor=pointer]:
+                    - /url: /kansai/osaka/kitashinchi
+                - listitem [ref=e240]:
+                  - link "堺東の体入‧求人" [ref=e241] [cursor=pointer]:
+                    - /url: /kansai/osaka/sakaihigashi
+                - listitem [ref=e242]:
+                  - link "西中島・新大阪・東三国の体入‧求人" [ref=e243] [cursor=pointer]:
+                    - /url: /kansai/osaka/nishinakajimashinoosakahigashimikuni
+                - listitem [ref=e244]:
+                  - link "弁天町・九条・大正の体入‧求人" [ref=e245] [cursor=pointer]:
+                    - /url: /kansai/osaka/bentenkujotaisho
+                - listitem [ref=e246]:
+                  - link "天満の体入‧求人" [ref=e247] [cursor=pointer]:
+                    - /url: /kansai/osaka/tenman
+                - listitem [ref=e248]:
+                  - link "十三の体入‧求人" [ref=e249] [cursor=pointer]:
+                    - /url: /kansai/osaka/juso
+                - listitem [ref=e250]:
+                  - link "江坂・吹田の体入‧求人" [ref=e251] [cursor=pointer]:
+                    - /url: /kansai/osaka/esakasuita
+                - listitem [ref=e252]:
+                  - link "本町の体入‧求人" [ref=e253] [cursor=pointer]:
+                    - /url: /kansai/osaka/honmachi
+                - listitem [ref=e254]:
+                  - link "淡路の体入‧求人" [ref=e255] [cursor=pointer]:
+                    - /url: /kansai/osaka/awazi
+                - listitem [ref=e256]:
+                  - link "枚方市の体入‧求人" [ref=e257] [cursor=pointer]:
+                    - /url: /kansai/osaka/hirakata
+                - listitem [ref=e258]:
+                  - link "西田辺の体入‧求人" [ref=e259] [cursor=pointer]:
+                    - /url: /kansai/osaka/nishitanabe
+                - listitem [ref=e260]:
+                  - link "高槻・茨木の体入‧求人" [ref=e261] [cursor=pointer]:
+                    - /url: /kansai/osaka/takatsukiibaraki
+                - listitem [ref=e262]:
+                  - link "福島・野田の体入‧求人" [ref=e263] [cursor=pointer]:
+                    - /url: /kansai/osaka/hukushimanoda
+                - listitem [ref=e264]:
+                  - link "豊中市の体入‧求人" [ref=e265] [cursor=pointer]:
+                    - /url: /kansai/osaka/toyonakashi
+            - generic [ref=e266]:
+              - paragraph [ref=e267]:
+                - link "兵庫県の体入‧求人" [ref=e268] [cursor=pointer]:
+                  - /url: /kansai/hyogo
+              - list [ref=e269]:
+                - listitem [ref=e270]:
+                  - link "神戸三宮の体入‧求人" [ref=e271] [cursor=pointer]:
+                    - /url: /kansai/hyogo/sannomiya
+                - listitem [ref=e272]:
+                  - link "尼崎・伊丹の体入‧求人" [ref=e273] [cursor=pointer]:
+                    - /url: /kansai/hyogo/amagasakiitami
+                - listitem [ref=e274]:
+                  - link "姫路の体入‧求人" [ref=e275] [cursor=pointer]:
+                    - /url: /kansai/hyogo/himeji
+            - generic [ref=e276]:
+              - paragraph [ref=e277]:
+                - link "京都府の体入‧求人" [ref=e278] [cursor=pointer]:
+                  - /url: /kansai/kyoto
+              - list [ref=e279]:
+                - listitem [ref=e280]:
+                  - link "木屋町の体入‧求人" [ref=e281] [cursor=pointer]:
+                    - /url: /kansai/kyoto/kiyamachi
+                - listitem [ref=e282]:
+                  - link "祇園の体入‧求人" [ref=e283] [cursor=pointer]:
+                    - /url: /kansai/kyoto/gion
+          - generic [ref=e285]:
+            - generic [ref=e286]: ガールズバー・コンカフェのコラムお役立ち情報
+            - link "「体入ガールズミープラス」" [ref=e287] [cursor=pointer]:
+              - /url: https://girlsmeee.com/plus
+          - generic [ref=e289]:
+            - link "プライバシーポリシー" [ref=e290] [cursor=pointer]:
+              - /url: https://girlsmeee.com/policy/private-policy
+            - link "利用規約" [ref=e291] [cursor=pointer]:
+              - /url: https://girlsmeee.com/policy/terms-of-use
+            - link "ポイントに関する規約" [ref=e292] [cursor=pointer]:
+              - /url: https://girlsmeee.com/policy/terms-of-use#terms-regarding-points
+            - link "謝礼金申請ルール" [ref=e293] [cursor=pointer]:
+              - /url: https://girlsmeee.com/policy/report
+            - link "サイトマップ" [ref=e294] [cursor=pointer]:
+              - /url: https://girlsmeee.com/sitemap
+            - link "お問い合わせ" [ref=e295] [cursor=pointer]:
+              - /url: https://girlsmeee.com/inquiry
+            - link "求人掲載希望" [ref=e296] [cursor=pointer]:
+              - /url: https://girlsmeee.com/request-create-bar-profile
+            - link "店舗管理ログイン" [ref=e297] [cursor=pointer]:
+              - /url: https://shop.girlsmeee.com/login
+            - link "運営者情報" [ref=e298] [cursor=pointer]:
+              - /url: https://girlsmeee.com/policy/business
+          - generic [ref=e300]:
+            - link "X icon" [ref=e301] [cursor=pointer]:
+              - /url: https://twitter.com/GirlsMeeekansai
+              - img "X icon" [ref=e302]
+            - link "Instagram icon" [ref=e303] [cursor=pointer]:
+              - /url: https://www.instagram.com/tainew_girlsmeee/
+              - img "Instagram icon" [ref=e304]
+            - link "" [ref=e305] [cursor=pointer]:
+              - /url: https://www.tiktok.com/@tainew_girlsmeee
+              - generic [ref=e306]: 
+            - link "" [ref=e307] [cursor=pointer]:
+              - /url: https://www.youtube.com/channel/UCT6JaivCtQu3rc6ZQn8KMvw
+              - generic [ref=e308]: 
+          - generic [ref=e309]:
+            - text: © 2026
+            - link "ガールズバー‧コンカフェの体入求人なら 体入ガールズミー" [ref=e310] [cursor=pointer]:
+              - /url: /
+              - text: ガールズバー‧コンカフェの体入求人なら
+              - text: 体入ガールズミー
+            - text: All rights reserved.
+      - generic [ref=e312]:
+        - link " 求人を探す" [ref=e314] [cursor=pointer]:
+          - /url: https://girlsmeee.com/search-condition
+          - generic [ref=e315]: 
+          - generic [ref=e316]: 求人を探す
+        - link " 気になる" [ref=e318] [cursor=pointer]:
+          - /url: https://girlsmeee.com/favorite-stores
+          - generic [ref=e319]: 
+          - generic [ref=e320]: 気になる
+        - link " メッセージ" [ref=e322] [cursor=pointer]:
+          - /url: https://girlsmeee.com/seeker-conversation/chat
+          - generic [ref=e323]: 
+          - generic [ref=e324]: メッセージ
+        - link " 謝礼金申請" [ref=e326] [cursor=pointer]:
+          - /url: https://girlsmeee.com/report
+          - generic [ref=e327]: 
+          - generic [ref=e328]: 謝礼金申請
+        - link " マイページ" [ref=e330] [cursor=pointer]:
+          - /url: https://girlsmeee.com/my-page
+          - generic [ref=e331]: 
+          - generic [ref=e332]: マイページ
+    - generic [ref=e333]:
+      - img "Girls Meeee" [ref=e335]
+      - generic [ref=e337]:
+        - link "X icon" [ref=e338] [cursor=pointer]:
+          - /url: https://twitter.com/GirlsMeeekansai
+          - img "X icon" [ref=e339]
+        - link "Instagram icon" [ref=e340] [cursor=pointer]:
+          - /url: https://www.instagram.com/tainew_girlsmeee/
+          - img "Instagram icon" [ref=e341]
+        - link "" [ref=e342] [cursor=pointer]:
+          - /url: https://www.tiktok.com/@tainew_girlsmeee
+          - generic [ref=e343]: 
+        - link "" [ref=e344] [cursor=pointer]:
+          - /url: https://www.youtube.com/channel/UCT6JaivCtQu3rc6ZQn8KMvw
+          - generic [ref=e345]: 
+  - text:  
