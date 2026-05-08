@@ -1,314 +1,180 @@
 """
-iiYEAH!を建てる — 工務店・ハウスメーカー情報スクレイパー（安定版）
+ii家yeah! — 工務店・ハウスメーカー情報スクレイパー
+
+取得対象:
+    - 全国の工務店・ハウスメーカー（4,838件 / 49ページ）
+
+取得フロー:
+    1. /shops HTMLからAPIアクセストークンを取得
+    2. rcms-api/4/general/shops?pageID=N&cnt=100 で全ページをAPI取得
+    3. 各アイテムのフィールドをSchemaにマッピング（詳細ページアクセス不要）
+
+実行方法:
+    # ローカルテスト
+    python scripts/sites/construction/iiyeah_tateru.py
+
+    # Prefect Flow 経由
+    python bin/run_flow.py --site-id iiyeah_tateru
 """
 
 import re
 import sys
 import time
 from pathlib import Path
-from urllib.parse import urljoin
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from src.framework.dynamic import DynamicCrawler
+from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
 _BASE_URL = "https://iiyeah-tateru.jp"
+_API_BASE = "https://api.iiyeah-tateru.jp/rcms-api/4/general/shops"
+_TOKEN_RE = re.compile(r"[0-9a-f]{64}")
 
-# 都道府県（完全列挙）
-PREFS = [
-    "北海道",
-    "青森県",
-    "岩手県",
-    "宮城県",
-    "秋田県",
-    "山形県",
-    "福島県",
-    "茨城県",
-    "栃木県",
-    "群馬県",
-    "埼玉県",
-    "千葉県",
-    "東京都",
-    "神奈川県",
-    "新潟県",
-    "富山県",
-    "石川県",
-    "福井県",
-    "山梨県",
-    "長野県",
-    "岐阜県",
-    "静岡県",
-    "愛知県",
-    "三重県",
-    "滋賀県",
-    "京都府",
-    "大阪府",
-    "兵庫県",
-    "奈良県",
-    "和歌山県",
-    "鳥取県",
-    "島根県",
-    "岡山県",
-    "広島県",
-    "山口県",
-    "徳島県",
-    "香川県",
-    "愛媛県",
-    "高知県",
-    "福岡県",
-    "佐賀県",
-    "長崎県",
-    "熊本県",
-    "大分県",
-    "宮崎県",
-    "鹿児島県",
-    "沖縄県",
-]
-
-_PREF_RE = re.compile(rf"^({'|'.join(PREFS)})")
+# prefecture.label → 都道府県名
+_PREF_SUFFIX = {
+    "北海道": "北海道",
+    "東京": "東京都",
+    "大阪": "大阪府",
+    "京都": "京都府",
+}
 
 
-class IiYeahTateruScraper(DynamicCrawler):
-    DELAY = 2.0
+def _normalize_pref(label: str) -> str:
+    if not label:
+        return ""
+    if label in _PREF_SUFFIX:
+        return _PREF_SUFFIX[label]
+    return label if label.endswith(("県", "都", "道", "府")) else label + "県"
 
+
+class IiYeahTateruScraper(StaticCrawler):
+    """ii家yeah! スクレイパー（API直接取得）"""
+
+    DELAY = 1.0
     EXTRA_COLUMNS = [
-        "会社名",
+        "法人名",
         "メール",
+        "紹介文",
+        "会社種別",
+        "対応範囲",
+        "施工エリア",
+        "工法",
+        "参考価格",
         "建設許可番号",
         "建築士事務所登録番号",
-        "免許・許可・登録等",
         "保証・保険等",
-        "取扱い工法",
-        "参考価格",
-        "対応エリア",
     ]
 
-    def parse(self, url: str):
-        collected_urls = []
-        seen_urls = set()
+    def prepare(self):
+        """HTMLページからAPIアクセストークンを取得してセッションに設定する。"""
+        resp = self.session.get(f"{_BASE_URL}/shops", timeout=self.TIMEOUT)
+        resp.raise_for_status()
+        m = _TOKEN_RE.search(resp.text)
+        if not m:
+            raise RuntimeError("APIアクセストークンをHTMLから取得できませんでした")
+        token = m.group(0)
+        self.session.headers.update({
+            "x-rcms-api-access-token": token,
+            "Referer": f"{_BASE_URL}/",
+            "Accept": "application/json",
+        })
+        self.logger.info("APIトークン取得完了: %s...", token[:8])
 
-        page_num = 1
-        total_pages = 999  # 動的取得前提
+    def parse(self, url: str):  # noqa: ARG002
+        page = 1
+        total_pages = 9999
 
-        while page_num <= total_pages:
-            page_url = f"{url}?page={page_num}"
-            self.logger.info(f"一覧取得: {page_url}")
+        while page <= total_pages:
+            api_url = f"{_API_BASE}?pageID={page}&cnt=100&filter="
+            self.logger.info("API取得: page=%d / %s", page, total_pages if total_pages < 9999 else "?")
 
-            soup = self.get_soup(page_url)
-            if not soup:
-                self.logger.warning("soup取得失敗")
+            resp = self.session.get(api_url, timeout=self.TIMEOUT)
+            resp.raise_for_status()
+            data = resp.json()
+
+            if data.get("errors"):
+                self.logger.warning("APIエラー: %s", data["errors"])
                 break
 
-            # ページ数取得
-            if page_num == 1:
-                max_page = 1
-                for a in soup.select("a[href*='page=']"):
-                    m = re.search(r"page=(\d+)", a.get("href", ""))
-                    if m:
-                        max_page = max(max_page, int(m.group(1)))
-                total_pages = max_page
-                self.logger.info(f"総ページ数: {total_pages}")
+            if page == 1:
+                page_info = data.get("pageInfo", {})
+                total_pages = page_info.get("totalPageCnt", 1)
+                self.total_items = page_info.get("totalCnt", 0)
+                self.logger.info("総件数: %d件 / %dページ", self.total_items, total_pages)
 
-            links_found = 0
-
-            for a in soup.select("a[href]"):
-                href = a.get("href", "")
-
-                # /shops/ID をゆるく拾う
-                m = re.search(r"/shops/(\d+)", href)
-                if not m:
-                    continue
-
-                full_url = urljoin(_BASE_URL, f"/shops/{m.group(1)}")
-
-                if full_url not in seen_urls:
-                    seen_urls.add(full_url)
-                    collected_urls.append(full_url)
-                    links_found += 1
-
-            if links_found == 0:
-                self.logger.warning("リンク0件 → 終了")
+            items = data.get("list", [])
+            if not items:
                 break
 
-            page_num += 1
+            for item in items:
+                try:
+                    yield self._map_item(item)
+                except Exception as e:
+                    self.logger.warning("マッピングエラー: topics_id=%s %s", item.get("topics_id"), e)
+
+            page += 1
             time.sleep(self.DELAY)
 
-        self.logger.info(f"詳細URL数: {len(collected_urls)}")
-        self.total_items = len(collected_urls)
+    def _map_item(self, item: dict) -> dict:
+        member_id = item.get("member_info", {}).get("member_id", "")
+        detail_url = f"{_BASE_URL}/shops/{member_id}" if member_id else ""
 
-        # 詳細取得
-        for detail_url in collected_urls:
-            try:
-                item = self._scrape_detail(detail_url)
-                if item:
-                    yield item
-            except Exception as e:
-                self.logger.warning(f"失敗: {detail_url} {e}")
+        pref_label = (item.get("prefecture") or {}).get("label", "")
+        pref = _normalize_pref(pref_label)
+        city = item.get("city", "") or ""
+        address = item.get("address", "") or ""
+        full_addr = (city + address).strip()
 
-            time.sleep(self.DELAY)
+        # free_contents から事業内容・工法・施工エリアを取得
+        lob = construction_method = area_text = ""
+        for fc in item.get("free_contents") or []:
+            ttl = (fc.get("free_ttl") or "").strip()
+            txt = (fc.get("free_txt") or "").strip()
+            if "事業内容" in ttl:
+                lob = txt
+            elif "工法" in ttl:
+                construction_method = txt
+            elif "施工エリア" in ttl or "対応エリア" in ttl:
+                area_text = txt
 
-    def _scrape_detail(self, url: str):
-        soup = self.get_soup(url)
-        if not soup:
-            return None
+        # 対応範囲（range[]）をカンマ区切りで結合
+        range_labels = ", ".join(r.get("label", "") for r in (item.get("range") or []) if r.get("label"))
 
-        data = {Schema.URL: url}
-
-        # =========================
-        # ① 会社名（最優先）
-        # =========================
-        name = None
-
-        # パターン1: h1
-        h1 = soup.select_one("h1")
-        if h1:
-            name = h1.get_text(strip=True)
-
-        # パターン2: title fallback
-        if not name:
-            title = soup.title.string if soup.title else ""
-            if title:
-                name = title.split("|")[0].strip()
-
-        if name:
-            data[Schema.NAME] = name
-        else:
-            self.logger.warning(f"NAME取得失敗: {url}")
-            return None
-
-        # =========================
-        # ② ラベル＋値構造（divベース）
-        # =========================
-        rows = soup.select("div")
-
-        for row in rows:
-            text = row.get_text(" ", strip=True)
-
-            # 明らかに短すぎるものは除外
-            if len(text) < 4:
-                continue
-
-            # よくある「ラベル：値」形式
-            if "：" in text:
-                parts = text.split("：", 1)
-                key = parts[0].strip()
-                val = parts[1].strip()
-
-                self._map_field(data, key, val)
-
-        # =========================
-        # ③ テーブル形式 fallback
-        # =========================
-        for tr in soup.select("tr"):
-            th = tr.select_one("th")
-            td = tr.select_one("td")
-
-            if th and td:
-                key = th.get_text(" ", strip=True)
-                val = td.get_text(" ", strip=True)
-                self._map_field(data, key, val)
-
-        # =========================
-        # ④ SNS
-        # =========================
-        for a in soup.select("a[href]"):
-            href = a.get("href", "")
-            if not href:
-                continue
-
-            if "instagram.com" in href:
-                data.setdefault(Schema.INSTA, href)
-            elif "facebook.com" in href:
-                data.setdefault(Schema.FB, href)
-            elif "line.me" in href:
-                data.setdefault(Schema.LINE, href)
-            elif "twitter.com" in href or "x.com" in href:
-                data.setdefault(Schema.X, href)
-            elif "tiktok.com" in href:
-                data.setdefault(Schema.TIKTOK, href)
-
-        return data
-
-    def _map_field(self, data, key, val):
-        if not val:
-            return
-
-        if key == "名称":
-            data.setdefault(Schema.NAME, val)
-
-        elif "会社名" in key:
-            data.setdefault("会社名", val)
-
-        elif "所在地" in key or "住所" in key:
-            m = _PREF_RE.match(val)
-            if m:
-                data[Schema.PREF] = m.group(1)
-                data[Schema.ADDR] = val[m.end() :].strip()
-            else:
-                data[Schema.ADDR] = val
-
-        elif "代表者" in key:
-            data.setdefault(Schema.REP_NM, val)
-
-        elif "設立" in key:
-            data.setdefault(Schema.OPEN_DATE, val)
-
-        elif "電話" in key or "TEL" in key.upper():
-            data.setdefault(Schema.TEL, val)
-
-        elif "メール" in key:
-            data.setdefault("メール", val)
-
-        elif "営業時間" in key:
-            data.setdefault(Schema.TIME, val)
-
-        elif "定休日" in key:
-            data.setdefault(Schema.HOLIDAY, val)
-
-        elif "事業内容" in key:
-            data.setdefault(Schema.LOB, val)
-
-        elif "ホームページ" in key or key == "HP":
-            data.setdefault(Schema.HP, val)
-
-        elif key == "建設許可番号":
-            data.setdefault("建設許可番号", val)
-
-        elif key == "建築士事務所登録番号":
-            data.setdefault("建築士事務所登録番号", val)
-
-        elif key == "免許・許可・登録等":
-            data.setdefault("免許・許可・登録等", val)
-
-        elif "保証" in key or "保険" in key:
-            data.setdefault("保証・保険等", val)
-
-        elif "工法" in key:
-            data.setdefault("取扱い工法", val)
-
-        elif "価格" in key:
-            data.setdefault("参考価格", val)
-
-        elif "対応エリア" in key or "施工エリア" in key:
-            data.setdefault("対応エリア", val)
-
-        elif "資本金" in key:
-            data.setdefault(Schema.CAP, val)
-
-        elif "従業員" in key or "スタッフ" in key:
-            data.setdefault(Schema.EMP_NUM, val)
+        return {
+            Schema.URL: detail_url,
+            Schema.NAME: (item.get("common_name") or item.get("subject") or "").strip(),
+            Schema.PREF: pref,
+            Schema.ADDR: full_addr,
+            Schema.TEL: (item.get("tel") or "").strip(),
+            Schema.REP_NM: (item.get("representative") or "").strip(),
+            Schema.OPEN_DATE: (item.get("establishment") or "").strip(),
+            Schema.HP: (item.get("website_url") or "").strip(),
+            Schema.LOB: lob,
+            Schema.TIME: (item.get("hours") or "").strip(),
+            Schema.HOLIDAY: (item.get("holiday") or "").strip(),
+            "法人名": (item.get("company_name") or "").strip(),
+            "メール": (item.get("mail") or "").strip(),
+            "紹介文": (item.get("catch_txt") or "").strip(),
+            "会社種別": (item.get("corporation_type") or {}).get("label", ""),
+            "対応範囲": range_labels,
+            "施工エリア": area_text,
+            "工法": construction_method,
+            "参考価格": (item.get("reference_price") or "").strip(),
+            "建設許可番号": (item.get("num_construction") or "").strip(),
+            "建築士事務所登録番号": (item.get("num_office") or "").strip(),
+            "保証・保険等": (item.get("insurance") or "").strip(),
+        }
 
 
 if __name__ == "__main__":
     import logging
-
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     scraper = IiYeahTateruScraper()
     scraper.execute("https://iiyeah-tateru.jp/shops")
 
-    print(f"出力: {scraper.output_filepath}")
-    print(f"件数: {scraper.item_count}")
+    print(f"\n出力ファイル: {scraper.output_filepath}")
+    print(f"取得件数: {scraper.item_count}")
