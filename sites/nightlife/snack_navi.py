@@ -1,6 +1,20 @@
+"""
+スナックナビ — 全国スナック店舗求人スクレイパー
+
+取得フロー:
+    東京: /rec/{areaID}/ → /rec/{areaID}&p=N/ → /rec/{areaID}/{shopID}/
+    全国: /{region}/girl_top.php → /{region}/rec.php?a=1&i={prefID}
+          → /{region}/rec.html?p=N&a=1&i={prefID} → /{region}/recs{shopID}.html
+
+実行方法:
+    python scripts/sites/nightlife/snack_navi.py
+    python bin/run_flow.py --site-id snack_navi
+"""
+
+from __future__ import annotations
+
 import re
 import sys
-import time
 from pathlib import Path
 from typing import Generator
 
@@ -15,161 +29,202 @@ from src.framework.static import StaticCrawler
 
 
 class SnackNaviCrawler(StaticCrawler):
-    """スナックナビ クローラー — スナック店舗求人情報を取得"""
+    """スナックナビ クローラー — 全国スナック店舗求人情報を取得"""
 
-    DELAY = 1.5
-    EXTRA_COLUMNS = ["最寄駅", "給与", "仕事内容", "年齢要件", "経験要件", "シフト", "福利厚生"]
+    DELAY = 1.0
+    EXTRA_COLUMNS = ["最寄駅", "給与", "仕事内容", "勤務時間", "資格", "待遇", "雇用形態"]
 
     BASE_URL = "https://snacknavi.com"
 
+    # 東京 23エリアID（girl_top.php の onclick="location.href='/rec/NNNN/'" より）
+    TOKYO_AREAS = [
+        992, 1004, 1005, 1006, 1009, 1032, 1033, 1034, 1035, 1036,
+        1037, 1038, 1039, 1040, 1041, 1042, 1043, 1044, 1045, 1046,
+        1047, 1048, 1066,
+    ]
+
+    # 全国地方スラグ
+    REGIONS = [
+        "hokkaidou", "tohoku", "hokuriku", "kantou",
+        "tokai", "kansai", "shikoku", "kyushu", "okinawa",
+    ]
+
+    # info-list-ttl ラベル → Schema / EXTRA_COLUMNS キー のマッピング
+    _LABEL_MAP = {
+        "店舗情報": Schema.ADDR,
+        "最寄り駅": "最寄駅",
+        "給与":     "給与",
+        "仕事内容": "仕事内容",
+        "勤務時間": "勤務時間",
+        "資格":     "資格",
+        "待遇":     "待遇",
+        "雇用形態": "雇用形態",
+    }
+
     def parse(self, url: str) -> Generator:
-        """一覧ページと詳細ページから店舗情報を取得"""
+        seen: set[str] = set()
+
+        # 1. 東京 23エリア
+        for area_id in self.TOKYO_AREAS:
+            yield from self._crawl_tokyo_area(area_id, seen)
+
+        # 2. 全国9地方
+        for region in self.REGIONS:
+            yield from self._crawl_region(region, seen)
+
+    # ------------------------------------------------------------------
+    # 東京エリア
+    # ------------------------------------------------------------------
+
+    def _crawl_tokyo_area(self, area_id: int, seen: set) -> Generator:
         page = 1
-
         while True:
-            list_url = f"{self.BASE_URL}/girl_top.php?page={page}"
-            self.logger.info(f"Fetching page {page}: {list_url}")
-
-            try:
-                response = self.session.get(list_url, timeout=10)
-                response.raise_for_status()
-            except Exception as e:
-                self.logger.error(f"Failed to fetch {list_url}: {e}")
+            list_url = (
+                f"{self.BASE_URL}/rec/{area_id}/"
+                if page == 1
+                else f"{self.BASE_URL}/rec/{area_id}&p={page}/"
+            )
+            soup = self._fetch(list_url)
+            if soup is None:
                 break
 
-            soup = BeautifulSoup(response.content, "html.parser")
+            pattern = re.compile(rf"^/rec/{area_id}/\d+/$")
+            shop_urls = [
+                self.BASE_URL + a["href"]
+                for a in soup.find_all("a", href=pattern)
+            ]
 
-            # 初回ページで総件数を設定
-            if page == 1:
-                for elem in soup.find_all(["p", "div", "span"]):
-                    match = re.search(r"([\d,]+)件", elem.get_text())
-                    if match:
-                        self.total_items = int(match.group(1).replace(",", ""))
-                        break
-
-            # 一覧ページから店舗リンクを抽出（/rec/0/{id}/ パターン）
-            seen = set()
-            shop_hrefs = []
-            for link in soup.find_all("a", href=True):
-                href = link["href"]
-                if href.startswith("/rec/0/") and href.endswith("/") and href not in seen:
-                    seen.add(href)
-                    shop_hrefs.append(href)
-
-            if not shop_hrefs:
-                self.logger.info(f"No shop links on page {page}, stopping.")
+            if not shop_urls:
                 break
 
-            self.logger.info(f"Found {len(shop_hrefs)} shops on page {page}")
+            for shop_url in shop_urls:
+                if shop_url not in seen:
+                    seen.add(shop_url)
+                    record = self._scrape_detail(shop_url)
+                    if record:
+                        yield record
 
-            for href in shop_hrefs:
-                record = self._scrape_detail(self.BASE_URL + href)
-                if record:
-                    yield record
-
+            if not self._has_next_page(soup):
+                break
             page += 1
-            if page > 1000:
-                self.logger.warning("Reached 1000 pages, stopping crawl")
+
+    # ------------------------------------------------------------------
+    # 全国地方
+    # ------------------------------------------------------------------
+
+    def _crawl_region(self, region: str, seen: set) -> Generator:
+        top_url = f"{self.BASE_URL}/{region}/girl_top.php"
+        soup = self._fetch(top_url)
+        if soup is None:
+            return
+
+        # 都道府県リンクを抽出（href と onclick の両方に対応）
+        pref_pattern = re.compile(rf"/{region}/rec\.php\?a=1&i=(\d+)")
+        pref_ids: list[int] = []
+        seen_pref: set[int] = set()
+
+        for a in soup.find_all("a", href=pref_pattern):
+            m = pref_pattern.search(a["href"])
+            if m:
+                pid = int(m.group(1))
+                if pid not in seen_pref:
+                    seen_pref.add(pid)
+                    pref_ids.append(pid)
+
+        for elem in soup.find_all(onclick=True):
+            m = pref_pattern.search(elem["onclick"])
+            if m:
+                pid = int(m.group(1))
+                if pid not in seen_pref:
+                    seen_pref.add(pid)
+                    pref_ids.append(pid)
+
+        for pref_id in pref_ids:
+            yield from self._crawl_regional_pref(region, pref_id, seen)
+
+    def _crawl_regional_pref(self, region: str, pref_id: int, seen: set) -> Generator:
+        page = 1
+        while True:
+            list_url = (
+                f"{self.BASE_URL}/{region}/rec.php?a=1&i={pref_id}"
+                if page == 1
+                else f"{self.BASE_URL}/{region}/rec.html?p={page}&a=1&i={pref_id}"
+            )
+            soup = self._fetch(list_url)
+            if soup is None:
                 break
 
-    def _scrape_detail(self, detail_url: str) -> dict | None:
-        """店舗詳細ページから情報を抽出してdictで返す"""
+            shop_pattern = re.compile(r"^recs\d+\.html$")
+            shop_urls = [
+                f"{self.BASE_URL}/{region}/{a['href']}"
+                for a in soup.find_all("a", href=shop_pattern)
+            ]
+
+            if not shop_urls:
+                break
+
+            for shop_url in shop_urls:
+                if shop_url not in seen:
+                    seen.add(shop_url)
+                    record = self._scrape_detail(shop_url)
+                    if record:
+                        yield record
+
+            if not self._has_next_page(soup):
+                break
+            page += 1
+
+    # ------------------------------------------------------------------
+    # 共通ユーティリティ
+    # ------------------------------------------------------------------
+
+    def _fetch(self, url: str) -> BeautifulSoup | None:
         try:
-            response = self.session.get(detail_url, timeout=10)
-            response.raise_for_status()
+            resp = self.session.get(url, timeout=15)
+            resp.raise_for_status()
+            return BeautifulSoup(resp.content, "html.parser")
         except Exception as e:
-            self.logger.error(f"Failed to fetch {detail_url}: {e}")
+            self.logger.warning(f"Fetch failed: {url} — {e}")
             return None
 
-        soup = BeautifulSoup(response.content, "html.parser")
-        record = {Schema.URL: detail_url}
+    def _has_next_page(self, soup: BeautifulSoup) -> bool:
+        return bool(soup.find("a", string=re.compile("次のページ")))
+
+    def _scrape_detail(self, detail_url: str) -> dict | None:
+        soup = self._fetch(detail_url)
+        if soup is None:
+            return None
+
+        record: dict = {Schema.URL: detail_url}
 
         # 店舗名
-        name_elem = soup.find("h1") or soup.find(["h2", "title"])
-        record[Schema.NAME] = name_elem.get_text(strip=True) if name_elem else None
-
-        # 住所
-        for elem in soup.find_all(["p", "div", "dd"]):
-            text = elem.get_text(strip=True)
-            if ("〒" in text or "東京都" in text) and "営業時間" not in text:
-                record[Schema.ADDR] = text.split("\n")[0]
-                break
+        h2 = soup.select_one("div.ttl-shop-name h2")
+        record[Schema.NAME] = h2.get_text(strip=True) if h2 else None
 
         # 電話番号
-        for elem in soup.find_all(["a", "p", "div", "dd"]):
-            href = elem.get("href", "")
-            if href.startswith("tel:"):
-                record[Schema.TEL] = href.replace("tel:", "")
-                break
-            text = elem.get_text(strip=True)
-            stripped = re.sub(r"[\s\-\(\)]", "", text)
-            if stripped.isdigit() and len(stripped) >= 10:
-                record[Schema.TEL] = text
-                break
+        tel_a = soup.select_one("p.ttl-shop-tel a[href^='tel:']")
+        if tel_a:
+            record[Schema.TEL] = tel_a.get_text(strip=True)
 
-        # 最寄駅
-        for elem in soup.find_all(["p", "div", "li"]):
-            text = elem.get_text(strip=True)
-            if "駅" in text and len(text) < 100:
-                stations = re.findall(r"[ぁ-ん\w一-龥]+駅", text)
-                record["最寄駅"] = ", ".join(dict.fromkeys(stations)) if stations else text
-                break
+        # 郵便番号（住所テキストの先頭 〒NNN-NNNN から抽出）
+        addr_header = soup.select_one("div.ttl-shop-info")
+        if addr_header:
+            raw = addr_header.get_text(" ", strip=True)
+            m = re.search(r"〒(\d{3}-\d{4})", raw)
+            if m:
+                record[Schema.POST_CODE] = m.group(1)
 
-        # 営業時間 / 定休日
-        for elem in soup.find_all(["p", "div", "dd"]):
-            text = elem.get_text(strip=True)
-            if Schema.TIME not in record and ("営業時間" in text or ("時" in text and ":" in text)):
-                record[Schema.TIME] = text.split("\n")[0]
-            if Schema.HOLIDAY not in record and ("定休" in text or "休み" in text):
-                record[Schema.HOLIDAY] = text.split("\n")[0]
-
-        # 給与
-        for elem in soup.find_all(["p", "div", "dd", "span"]):
-            text = elem.get_text(strip=True)
-            if "円" in text and any(x in text for x in ["時", "給"]):
-                record["給与"] = text.split("\n")[0]
-                break
-
-        # 仕事内容
-        for elem in soup.find_all(["p", "div", "dd"]):
-            text = elem.get_text(strip=True)
-            if any(x in text for x in ["スタッフ", "職種", "女性"]) and len(text) < 100:
-                record["仕事内容"] = text.split("\n")[0]
-                break
-
-        # 年齢要件
-        for elem in soup.find_all(["p", "div", "dd"]):
-            text = elem.get_text(strip=True)
-            if "才" in text and any(x in text for x in ["以上", "OK"]):
-                record["年齢要件"] = text.split("\n")[0]
-                break
-
-        # 経験要件
-        for elem in soup.find_all(["p", "div", "dd"]):
-            text = elem.get_text(strip=True)
-            if any(x in text for x in ["未経験", "経験者", "経験OK"]):
-                record["経験要件"] = text.split("\n")[0]
-                break
-
-        # シフト
-        for elem in soup.find_all(["p", "div", "dd"]):
-            text = elem.get_text(strip=True)
-            if "週" in text and "日" in text and "OK" in text.upper():
-                record["シフト"] = text.split("\n")[0]
-                break
-
-        # 福利厚生
-        for elem in soup.find_all(["p", "div", "dd", "li"]):
-            text = elem.get_text(strip=True)
-            if any(x in text for x in ["日払い", "ボーナス", "福利"]):
-                record["福利厚生"] = text
-                break
-
-        # Instagram
-        for link in soup.find_all("a", href=True):
-            if "instagram.com" in link["href"]:
-                record[Schema.INSTA] = link["href"]
-                break
+        # info-list-ttl / info-list-txt ペアから各フィールドを取得
+        for li in soup.find_all("li"):
+            ttl_span = li.find("span", class_="info-list-ttl")
+            txt_div = li.find("div", class_="info-list-txt")
+            if not ttl_span or not txt_div:
+                continue
+            label = ttl_span.get_text(strip=True)
+            value = txt_div.get_text(" ", strip=True)
+            key = self._LABEL_MAP.get(label)
+            if key:
+                record[key] = value
 
         self.logger.info(f"Saved: {record.get(Schema.NAME) or detail_url}")
         return record
@@ -180,7 +235,7 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     scraper = SnackNaviCrawler()
-    scraper.execute("https://snacknavi.com/girl_top.php?page=1")
+    scraper.execute("https://snacknavi.com/girl_top.php")
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
     print(f"取得件数: {scraper.item_count}")
