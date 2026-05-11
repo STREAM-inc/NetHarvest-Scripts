@@ -1332,7 +1332,7 @@ sites:
 
   - site_id: arubaito_ex
     name: "アルバイトEX"
-    module: "portal.arubaito_ex"
+    module: "jobs.arubaito_ex"
     url: "https://arubaito-ex.jp/search?form_type=header_search"
     schedule: null
     enabled: true
