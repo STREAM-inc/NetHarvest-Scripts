@@ -104,10 +104,6 @@ class ArubaitoExScraper(MinimumArubaitoExScraper):
             if page == 1:
                 total_hits = _parse_total_count(soup)
                 max_page_from_nav = _parse_last_page_from_pagination(soup)
-                #----------------------------------------------------------------------
-                # debug: page 10
-                max_page_from_nav = 10
-                #----------------------------------------------------------------------
 
                 estimated: int | None = total_hits
                 if self.MAX_PAGES is not None:

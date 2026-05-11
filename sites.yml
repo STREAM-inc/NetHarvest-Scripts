@@ -1334,5 +1334,5 @@ sites:
     name: "アルバイトEX"
     module: "jobs.arubaito_ex"
     url: "https://arubaito-ex.jp/search?form_type=header_search"
-    schedule: null
+    schedule: "30 4 8-14 * SUN"
     enabled: true
