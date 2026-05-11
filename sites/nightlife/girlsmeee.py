@@ -1,11 +1,11 @@
 """
-体入ガールズミー — ガールズバー・コンカフェ 体入求人スクレイパー（関西地域）
+体入ガールズミー — ガールズバー・コンカフェ 体入求人スクレイパー
 
 取得対象:
-    - girlsmeee.com の関西地域（kansai）掲載店舗詳細ページ
+    - girlsmeee.com 掲載の全店舗詳細ページ
 
 取得フロー:
-    1. sitemap.xml → 関西店舗URL収集
+    1. sitemap.xml → 店舗URL収集
     2. 各詳細ページを解析してフィールド取得
 
 実行方法:
@@ -48,7 +48,7 @@ class GirlsmeeeScraper(StaticCrawler):
 
     _SITEMAP_NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
     _SHOP_URL_RE = re.compile(
-        r"^https://girlsmeee\.com/kansai/[^/]+/\d+(?:/.*)?$"
+        r"^https://girlsmeee\.com/(?:kanto|kansai)/[^/]+/\d+(?:/.*)?$"
     )
     _SNS_IGNORE = ("girlsmeeekansai", "tainew_girlsmeee")
 

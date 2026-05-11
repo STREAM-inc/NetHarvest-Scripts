@@ -1322,3 +1322,10 @@ sites:
     url: "https://girlsmeee.com"
     schedule: "30 5 22-28 * SAT"
     enabled: true
+
+  - site_id: snack_navi
+    name: "スナックナビ"
+    module: "nightlife.snack_navi"
+    url: "https://snacknavi.com/girl_top.php?page=1"
+    schedule: "30 6 22-28 * SUN"
+    enabled: true
