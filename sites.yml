@@ -1336,3 +1336,17 @@ sites:
     url: "https://arubaito-ex.jp/search?form_type=header_search"
     schedule: "30 4 8-14 * SUN"
     enabled: true
+
+  - site_id: gaten_info
+    name: "ガテン職"
+    module: "jobs.gaten_info"
+    url: "https://gaten.info/"
+    schedule: "0 3 1 * *"
+    enabled: true
+
+  - site_id: gaten_job
+    name: "ガテン系仕事ナビ"
+    module: "jobs.gaten_job"
+    url: "https://gaten-job.com/"
+    schedule: "0 3 1 * *"
+    enabled: true
