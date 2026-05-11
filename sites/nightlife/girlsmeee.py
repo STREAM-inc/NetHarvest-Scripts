@@ -23,7 +23,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Generator
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse, urlunparse
 import xml.etree.ElementTree as ET
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
@@ -44,17 +44,25 @@ class GirlsmeeeScraper(StaticCrawler):
     """体入ガールズミー スクレイパー"""
 
     DELAY = 1.5
-    EXTRA_COLUMNS = ["エリア", "体入時給", "最低保証時給", "平均時給", "謝礼金", "キャッチフレーズ"]
+    EXTRA_COLUMNS = [
+        "エリア",
+        "体入時給",
+        "最低保証時給",
+        "平均時給",
+        "謝礼金",
+        "キャッチフレーズ",
+    ]
 
     _SITEMAP_NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
-    _SHOP_URL_RE = re.compile(
-        r"^https://girlsmeee\.com/(?:kanto|kansai)/[^/]+/\d+(?:/.*)?$"
+    _DEFAULT_LISTING_PATHS = ("/kanto", "/kansai")
+    _LISTING_URL_RE = re.compile(
+        r"^https://girlsmeee\.com/(?:kanto|kansai)(?:/[a-z0-9_-]+)?/?(?:\?.*)?$"
     )
+    _SHOP_URL_RE = re.compile(r"^https://girlsmeee\.com/(?:kanto|kansai)/[^/]+/\d+/?$")
     _SNS_IGNORE = ("girlsmeeekansai", "tainew_girlsmeee")
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        sitemap_url = self._resolve_sitemap_url(url)
-        shop_urls = self._collect_shop_urls(sitemap_url)
+        shop_urls = self._collect_shop_urls(url)
         self.total_items = len(shop_urls)
         self.logger.info("対象詳細URL数: %d", self.total_items)
 
@@ -74,16 +82,124 @@ class GirlsmeeeScraper(StaticCrawler):
     # Sitemap collection
     # ------------------------------------------------------------------
 
-    def _resolve_sitemap_url(self, seed_url: str) -> str:
+    def _collect_shop_urls(self, seed_url: str) -> list[str]:
+        normalized_seed = self._normalize_url(seed_url)
+        if self._SHOP_URL_RE.match(normalized_seed):
+            return [normalized_seed]
+
+        shop_urls: list[str] = []
+        seen: set[str] = set()
+        listing_urls = self._collect_listing_urls(normalized_seed)
+        self.logger.info("一覧URL収集: %d 件", len(listing_urls))
+
+        for listing_url in listing_urls:
+            for shop_url in self._collect_shop_urls_from_listing(listing_url):
+                if shop_url not in seen:
+                    seen.add(shop_url)
+                    shop_urls.append(shop_url)
+
+        if not shop_urls:
+            sitemap_url = self._resolve_xml_sitemap_url(normalized_seed)
+            shop_urls = self._collect_sitemap_urls(sitemap_url)
+            self.logger.info("XMLサイトマップfallback: %d 件", len(shop_urls))
+
+        return shop_urls
+
+    def _collect_listing_urls(self, seed_url: str) -> list[str]:
+        parsed = urlparse(seed_url)
+        if self._LISTING_URL_RE.match(seed_url):
+            return [seed_url]
+
+        base_url = f"{parsed.scheme}://{parsed.netloc}"
+        if parsed.path in ("", "/"):
+            return [
+                self._normalize_url(urljoin(base_url, path))
+                for path in self._DEFAULT_LISTING_PATHS
+            ]
+
+        sitemap_url = urljoin(base_url, "/sitemap")
+        soup = self.get_soup(sitemap_url)
+        if soup is None:
+            return [
+                self._normalize_url(urljoin(base_url, path))
+                for path in self._DEFAULT_LISTING_PATHS
+            ]
+
+        listing_urls: list[str] = []
+        seen: set[str] = set()
+        for a in soup.select("a[href]"):
+            href = a.get("href", "").strip()
+            listing_url = self._normalize_url(urljoin(sitemap_url, href))
+            if not self._LISTING_URL_RE.match(listing_url):
+                continue
+            if listing_url not in seen:
+                seen.add(listing_url)
+                listing_urls.append(listing_url)
+
+        return listing_urls or [
+            self._normalize_url(urljoin(base_url, path))
+            for path in self._DEFAULT_LISTING_PATHS
+        ]
+
+    def _collect_shop_urls_from_listing(self, listing_url: str) -> list[str]:
+        shop_urls: list[str] = []
+        seen_shops: set[str] = set()
+        seen_pages: set[str] = set()
+        page_url = listing_url
+
+        while page_url and page_url not in seen_pages:
+            seen_pages.add(page_url)
+            soup = self.get_soup(page_url)
+            if soup is None:
+                break
+
+            page_shop_urls = self._extract_shop_urls_from_soup(soup, page_url)
+            self.logger.info(
+                "一覧ページ %s: 詳細URL %d 件", page_url, len(page_shop_urls)
+            )
+            for shop_url in page_shop_urls:
+                if shop_url not in seen_shops:
+                    seen_shops.add(shop_url)
+                    shop_urls.append(shop_url)
+
+            page_url = self._extract_next_page_url(soup, page_url)
+
+        return shop_urls
+
+    def _extract_shop_urls_from_soup(self, soup, base_url: str) -> list[str]:
+        urls: list[str] = []
+        seen: set[str] = set()
+        for a in soup.select("a[href]"):
+            href = a.get("href", "").strip()
+            shop_url = self._normalize_url(urljoin(base_url, href), keep_query=False)
+            if not self._SHOP_URL_RE.match(shop_url):
+                continue
+            if shop_url not in seen:
+                seen.add(shop_url)
+                urls.append(shop_url)
+        return urls
+
+    def _extract_next_page_url(self, soup, base_url: str) -> str:
+        for a in soup.select("a[href]"):
+            text = self._c(a.get_text(" ", strip=True))
+            rel = " ".join(a.get("rel") or [])
+            aria = a.get("aria-label", "")
+            if (
+                text != "次へ"
+                and "next" not in rel.lower()
+                and "next" not in aria.lower()
+            ):
+                continue
+            next_url = self._normalize_url(urljoin(base_url, a.get("href", "")))
+            if self._LISTING_URL_RE.match(next_url):
+                return next_url
+        return ""
+
+    def _resolve_xml_sitemap_url(self, seed_url: str) -> str:
         parsed = urlparse(seed_url)
         if parsed.path.endswith(".xml"):
             return seed_url
         return f"{parsed.scheme}://{parsed.netloc}/sitemap.xml"
-
-    def _collect_shop_urls(self, sitemap_url: str) -> list[str]:
-        shop_urls = self._collect_sitemap_urls(sitemap_url)
-        self.logger.info("サイトマップ収集: %d 件", len(shop_urls))
-        return shop_urls
 
     def _collect_sitemap_urls(self, sitemap_url: str) -> list[str]:
         try:
@@ -96,8 +212,26 @@ class GirlsmeeeScraper(StaticCrawler):
 
         loc_nodes = root.findall(".//sm:loc", self._SITEMAP_NS)
         urls = [node.text.strip() for node in loc_nodes if node.text]
-        shop_urls = [u for u in urls if self._SHOP_URL_RE.match(u) and urlparse(u).netloc == "girlsmeee.com"]
+        shop_urls = [
+            u
+            for u in urls
+            if self._SHOP_URL_RE.match(u) and urlparse(u).netloc == "girlsmeee.com"
+        ]
         return list(dict.fromkeys(shop_urls))
+
+    def _normalize_url(self, url: str, keep_query: bool = True) -> str:
+        parsed = urlparse(url)
+        query = parsed.query if keep_query else ""
+        return urlunparse(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path.rstrip("/") or "/",
+                "",
+                query,
+                "",
+            )
+        )
 
     # ------------------------------------------------------------------
     # Detail page parsing
@@ -154,7 +288,9 @@ class GirlsmeeeScraper(StaticCrawler):
 
     def _extract_li_value(self, li) -> str:
         for div in li.find_all("div", recursive=False):
-            if "text-xs" in (div.get("class") or []) and "text-primary" in (div.get("class") or []):
+            if "text-xs" in (div.get("class") or []) and "text-primary" in (
+                div.get("class") or []
+            ):
                 continue
             text = self._c(div.get_text(" ", strip=True))
             if text:
@@ -207,7 +343,7 @@ class GirlsmeeeScraper(StaticCrawler):
             return "", ""
         m = _PREF_RE.match(address)
         if m:
-            return m.group(1), address[m.end():].strip()
+            return m.group(1), address[m.end() :].strip()
         return "", address
 
     def _extract_tel(self, soup, labels: dict[str, str], plain_text: str) -> str:
@@ -248,17 +384,33 @@ class GirlsmeeeScraper(StaticCrawler):
 
     def _extract_hp_url(self, soup, labels: dict[str, str]) -> str:
         for key, value in labels.items():
-            if any(t in key for t in ("公式", "HP", "ホームページ", "WEB", "ウェブサイト")) and value.startswith("http"):
+            if any(
+                t in key for t in ("公式", "HP", "ホームページ", "WEB", "ウェブサイト")
+            ) and value.startswith("http"):
                 return value
         for a in soup.select("a[href^='http']"):
             href = a.get("href", "").strip()
             low = href.lower()
             if "girlsmeee.com" in low:
                 continue
-            if any(x in low for x in ("instagram", "x.com", "twitter", "facebook", "line.me", "tiktok", "youtube")):
+            if any(
+                x in low
+                for x in (
+                    "instagram",
+                    "x.com",
+                    "twitter",
+                    "facebook",
+                    "line.me",
+                    "tiktok",
+                    "youtube",
+                )
+            ):
                 continue
             anchor_text = self._c(a.get_text(" ", strip=True))
-            if any(k in anchor_text for k in ("公式", "オフィシャル", "HP", "ホームページ", "WEB")):
+            if any(
+                k in anchor_text
+                for k in ("公式", "オフィシャル", "HP", "ホームページ", "WEB")
+            ):
                 return href
         return ""
 
@@ -290,7 +442,10 @@ class GirlsmeeeScraper(StaticCrawler):
 if __name__ == "__main__":
     import logging
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
     scraper = GirlsmeeeScraper()
     scraper.execute("https://girlsmeee.com")
 

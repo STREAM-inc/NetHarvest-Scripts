@@ -1329,3 +1329,10 @@ sites:
     url: "https://snacknavi.com/girl_top.php?page=1"
     schedule: "30 6 22-28 * SUN"
     enabled: true
+
+  - site_id: arubaito_ex
+    name: "アルバイトEX"
+    module: "jobs.arubaito_ex"
+    url: "https://arubaito-ex.jp/search?form_type=header_search"
+    schedule: null
+    enabled: true
