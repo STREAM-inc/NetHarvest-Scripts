@@ -1,3 +1,4 @@
+import re
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -16,7 +17,10 @@ class HairlogScraper(StaticCrawler):
     """HAIRLOG ヘアサロン情報スクレイパー"""
 
     DELAY = 0.5
-    EXTRA_COLUMNS = ["名称_フリガナ", "最寄駅", "SNS"]
+    EXTRA_COLUMNS = ["名称_フリガナ", "最寄駅", "SNS", "ホットペッパービューティーURL", "楽天ビューティーURL"]
+
+    _HPB_SALON_RE = re.compile(r"^(https?://beauty\.hotpepper\.jp/sln[^/?#]+/)", re.IGNORECASE)
+    _RAKUTEN_SALON_RE = re.compile(r"^(https?://beauty\.rakuten\.co\.jp/s[^/?#]+/)", re.IGNORECASE)
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         """サイトマップから店舗URLを収集して詳細ページをスクレイプ"""
@@ -95,6 +99,19 @@ class HairlogScraper(StaticCrawler):
             elif label == "SNS":
                 links = [a["href"].strip() for a in td.find_all("a", href=True) if a["href"].strip()]
                 data["SNS"] = ", ".join(dict.fromkeys(links))
+
+        for a in soup.find_all("a", href=True):
+            href = a["href"].strip()
+            if "ホットペッパービューティーURL" not in data:
+                m = self._HPB_SALON_RE.match(href)
+                if m:
+                    data["ホットペッパービューティーURL"] = m.group(1)
+            if "楽天ビューティーURL" not in data:
+                m = self._RAKUTEN_SALON_RE.match(href)
+                if m:
+                    data["楽天ビューティーURL"] = m.group(1)
+            if "ホットペッパービューティーURL" in data and "楽天ビューティーURL" in data:
+                break
 
         if not data.get(Schema.NAME) and not data.get(Schema.ADDR):
             return None
