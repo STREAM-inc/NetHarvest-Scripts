@@ -1,259 +1,186 @@
+import re
 import sys
-from pathlib import Path
-from datetime import datetime
-import requests
-from bs4 import BeautifulSoup
-from typing import Optional
 import time
+from pathlib import Path
+from typing import Generator
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "bin"))
-from crawler_base import StaticCrawler, Schema, register_crawler
+from bs4 import BeautifulSoup
+
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from src.const.schema import Schema
+from src.framework.static import StaticCrawler
+
 
 class SnackNaviCrawler(StaticCrawler):
-    """
-    スナックナビ クローラー
-    東京のスナック店舗求人情報を取得
-    """
+    """スナックナビ クローラー — スナック店舗求人情報を取得"""
 
-    def __init__(self):
-        super().__init__(site_id="snack_navi")
-        self.base_url = "https://snacknavi.com"
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
-        self.DELAY = 1.5
+    DELAY = 1.5
+    EXTRA_COLUMNS = ["最寄駅", "給与", "仕事内容", "年齢要件", "経験要件", "シフト", "福利厚生"]
 
-    def parse(self):
+    BASE_URL = "https://snacknavi.com"
+
+    def parse(self, url: str) -> Generator:
         """一覧ページと詳細ページから店舗情報を取得"""
         page = 1
-        total_pages_detected = False
 
         while True:
-            list_url = f"{self.base_url}/girl_top.php?page={page}"
+            list_url = f"{self.BASE_URL}/girl_top.php?page={page}"
             self.logger.info(f"Fetching page {page}: {list_url}")
 
             try:
                 response = self.session.get(list_url, timeout=10)
                 response.raise_for_status()
-            except requests.RequestException as e:
+            except Exception as e:
                 self.logger.error(f"Failed to fetch {list_url}: {e}")
                 break
 
-            soup = BeautifulSoup(response.content, 'html.parser')
+            soup = BeautifulSoup(response.content, "html.parser")
 
             # 初回ページで総件数を設定
-            if not total_pages_detected:
-                # 総件数を取得（例："東京7,397件のスナック" から抽出）
-                text_elements = soup.find_all(['p', 'div', 'span'])
-                total_count = None
-                for elem in text_elements:
-                    text = elem.get_text()
-                    if '件のスナック' in text or '件の' in text:
-                        import re
-                        match = re.search(r'(\d+)件', text)
-                        if match:
-                            total_count = int(match.group(1).replace(',', ''))
-                            break
+            if page == 1:
+                for elem in soup.find_all(["p", "div", "span"]):
+                    match = re.search(r"([\d,]+)件", elem.get_text())
+                    if match:
+                        self.total_items = int(match.group(1).replace(",", ""))
+                        break
 
-                if total_count:
-                    self.total_items = total_count
-                    self.logger.info(f"Total items estimated: {total_count}")
-                total_pages_detected = True
+            # 一覧ページから店舗リンクを抽出（/rec/0/{id}/ パターン）
+            seen = set()
+            shop_hrefs = []
+            for link in soup.find_all("a", href=True):
+                href = link["href"]
+                if href.startswith("/rec/0/") and href.endswith("/") and href not in seen:
+                    seen.add(href)
+                    shop_hrefs.append(href)
 
-            # 一覧ページから店舗リンクを抽出
-            shop_links = []
-            for link in soup.find_all('a', href=True):
-                href = link.get('href')
-                # /rec/0/{shop_id}/ パターンを抽出
-                if href.startswith('/rec/0/') and href.endswith('/'):
-                    if href not in [s['href'] for s in shop_links]:
-                        shop_links.append({'href': href, 'text': link.get_text(strip=True)})
-
-            if not shop_links:
-                self.logger.info(f"No shop links found on page {page}. Assuming end of pages.")
+            if not shop_hrefs:
+                self.logger.info(f"No shop links on page {page}, stopping.")
                 break
 
-            self.logger.info(f"Found {len(shop_links)} shops on page {page}")
+            self.logger.info(f"Found {len(shop_hrefs)} shops on page {page}")
 
-            # 各店舗の詳細ページを取得
-            for shop_link in shop_links:
-                try:
-                    detail_url = self.base_url + shop_link['href']
-                    self._scrape_detail(detail_url)
-                    time.sleep(self.DELAY)
-                except Exception as e:
-                    self.logger.warning(f"Error scraping {detail_url}: {e}")
-                    continue
+            for href in shop_hrefs:
+                record = self._scrape_detail(self.BASE_URL + href)
+                if record:
+                    yield record
 
             page += 1
-
-            # 安全装置：1000ページ以上の場合は中断
             if page > 1000:
                 self.logger.warning("Reached 1000 pages, stopping crawl")
                 break
 
-    def _scrape_detail(self, detail_url: str):
-        """店舗詳細ページから情報を抽出"""
+    def _scrape_detail(self, detail_url: str) -> dict | None:
+        """店舗詳細ページから情報を抽出してdictで返す"""
         try:
             response = self.session.get(detail_url, timeout=10)
             response.raise_for_status()
-        except requests.RequestException as e:
+        except Exception as e:
             self.logger.error(f"Failed to fetch {detail_url}: {e}")
-            return
+            return None
 
-        soup = BeautifulSoup(response.content, 'html.parser')
-
-        record = {}
+        soup = BeautifulSoup(response.content, "html.parser")
+        record = {Schema.URL: detail_url}
 
         # 店舗名
-        name_elem = soup.find('h1') or soup.find(['h2', 'title'])
-        shop_name = name_elem.get_text(strip=True) if name_elem else None
-        record[Schema.NAME] = shop_name
+        name_elem = soup.find("h1") or soup.find(["h2", "title"])
+        record[Schema.NAME] = name_elem.get_text(strip=True) if name_elem else None
 
         # 住所
-        address = None
-        # 郵便番号と住所を含むテキストを探す
-        for elem in soup.find_all(['p', 'div', 'dd']):
+        for elem in soup.find_all(["p", "div", "dd"]):
             text = elem.get_text(strip=True)
-            if '〒' in text or '東京都' in text:
-                # 最初の行のみを住所とする
-                address_text = text.split('\n')[0] if '\n' in text else text
-                if '営業時間' not in address_text:
-                    address = address_text
-                    break
-        record[Schema.ADDRESS] = address
+            if ("〒" in text or "東京都" in text) and "営業時間" not in text:
+                record[Schema.ADDR] = text.split("\n")[0]
+                break
 
         # 電話番号
-        phone = None
-        for elem in soup.find_all(['p', 'div', 'dd', 'a']):
-            text = elem.get_text(strip=True)
-            if text and text.replace('-', '').replace('(', '').replace(')', '').replace(' ', '').isdigit():
-                # 電話番号らしい形式
-                if len(text) >= 10:
-                    phone = text
-                    break
-            # or check href for tel:
-            href = elem.get('href', '')
-            if href.startswith('tel:'):
-                phone = href.replace('tel:', '')
+        for elem in soup.find_all(["a", "p", "div", "dd"]):
+            href = elem.get("href", "")
+            if href.startswith("tel:"):
+                record[Schema.TEL] = href.replace("tel:", "")
                 break
-        record[Schema.PHONE] = phone
-
-        # 最寄駅（複数）
-        stations = []
-        station_text = None
-        for elem in soup.find_all(['p', 'div', 'li']):
             text = elem.get_text(strip=True)
-            if '駅' in text and len(text) < 100:
-                station_text = text
-                # 複数駅を抽出
-                import re
-                station_names = re.findall(r'([ぁ-ん\w一-龥]+駅)', text)
-                stations.extend(station_names)
-
-        record['最寄駅'] = ', '.join(set(stations)) if stations else station_text
-
-        # 営業時間
-        hours = None
-        for elem in soup.find_all(['p', 'div', 'dd']):
-            text = elem.get_text(strip=True)
-            if any(x in text for x in ['営業時間', '営業', '時間']) or ('-' in text and ('時' in text or ':' in text)):
-                # 最初の行
-                hours = text.split('\n')[0] if '\n' in text else text
+            stripped = re.sub(r"[\s\-\(\)]", "", text)
+            if stripped.isdigit() and len(stripped) >= 10:
+                record[Schema.TEL] = text
                 break
-        record['営業時間'] = hours
 
-        # 定休日
-        closed_days = None
-        for elem in soup.find_all(['p', 'div', 'dd']):
+        # 最寄駅
+        for elem in soup.find_all(["p", "div", "li"]):
             text = elem.get_text(strip=True)
-            if '定休' in text or '休み' in text or '休業' in text:
-                closed_days = text.split('\n')[0] if '\n' in text else text
+            if "駅" in text and len(text) < 100:
+                stations = re.findall(r"[ぁ-ん\w一-龥]+駅", text)
+                record["最寄駅"] = ", ".join(dict.fromkeys(stations)) if stations else text
                 break
-        record['定休日'] = closed_days
 
-        # 給与（時給）
-        wage = None
-        for elem in soup.find_all(['p', 'div', 'dd', 'span']):
+        # 営業時間 / 定休日
+        for elem in soup.find_all(["p", "div", "dd"]):
             text = elem.get_text(strip=True)
-            if '円' in text and ('時' in text or '時間' in text or '給' in text):
-                wage = text.split('\n')[0] if '\n' in text else text
+            if Schema.TIME not in record and ("営業時間" in text or ("時" in text and ":" in text)):
+                record[Schema.TIME] = text.split("\n")[0]
+            if Schema.HOLIDAY not in record and ("定休" in text or "休み" in text):
+                record[Schema.HOLIDAY] = text.split("\n")[0]
+
+        # 給与
+        for elem in soup.find_all(["p", "div", "dd", "span"]):
+            text = elem.get_text(strip=True)
+            if "円" in text and any(x in text for x in ["時", "給"]):
+                record["給与"] = text.split("\n")[0]
                 break
-        record['給与'] = wage
 
         # 仕事内容
-        job_type = None
-        for elem in soup.find_all(['p', 'div', 'dd']):
+        for elem in soup.find_all(["p", "div", "dd"]):
             text = elem.get_text(strip=True)
-            if 'スタッフ' in text or '職種' in text or '女性' in text:
-                job_type = text.split('\n')[0] if '\n' in text else text
-                if len(job_type) < 100:
-                    break
-        record['仕事内容'] = job_type
+            if any(x in text for x in ["スタッフ", "職種", "女性"]) and len(text) < 100:
+                record["仕事内容"] = text.split("\n")[0]
+                break
 
         # 年齢要件
-        age_req = None
-        for elem in soup.find_all(['p', 'div', 'dd']):
+        for elem in soup.find_all(["p", "div", "dd"]):
             text = elem.get_text(strip=True)
-            if '才' in text and ('以上' in text or 'OK' in text):
-                age_req = text.split('\n')[0] if '\n' in text else text
+            if "才" in text and any(x in text for x in ["以上", "OK"]):
+                record["年齢要件"] = text.split("\n")[0]
                 break
-        record['年齢要件'] = age_req
 
         # 経験要件
-        exp_req = None
-        for elem in soup.find_all(['p', 'div', 'dd']):
+        for elem in soup.find_all(["p", "div", "dd"]):
             text = elem.get_text(strip=True)
-            if '未経験' in text or '経験' in text or 'OK' in text:
-                if any(x in text for x in ['未経験', '経験者', '経験OK']):
-                    exp_req = text.split('\n')[0] if '\n' in text else text
-                    break
-        record['経験要件'] = exp_req
-
-        # シフト情報
-        shift = None
-        for elem in soup.find_all(['p', 'div', 'dd']):
-            text = elem.get_text(strip=True)
-            if '週' in text and '日' in text and ('OK' in text or 'ok' in text):
-                shift = text.split('\n')[0] if '\n' in text else text
+            if any(x in text for x in ["未経験", "経験者", "経験OK"]):
+                record["経験要件"] = text.split("\n")[0]
                 break
-        record['シフト'] = shift
+
+        # シフト
+        for elem in soup.find_all(["p", "div", "dd"]):
+            text = elem.get_text(strip=True)
+            if "週" in text and "日" in text and "OK" in text.upper():
+                record["シフト"] = text.split("\n")[0]
+                break
 
         # 福利厚生
-        benefits = None
-        for elem in soup.find_all(['p', 'div', 'dd', 'li']):
+        for elem in soup.find_all(["p", "div", "dd", "li"]):
             text = elem.get_text(strip=True)
-            if '日払い' in text or 'ボーナス' in text or '福利' in text:
-                benefits = text
+            if any(x in text for x in ["日払い", "ボーナス", "福利"]):
+                record["福利厚生"] = text
                 break
-        record['福利厚生'] = benefits
 
         # Instagram
-        instagram_url = None
-        for link in soup.find_all('a', href=True):
-            href = link.get('href', '')
-            if 'instagram.com' in href:
-                instagram_url = href
+        for link in soup.find_all("a", href=True):
+            if "instagram.com" in link["href"]:
+                record[Schema.INSTA] = link["href"]
                 break
-        record['Instagram'] = instagram_url
 
-        # 記録を保存
-        self.save_record(record)
-        self.logger.info(f"Saved: {shop_name or 'Unknown'}")
+        self.logger.info(f"Saved: {record.get(Schema.NAME) or detail_url}")
+        return record
 
-    def prepare(self):
-        """初期化処理"""
-        self.logger.info(f"Starting {self.site_id} crawler")
-
-    def finalize(self):
-        """終了処理"""
-        self.session.close()
-        self.logger.info(f"Finished {self.site_id} crawler")
-
-# クローラー登録
-register_crawler(SnackNaviCrawler)
 
 if __name__ == "__main__":
-    crawler = SnackNaviCrawler()
-    crawler.run()
+    import logging
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    scraper = SnackNaviCrawler()
+    scraper.execute("https://snacknavi.com/girl_top.php?page=1")
+
+    print(f"\n出力ファイル: {scraper.output_filepath}")
+    print(f"取得件数: {scraper.item_count}")
