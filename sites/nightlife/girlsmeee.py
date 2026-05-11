@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import re
 import sys
@@ -38,6 +39,31 @@ _PREF_RE = re.compile(
     r"(?:青森|岩手|宮城|秋田|山形|福島|茨城|栃木|群馬|埼玉|千葉|神奈川|新潟|富山|石川|福井|山梨|長野|岐阜|静岡|愛知|三重|滋賀|兵庫|奈良|和歌山|"
     r"鳥取|島根|岡山|広島|山口|徳島|香川|愛媛|高知|福岡|佐賀|長崎|熊本|大分|宮崎|鹿児島|沖縄)県)"
 )
+
+_CHECKPOINT_CSV = Path(__file__).parent / "_checkpoint_girlsmeee.csv"
+
+
+def _get_checkpoint_rows() -> list[dict]:
+    """チェックポイントファイルから処理済み行を読み込む"""
+    if not _CHECKPOINT_CSV.exists():
+        return []
+    try:
+        with _CHECKPOINT_CSV.open(encoding="utf-8-sig") as f:
+            return list(csv.DictReader(f))
+    except Exception:
+        return []
+
+
+def _append_to_checkpoint(rows: list[dict]) -> None:
+    """チェックポイントファイルに行を追記"""
+    if not rows:
+        return
+    write_header = not _CHECKPOINT_CSV.exists()
+    with _CHECKPOINT_CSV.open("a", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        if write_header:
+            writer.writeheader()
+        writer.writerows(rows)
 
 
 class GirlsmeeeScraper(StaticCrawler):
@@ -61,22 +87,39 @@ class GirlsmeeeScraper(StaticCrawler):
     _SHOP_URL_RE = re.compile(r"^https://girlsmeee\.com/(?:kanto|kansai)/[^/]+/\d+/?$")
     _SNS_IGNORE = ("girlsmeeekansai", "tainew_girlsmeee")
 
+    def prepare(self) -> None:
+        """チェックポイントから処理済みURLを復元"""
+        rows = _get_checkpoint_rows()
+        self._done_urls: set[str] = set()
+        if rows:
+            self.logger.info("[RESUME] チェックポイント %d 件を引継ぎ", len(rows))
+            for row in rows:
+                self._done_urls.add(row.get(Schema.URL, ""))
+                self.pipeline.process_item(dict(row))
+
     def parse(self, url: str) -> Generator[dict, None, None]:
         shop_urls = self._collect_shop_urls(url)
-        self.total_items = len(shop_urls)
-        self.logger.info("対象詳細URL数: %d", self.total_items)
+        self.logger.debug("shop_urls サンプル(先頭5件): %s", shop_urls[:5])
 
-        for shop_url in shop_urls:
+        remaining = [u for u in shop_urls if u not in self._done_urls]
+        self.total_items = len(self._done_urls) + len(remaining)
+        self.logger.info("対象詳細URL数: %d (うち再開スキップ: %d)", self.total_items, len(self._done_urls))
+
+        for shop_url in remaining:
             try:
                 soup = self.get_soup(shop_url)
                 if soup is None:
                     continue
                 item = self._parse_shop_page(shop_url, soup)
                 if item[Schema.NAME]:
+                    _append_to_checkpoint([item])
                     yield item
             except Exception as e:
                 self.logger.warning("スキップ %s: %s", shop_url, e)
                 continue
+
+        _CHECKPOINT_CSV.unlink(missing_ok=True)
+        self.logger.info("[DONE] チェックポイント削除・完了")
 
     # ------------------------------------------------------------------
     # Sitemap collection
@@ -423,7 +466,7 @@ class GirlsmeeeScraper(StaticCrawler):
                 continue
             if "instagram.com" in low and not sns["insta"]:
                 sns["insta"] = href
-            elif ("x.com" in low or "twitter.com" in low) and not sns["x"]:
+            elif ("x.com" in low or "twitter.com" in low) and "intent/tweet" not in low and not sns["x"]:
                 sns["x"] = href
             elif "facebook.com" in low and not sns["fb"]:
                 sns["fb"] = href
