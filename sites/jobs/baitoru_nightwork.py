@@ -116,6 +116,69 @@ class BaitoruNightworkScraper(StaticCrawler):
                 break
             page += 1
 
+    def _scrape_detail(self, url: str) -> dict:
+        """詳細ページから住所（全体）・TEL を取得する"""
+        try:
+            soup = self.get_soup(url)
+        except Exception as e:
+            self.logger.warning("詳細ページ取得失敗: %s (%s)", url, e)
+            return {}
+        if not soup:
+            return {}
+
+        result = {}
+
+        # TEL: 「電話番号を表示する」ボタンの data-obo_tel 属性から取得
+        # 会社情報ブロックの有無に関わらず全ページに存在する
+        tel_el = soup.select_one("a[data-obo_tel]")
+        if tel_el:
+            tel_val = tel_el.get("data-obo_tel", "").strip()
+            if tel_val:
+                result[Schema.TEL] = tel_val
+
+        # 住所: div.detail-companyInfo > div.pt03 の「所在地」dl から取得
+        company_info = soup.select_one("div.detail-companyInfo")
+        pt03 = company_info.find("div", class_="pt03") if company_info else soup.find("div", class_="pt03")
+        if not pt03:
+            return result
+
+        for dl in pt03.find_all("dl"):
+            dt = dl.find("dt")
+            dd = dl.find("dd")
+            if not dt or not dd:
+                continue
+            label = dt.get_text(strip=True)
+
+            if "所在地" in label:
+                p = dd.find("p")
+                raw = p.get_text(separator="\n") if p else dd.get_text(separator="\n")
+                lines = [l.strip() for l in raw.splitlines() if l.strip()]
+                addr_parts = []
+                for line in lines:
+                    if "FAX:" not in line and not re.search(r"^TEL[：:]", line):
+                        addr_parts.append(line)
+                    elif re.search(r"^TEL[：:]", line) and not result.get(Schema.TEL):
+                        tel_val = re.sub(r"^TEL[：:]", "", line.split("FAX")[0]).strip()
+                        if tel_val:
+                            result[Schema.TEL] = tel_val
+                if addr_parts:
+                    addr = " ".join(addr_parts)
+                    m = _PREF_RE.search(addr)
+                    if m:
+                        result[Schema.PREF] = m.group(1)
+                        result[Schema.ADDR] = addr[m.end():].strip()
+                    else:
+                        result[Schema.ADDR] = addr
+                break
+
+            elif "代表電話番号" in label or "電話番号" in label:
+                if not result.get(Schema.TEL):
+                    tel_val = _clean(dd.get_text(" "))
+                    if tel_val:
+                        result[Schema.TEL] = tel_val
+
+        return result
+
     def _parse_article(self, article, cat_name: str, region: str) -> dict | None:
         # 店名
         name_el = article.select_one(".pt02b > p")
@@ -134,7 +197,7 @@ class BaitoruNightworkScraper(StaticCrawler):
         span = a_tag.select_one("span")
         job_title = span.get_text(strip=True) if span else ""
 
-        # 勤務地 → 都道府県・住所を抽出
+        # 一覧ページの勤務地から都道府県だけ仮取得（詳細ページで上書き）
         pref, addr = "", ""
         loc_el = article.select_one(".pt02b .ul02 li")
         if loc_el:
@@ -144,9 +207,12 @@ class BaitoruNightworkScraper(StaticCrawler):
             m = _PREF_RE.search(loc_text)
             if m:
                 pref = m.group(1)
-                addr = loc_text[m.end():].strip()
-            else:
-                addr = loc_text
+
+        # 詳細ページから完全な住所・TEL を取得
+        detail = self._scrape_detail(job_url)
+        pref  = detail.get(Schema.PREF, pref)
+        addr  = detail.get(Schema.ADDR, addr)
+        tel   = detail.get(Schema.TEL, "")
 
         # 職種・給与・勤務時間（.pt03 内の dl を順番に取得）
         pt03_dls = article.select(".pt03 dl")
@@ -178,6 +244,7 @@ class BaitoruNightworkScraper(StaticCrawler):
             Schema.URL:      job_url,
             Schema.PREF:     pref,
             Schema.ADDR:     addr,
+            Schema.TEL:      tel,
             Schema.CAT_SITE: cat_site,
             Schema.TIME:     work_time,
             "求人タイトル":   job_title,
