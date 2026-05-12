@@ -86,10 +86,10 @@ class ArubaitoExScraper(MinimumArubaitoExScraper):
             self.logger.warning("検索URLまたは /jobs/{id} 以外は未対応: %s", url)
             return
 
-        job_urls: list[str] = []
         max_page_from_nav: int | None = None
         page = 1
         base_search = _without_pg(url)
+        yielded_count = 0
 
         while True:
             if self.MAX_PAGES is not None and page > self.MAX_PAGES:
@@ -104,7 +104,6 @@ class ArubaitoExScraper(MinimumArubaitoExScraper):
             if page == 1:
                 total_hits = _parse_total_count(soup)
                 max_page_from_nav = _parse_last_page_from_pagination(soup)
-
                 estimated: int | None = total_hits
                 if self.MAX_PAGES is not None:
                     cap_jobs = self.MAX_PAGES * 30
@@ -119,35 +118,28 @@ class ArubaitoExScraper(MinimumArubaitoExScraper):
                 self.logger.info("一覧に求人なし page=%s で終了", page)
                 break
 
-            for jid in ids:
-                job_urls.append(urljoin(_BASE + "/", f"/jobs/{jid}"))
+            # ページごとに重複除去し、ため込まず即詳細取得して返す
+            page_job_urls = list(dict.fromkeys(urljoin(_BASE + "/", f"/jobs/{jid}") for jid in ids))
+
+            for job_url in page_job_urls:
+                try:
+                    detail_soup = self.get_soup(job_url)
+                    if detail_soup is None:
+                        continue
+                    item = build_job_item_from_detail_soup(detail_soup, job_url)
+                    if item:
+                        yielded_count += 1
+                        yield item
+                except Exception as exc:
+                    self.logger.warning("スキップ: %s (%s)", job_url, exc)
+                    continue
 
             if max_page_from_nav is not None and page >= max_page_from_nav:
                 break
             page += 1
 
-        seen: set[str] = set()
-        unique_urls: list[str] = []
-        for u in job_urls:
-            if u in seen:
-                continue
-            seen.add(u)
-            unique_urls.append(u)
-
-        if unique_urls:
-            self.total_items = max(self.total_items or 0, len(unique_urls))
-
-        for job_url in unique_urls:
-            try:
-                detail_soup = self.get_soup(job_url)
-                if detail_soup is None:
-                    continue
-                item = build_job_item_from_detail_soup(detail_soup, job_url)
-                if item:
-                    yield item
-            except Exception as exc:
-                self.logger.warning("スキップ: %s (%s)", job_url, exc)
-                continue
+        if not self.total_items:
+            self.total_items = yielded_count
 
 
 def _pick_richer_address_line(addr_html: str, addr_ld: str) -> str:
