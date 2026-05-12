@@ -10,6 +10,7 @@ import json
 import logging
 import re
 import sys
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Generator
 
@@ -76,6 +77,10 @@ class ArubaitoExScraper(MinimumArubaitoExScraper):
 
     #: 一覧を辿る最大ページ数。None のとき上限なし（運用ではシードURLで条件絞り推奨）。
     MAX_PAGES: int | None = None
+    #: 一覧ページの get_soup が None（タイムアウト等）のときの追加リトライ回数（基盤の HTTP リトライとは別）。
+    LIST_PAGE_RETRIES = 5
+    #: ページネーション最大が取れない場合に、一覧が連続で取れないと打ち切るページ数（無限ループ防止）。
+    MAX_CONSECUTIVE_LIST_FAILURES = 5
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         if _is_job_detail_url(url):
@@ -90,16 +95,52 @@ class ArubaitoExScraper(MinimumArubaitoExScraper):
         page = 1
         base_search = _without_pg(url)
         yielded_count = 0
+        consecutive_list_failures = 0
 
         while True:
             if self.MAX_PAGES is not None and page > self.MAX_PAGES:
                 break
 
             page_url = base_search if page == 1 else _merge_query(base_search, {"pg": str(page)})
-            soup = self.get_soup(page_url)
+            soup = None
+            for attempt in range(1, self.LIST_PAGE_RETRIES + 1):
+                soup = self.get_soup(page_url)
+                if soup is not None:
+                    break
+                if attempt < self.LIST_PAGE_RETRIES:
+                    self.logger.info(
+                        "一覧取得リトライ page=%s (%s/%s)",
+                        page,
+                        attempt,
+                        self.LIST_PAGE_RETRIES,
+                    )
+                    time.sleep(self.DELAY)
+
             if soup is None:
-                self.logger.warning("一覧取得失敗 page=%s", page)
-                break
+                consecutive_list_failures += 1
+                self.logger.warning(
+                    "一覧取得失敗 page=%s（%s 回試行後も失敗）",
+                    page,
+                    self.LIST_PAGE_RETRIES,
+                )
+                if page == 1:
+                    break
+                if max_page_from_nav is not None and page >= max_page_from_nav:
+                    break
+                if (
+                    max_page_from_nav is None
+                    and consecutive_list_failures >= self.MAX_CONSECUTIVE_LIST_FAILURES
+                ):
+                    self.logger.warning(
+                        "一覧が連続 %s ページ取得できませんでした。探索を終了します。",
+                        self.MAX_CONSECUTIVE_LIST_FAILURES,
+                    )
+                    break
+                self.logger.warning("当該ページの求人はスキップし、次ページへ進みます (page=%s)", page)
+                page += 1
+                continue
+
+            consecutive_list_failures = 0
 
             if page == 1:
                 total_hits = _parse_total_count(soup)
