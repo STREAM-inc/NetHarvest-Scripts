@@ -15,6 +15,8 @@
     python scripts/sites/jobs/works.py
 """
 
+import csv
+import json
 import re
 import sys
 from pathlib import Path
@@ -28,11 +30,11 @@ if str(_project_root) not in sys.path:
 from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
-BASE_URL  = "https://04510.jp"
+BASE_URL = "https://04510.jp"
 START_URL = f"{BASE_URL}/areas/"
 
 # /jobs/{jobId}/?companyId={cid}  のリンク検出
-_JOB_HREF_RE  = re.compile(r"/jobs/(\d+)/?\?[^\"']*companyId=(\d+)")
+_JOB_HREF_RE = re.compile(r"/jobs/(\d+)/?\?[^\"']*companyId=(\d+)")
 # /jobs/areas/{region}/{prefecture}/  の都道府県リンク検出
 _PREF_HREF_RE = re.compile(r"^/jobs/areas/[a-z]+/[a-z]+/?$")
 # 都道府県名抽出用
@@ -80,64 +82,129 @@ class FactoryWorksScraper(StaticCrawler):
     # ③ parse()
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     def parse(self, url: str) -> Generator[dict, None, None]:
-        # Phase 1: 全都道府県を巡回して詳細 URL を収集
-        detail_urls = self._collect_detail_urls(url)
+        """
+        Phase 1: 全都道府県を巡回して求人URLを収集
+        Phase 2: 収集したURLを順次詳細取得して yield
+        途中再開対応: 既に取得済みのURLを除外
+        """
+        top_soup = self.get_soup(url)
+        if top_soup is None:
+            self.logger.error("トップページ取得失敗 → 中止")
+            return
 
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        # ④ self.total_items
-        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        self.total_items = len(detail_urls)
-        self.logger.info("詳細URL収集完了: %d 件", self.total_items)
+        pref_urls = self._extract_prefecture_urls(top_soup)
+        self.logger.info("都道府県リンク: %d 件", len(pref_urls))
 
-        # Phase 2: 各詳細ページから情報を抽出
-        for detail_url in detail_urls:
-            item = self._scrape_detail(detail_url)
+        # 既取得URL を先に読み込み（Phase 1 で除外するため）
+        already_scraped = self._load_already_scraped_urls()
+        self.logger.info("✓ 既取得URL: %d 件（Phase 1 で除外）", len(already_scraped))
+
+        # Phase 1: 新規URL のみを収集（既取得分は除外）
+        all_job_urls = self._collect_all_job_urls(pref_urls, already_scraped)
+        self.logger.info(
+            "📍 Phase 1 完了: 新規 %d 件のURL を収集しました", len(all_job_urls)
+        )
+
+        self.total_items = len(all_job_urls)
+        self.logger.info("📍 Phase 2 開始: %d 件の詳細を取得します", self.total_items)
+
+        # Phase 2: 詳細取得 → yield
+        for job_url in all_job_urls:
+            item = self._scrape_detail(job_url)
             if item:
                 yield item
 
     # ------------------------------------------------------------------
     # 内部メソッド
     # ------------------------------------------------------------------
-    def _collect_detail_urls(self, top_url: str) -> list[str]:
-        """/areas/ から都道府県リンクを取得し、各都道府県をページネーションで巡回。"""
-        top_soup = self.get_soup(top_url)
-        if top_soup is None:
-            return []
+    def _load_already_scraped_urls(self) -> set[str]:
+        """前回実行の出力CSVから既取得URLを読み込み。存在しなければ空集合を返す。"""
+        output_dir = _project_root / "output"
 
-        pref_urls = self._extract_prefecture_urls(top_soup)
-        self.logger.info("都道府県リンク: %d 件", len(pref_urls))
+        # output/ ディレクトリから *_FactoryWorksScraper_*.csv を探す
+        if not output_dir.exists():
+            return set()
 
+        csv_files = sorted(output_dir.glob("*_FactoryWorksScraper_*.csv"), reverse=True)
+        if not csv_files:
+            return set()
+
+        output_file = csv_files[0]  # 最新のファイルを使用
+
+        try:
+            urls = set()
+            with open(output_file, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    url = row.get(Schema.URL, "").strip()
+                    if url:
+                        urls.add(url)
+            self.logger.info(
+                "✓ 既取得ファイル読み込み: %s（%d 件）", output_file.name, len(urls)
+            )
+            return urls
+        except Exception as e:
+            self.logger.warning("既取得ファイル読み込みエラー: %s — %s", output_file, e)
+            return set()
+
+    def _collect_all_job_urls(self, pref_urls: list[str], already_scraped: set[str]) -> list[str]:
+        """全都道府県から求人URLを収集。既取得分は除外。進捗ログを出力。"""
         all_urls: list[str] = []
-        seen: set[str] = set()
-        for pref_url in pref_urls:
-            page = 1
-            while True:
-                page_url = pref_url if page == 1 else f"{pref_url}?page={page}"
-                soup = self.get_soup(page_url)
-                if soup is None:
-                    break
+        global_seen: set[str] = already_scraped.copy()  # 既取得URL から開始
 
-                page_links = self._extract_job_urls(soup)
-                if not page_links:
-                    break
-
-                new_count = 0
-                for u in page_links:
-                    if u not in seen:
-                        seen.add(u)
-                        all_urls.append(u)
-                        new_count += 1
-
-                self.logger.info(
-                    "%s page=%d: %d 件 (新規 %d / 累計 %d)",
-                    pref_url, page, len(page_links), new_count, len(all_urls),
-                )
-
-                if not self._has_next_page(soup, page):
-                    break
-                page += 1
+        for i, pref_url in enumerate(pref_urls, 1):
+            urls = self._collect_pref_job_urls(pref_url, global_seen)
+            all_urls.extend(urls)
+            pref_name = pref_url.split("/")[-2]
+            self.logger.info(
+                "  [%d/%d] %s: %d 件 → 累計 %d 件",
+                i,
+                len(pref_urls),
+                pref_name,
+                len(urls),
+                len(all_urls),
+            )
 
         return all_urls
+
+    def _collect_pref_job_urls(self, pref_url: str, global_seen: set[str]) -> list[str]:
+        """1 都道府県分: 一覧ページを順に取得し、求人URLを収集。1ページ失敗で打ち切り。"""
+        results: list[str] = []
+        page = 1
+
+        while True:
+            page_url = pref_url if page == 1 else f"{pref_url}?page={page}"
+            soup = self.get_soup(page_url)
+
+            # 一覧ページ取得失敗時: 1 ページ失敗で打ち切り
+            if soup is None:
+                self.logger.warning("一覧取得失敗で都道府県を打ち切り: %s", pref_url)
+                break
+
+            page_links = self._extract_job_urls(soup)
+            new_urls = [u for u in page_links if u not in global_seen]
+
+            self.logger.info(
+                "%s page=%d: %d 件 (新規 %d)",
+                pref_url,
+                page,
+                len(page_links),
+                len(new_urls),
+            )
+
+            for url in new_urls:
+                global_seen.add(url)
+                results.append(url)
+
+            # 新規URLが無く2ページ目以降なら終了
+            if not new_urls and page > 1:
+                break
+
+            if not self._has_next_page(soup, page):
+                break
+            page += 1
+
+        return results
 
     def _extract_prefecture_urls(self, soup) -> list[str]:
         """トップから /jobs/areas/{region}/{prefecture}/ 形式のリンクを抽出。"""
@@ -208,28 +275,28 @@ class FactoryWorksScraper(StaticCrawler):
         company_addr = company.get("所在地", "")
 
         data = {
-            Schema.URL:       url,
-            Schema.NAME:      company_name,
-            Schema.ADDR:      company_addr,
-            Schema.PREF:      pref,
-            Schema.CAT_SITE:  info.get("業種", ""),
-            "jobId":          job_id,
-            "companyId":      company_id,
-            "求人タイトル":   title,
-            "職種":           info.get("職種", ""),
-            "雇用形態":       info.get("雇用形態", ""),
-            "給与":           info.get("給与", ""),
-            "交通費":         info.get("交通費", ""),
-            "勤務時間":       info.get("勤務時間", ""),
-            "勤務期間":       info.get("勤務期間", ""),
-            "勤務曜日":       info.get("勤務曜日", ""),
-            "休日・休暇":     info.get("休日・休暇", ""),
-            "応募資格":       info.get("応募資格", ""),
+            Schema.URL: url,
+            Schema.NAME: company_name,
+            Schema.ADDR: company_addr,
+            Schema.PREF: pref,
+            Schema.CAT_SITE: info.get("業種", ""),
+            "jobId": job_id,
+            "companyId": company_id,
+            "求人タイトル": title,
+            "職種": info.get("職種", ""),
+            "雇用形態": info.get("雇用形態", ""),
+            "給与": info.get("給与", ""),
+            "交通費": info.get("交通費", ""),
+            "勤務時間": info.get("勤務時間", ""),
+            "勤務期間": info.get("勤務期間", ""),
+            "勤務曜日": info.get("勤務曜日", ""),
+            "休日・休暇": info.get("休日・休暇", ""),
+            "応募資格": info.get("応募資格", ""),
             "ここがポイント": info.get("ここがポイント", ""),
-            "待遇":           info.get("待遇", ""),
-            "特徴":           info.get("特徴", ""),
-            "仕事内容":       info.get("仕事内容", ""),
-            "勤務先":         workplace,
+            "待遇": info.get("待遇", ""),
+            "特徴": info.get("特徴", ""),
+            "仕事内容": info.get("仕事内容", ""),
+            "勤務先": workplace,
         }
 
         if not data[Schema.NAME] and not title:
@@ -254,7 +321,10 @@ class FactoryWorksScraper(StaticCrawler):
                     current_key = _clean(el.get_text())
                     buf = []
                 elif current_key and el.name in ("ul", "ol"):
-                    items = [_clean(li.get_text()) for li in el.find_all("li", recursive=False)]
+                    items = [
+                        _clean(li.get_text())
+                        for li in el.find_all("li", recursive=False)
+                    ]
                     if items:
                         buf.append(" / ".join(items))
                 elif current_key and el.name in ("p", "div", "dl", "dd"):
@@ -279,4 +349,4 @@ if __name__ == "__main__":
     scraper.execute(START_URL)
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
-    print(f"取得件数: {scraper.item_count}"
+    print(f"取得件数: {scraper.item_count}")
