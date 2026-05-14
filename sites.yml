@@ -1364,3 +1364,10 @@ sites:
     url: "https://tattoo-navi.jp/studio/"
     schedule: "0 3 1 * *"
     enabled: true
+
+  - site_id: factory_works
+    name: "工場ワークス"
+    module: "jobs.works"
+    url: "https://04510.jp"
+    schedule: "0 6 1 * *"
+    enabled: true
