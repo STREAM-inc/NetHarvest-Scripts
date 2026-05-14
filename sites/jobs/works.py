@@ -279,4 +279,4 @@ if __name__ == "__main__":
     scraper.execute(START_URL)
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
-    print(f"取得件数: {scraper.item_count}"
+    print(f"取得件数: {scraper.item_count}")
