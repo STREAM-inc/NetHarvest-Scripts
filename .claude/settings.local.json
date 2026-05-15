@@ -10,7 +10,9 @@
       "PowerShell(python -m playwright install)",
       "Bash(python3 *)",
       "WebFetch(domain:snacknavi.com)",
-      "Bash(find C:\\\\\\\\Users\\\\\\\\stream-crew\\\\\\\\NetHarvest\\\\\\\\scripts -type f -name \"*.py\")"
+      "Bash(find C:\\\\\\\\Users\\\\\\\\stream-crew\\\\\\\\NetHarvest\\\\\\\\scripts -type f -name \"*.py\")",
+      "PowerShell(tail *)",
+      "PowerShell(\\(Get-Content \"C:\\\\NetHarvest\\\\scripts\\\\sites.yml\"\\) | Select-Object -Last 20 | ForEach-Object { $_ })"
     ]
   }
 }
