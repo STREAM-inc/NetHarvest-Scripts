@@ -2,6 +2,7 @@
 対象サイト: https://picsastock.com/sitemap.xml
 """
 
+import csv
 import gzip
 import re
 import sys
@@ -71,12 +72,35 @@ class TainyuMacaronScraper(StaticCrawler):
         "応募電話",
     ]
 
+    def prepare(self) -> None:
+        """初期化処理"""
+        self.processed_urls: set[str] = set()
+        resume_from_csv = r"C:\NetHarvest\output\20260514_TainyuMacaronScraper_17881件.csv"
+        if Path(resume_from_csv).exists():
+            self._load_processed_urls(resume_from_csv)
+
+    def _load_processed_urls(self, csv_path: str) -> None:
+        """既に処理されたURLを読み込む"""
+        try:
+            with open(csv_path, 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row.get('取得URL'):
+                        self.processed_urls.add(row['取得URL'])
+            self.logger.info("既に処理済みのURL: %d 件", len(self.processed_urls))
+        except Exception as exc:
+            self.logger.warning("既存CSVの読み込み失敗: %s", exc)
+
     def parse(self, url: str) -> Generator[dict, None, None]:
         shop_urls = self._collect_shop_urls(url)
         self.total_items = len(shop_urls)
         self.logger.info("店舗URL収集完了: %d 件", len(shop_urls))
 
-        for shop_url in shop_urls:
+        # 未処理のURLのみをフィルター
+        unprocessed_urls = [u for u in shop_urls if u not in self.processed_urls]
+        self.logger.info("未処理URL: %d 件", len(unprocessed_urls))
+
+        for shop_url in unprocessed_urls:
             item = self._scrape_detail(shop_url)
             if item:
                 yield item

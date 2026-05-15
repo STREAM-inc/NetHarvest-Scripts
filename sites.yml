@@ -588,6 +588,13 @@ sites:
     schedule: "0 6 8-14 * SAT"
     enabled: true
 
+  - site_id: aupay-store
+    name: "auPAY利用可能店舗"
+    module: "service.aupay_store"
+    url: "https://aupay.wallet.auone.jp/store/"
+    schedule: "20 6 8-14 * SAT"
+    enabled: true
+
   - site_id: tabelog
     name: "食べログ"
     module: "food.tabelog"
@@ -1349,25 +1356,4 @@ sites:
     module: "jobs.gaten_job"
     url: "https://gaten-job.com/"
     schedule: "0 3 1 * *"
-    enabled: true
-
-  - site_id: shokuba_mhlw_import
-    name: "しょくばらぼ公式CSV差分"
-    module: "government.shokuba_mhlw_import"
-    url: "https://shokuba.mhlw.go.jp/shokuba/utilize/download010?lang=JA"
-    schedule: "0 11 1 * *"
-    enabled: true
-
-  - site_id: tattoo_navi
-    name: "タットゥースタジオナビ"
-    module: "tattoo_navi.tattoo_studio"
-    url: "https://tattoo-navi.jp/studio/"
-    schedule: "0 3 1 * *"
-    enabled: true
-
-  - site_id: factory_works
-    name: "工場ワークス"
-    module: "jobs.works"
-    url: "https://04510.jp"
-    schedule: "0 6 1 * *"
     enabled: true
