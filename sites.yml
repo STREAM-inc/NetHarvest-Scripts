@@ -1362,3 +1362,10 @@ sites:
     url: "https://pps-net.org/agency"
     schedule: null
     enabled: true
+
+  - site_id: yashoku_gorakubu
+    name: "夜職ゴラクブ"
+    module: "nightlife.yashoku_gorakubu"
+    url: "https://yorushoku.jp/job-list/"
+    schedule: "30 6 * * MON"
+    enabled: true
