@@ -1406,3 +1406,10 @@ sites:
     url: "https://www.spa.or.jp/search_p/"
     schedule: null
     enabled: true
+
+  - site_id: cabacrown
+    name: "キャバクラウン"
+    module: "jobs.cabacrown"
+    url: "https://cabacrown.net/kw/all/all/"
+    schedule: "0 2 18 * *"
+    enabled: true
