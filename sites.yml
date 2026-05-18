@@ -70,6 +70,13 @@ sites:
     schedule: "0 1 22-28 * SUN"
     enabled: true
 
+  - site_id: nihon_ryoko_kyokai
+    name: "日本旅館協会"
+    module: "realestate.nihon_ryoko_kyokai"
+    url: "https://www.tour.ne.jp/ext/yadonihon/j_hotel/list/?refpage=form"
+    schedule: null
+    enabled: true
+
   - site_id: hairlog
     name: "HAIRLOG"
     module: "beauty.hairlog"
@@ -1078,6 +1085,27 @@ sites:
     schedule: "20 5 15-21 * SUN"
     enabled: true
 
+  - site_id: nihon_souko_kyokai
+    name: "日本倉庫協会"
+    module: "corporate.nihon_souko_kyokai"
+    url: "https://www.nissokyo.or.jp/member_list/"
+    schedule: null
+    enabled: true
+
+  - site_id: nihon_reizousouko_kyokai
+    name: "日本冷蔵倉庫協会"
+    module: "corporate.nihon_reizousouko_kyokai"
+    url: "https://www.jarw.or.jp/find/memberlist/"
+    schedule: null
+    enabled: true
+
+  - site_id: j_reit
+    name: "J-REIT"
+    module: "corporate.j_reit"
+    url: "https://j-reit.jp/brand/"
+    schedule: null
+    enabled: true
+
   - site_id: dairitenhonpo
     name: "代理店募集本舗"
     module: "agency_franchise.dairitenhonpo"
@@ -1330,6 +1358,13 @@ sites:
     schedule: "30 6 22-28 * SUN"
     enabled: true
 
+  - site_id: pachi_town
+    name: "DMMぱちタウン"
+    module: "nightlife.pachi_town"
+    url: "https://p-town.dmm.com/shops/tokyo"
+    schedule: null
+    enabled: true
+
   - site_id: arubaito_ex
     name: "アルバイトEX"
     module: "jobs.arubaito_ex"
@@ -1363,4 +1398,11 @@ sites:
     module: "tattoo_navi.tattoo_studio"
     url: "https://tattoo-navi.jp/studio/"
     schedule: "0 3 1 * *"
+    enabled: true
+
+  - site_id: onsen_kyokai
+    name: "日本温泉協会"
+    module: "service.onsen_kyokai"
+    url: "https://www.spa.or.jp/search_p/"
+    schedule: null
     enabled: true
