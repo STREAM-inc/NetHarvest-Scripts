@@ -1413,3 +1413,10 @@ sites:
     url: "https://cabacrown.net/kw/all/all/"
     schedule: "0 2 18 * *"
     enabled: true
+
+　- site_id: hoskyu
+    name: "ホスト求人ドットコム"
+    module: "portal.HostKyuzinDotcom_scrape"
+    url: "https://www.hoskyu.com/"
+    schedule: "00 1 18 * *"
+    enabled: true
