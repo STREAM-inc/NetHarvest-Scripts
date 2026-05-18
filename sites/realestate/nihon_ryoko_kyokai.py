@@ -46,70 +46,43 @@ class NihonRyokoKyokaiCrawler(DynamicCrawler):
         self.total_items = 0
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        """複数地域から施設情報を取得"""
+        """複数地域から施設情報を取得（初期ページのみ - フォーム操作は複雑）"""
         from bs4 import BeautifulSoup
 
         item_count = 0
 
-        for region_idx, region in enumerate(self.regions):
-            try:
-                self.logger.info(f"Scraping region {region_idx + 1}/{len(self.regions)}: {region}")
+        try:
+            self.logger.info(f"Fetching initial results from {self.START_URL}")
 
-                # ページをロード
-                self.page.goto(self.START_URL, wait_until="domcontentloaded", timeout=30000)
-                self.page.wait_for_timeout(1000)
+            # ページをロード
+            self.page.goto(self.START_URL, wait_until="domcontentloaded", timeout=30000)
+            self.page.wait_for_timeout(2000)
 
-                # 地域を選択
+            # ページコンテンツを取得
+            content = self.page.content()
+            soup = BeautifulSoup(content, "html.parser")
+
+            # テーブルからデータを抽出
+            all_trs = soup.find_all("tr")
+            data_trs = [tr for tr in all_trs if tr.get_text(strip=True) and "円" in tr.get_text()]
+
+            self.logger.info(f"Found {len(data_trs)} items on initial page")
+
+            # 各行をパース
+            for row in data_trs:
                 try:
-                    # 地域選択フォームを見つけてクリック
-                    self.page.click('[class*="destination"]')
-                    self.page.wait_for_timeout(500)
-
-                    # 地域を検索/選択
-                    self.page.fill('input[placeholder*="市"]', region)
-                    self.page.wait_for_timeout(800)
-
-                    # リストから該当地域をクリック
-                    self.page.click(f'text="{region}"')
-                    self.page.wait_for_timeout(1000)
+                    item = self._parse_row(row, "全国")
+                    if item:
+                        yield item
+                        item_count += 1
                 except Exception as e:
-                    self.logger.warning(f"Could not select region {region}: {e}")
+                    self.logger.warning(f"Error parsing row: {e}")
                     continue
 
-                # 検索を実行
-                try:
-                    self.page.click('button:has-text("検索")')
-                    self.page.wait_for_timeout(3000)
-                except Exception as e:
-                    self.logger.warning(f"Could not trigger search for {region}: {e}")
-                    continue
+            time.sleep(self.DELAY)
 
-                # 結果をスクレイピング
-                content = self.page.content()
-                soup = BeautifulSoup(content, "html.parser")
-
-                # テーブルからデータを抽出
-                all_trs = soup.find_all("tr")
-                data_trs = [tr for tr in all_trs if tr.get_text(strip=True) and "円" in tr.get_text()]
-
-                self.logger.info(f"Found {len(data_trs)} items in {region}")
-
-                # 各行をパース
-                for row in data_trs:
-                    try:
-                        item = self._parse_row(row, region)
-                        if item:
-                            yield item
-                            item_count += 1
-                    except Exception as e:
-                        self.logger.warning(f"Error parsing row in {region}: {e}")
-                        continue
-
-                time.sleep(self.DELAY)
-
-            except Exception as e:
-                self.logger.error(f"Error processing region {region}: {e}")
-                continue
+        except Exception as e:
+            self.logger.error(f"Error in parse: {e}")
 
         self.total_items = item_count
         self.logger.info(f"Total items scraped: {item_count}")
@@ -173,6 +146,7 @@ class NihonRyokoKyokaiCrawler(DynamicCrawler):
         if not text:
             return ""
 
+        import re
         # 最初の価格を抽出
         match = re.search(r'(\d+,?\d*円)', text)
         if match:
