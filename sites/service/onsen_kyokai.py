@@ -67,7 +67,7 @@ class OnsenkykaiCrawler(StaticCrawler):
         soup = BeautifulSoup(resp.text, "html.parser")
 
         regions = []
-        select = soup.select_one('select[name="F_AREA"]')
+        select = soup.select_one('select[name="F_PREFS"]')
         if select:
             for option in select.find_all("option"):
                 value = option.get("value")
@@ -84,7 +84,7 @@ class OnsenkykaiCrawler(StaticCrawler):
 
         while page < max_pages:
             try:
-                url = f"{self.START_URL}?F_AREA={region_param}&pg={page}"
+                url = f"{self.START_URL}?F_PREFS={region_param}&pg={page}"
                 self.logger.debug(f"Fetching page {page}: {url}")
 
                 resp = requests.get(url, headers=self.headers, timeout=self.timeout)
