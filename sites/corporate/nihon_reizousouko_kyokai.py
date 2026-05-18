@@ -45,6 +45,7 @@ class NihonReizousoukokKyokaiCrawler(StaticCrawler):
     def parse(self, url: str) -> Generator[dict, None, None]:
         """
         全地域グループの会員企業情報を取得
+        各地域内に複数のテーブル（県別）がある場合も対応
         """
         item_count = 0
 
@@ -58,32 +59,37 @@ class NihonReizousoukokKyokaiCrawler(StaticCrawler):
                     self.logger.warning(f"Failed to get soup from {region}")
                     continue
 
-                # テーブルを探す
-                table = soup.find('table')
-                if not table:
-                    self.logger.warning(f"No table found in {region}")
+                # 地域内のすべてのテーブルを取得（複数県の場合対応）
+                tables = soup.find_all('table')
+                if not tables:
+                    self.logger.warning(f"No tables found in {region}")
                     continue
 
-                # テーブルの行を取得
-                rows = table.find_all('tr')
-                self.logger.info(f"Found {len(rows)} rows in {region}")
+                self.logger.info(f"Found {len(tables)} tables in {region}")
 
-                # ヘッダ行と説明行をスキップ（最初の3行）
-                # Row 0: 県名と協会名
-                # Row 1: グループ（エリア）
-                # Row 2: カラムヘッダ（地区、会社名、住所、電話、HP、FAX、冷凍）
-                data_rows = rows[3:] if len(rows) > 3 else []
+                # 各テーブルをパース
+                for table_idx, table in enumerate(tables):
+                    rows = table.find_all('tr')
 
-                # 各行をパース
-                for row in data_rows:
-                    try:
-                        item = self._parse_row(row, region)
-                        if item:
-                            yield item
-                            item_count += 1
-                    except Exception as e:
-                        self.logger.warning(f"Error parsing row in {region}: {e}")
-                        continue
+                    # ヘッダ行と説明行をスキップ（最初の3行）
+                    # Row 0: 県名と協会名
+                    # Row 1: グループ（エリア）
+                    # Row 2: カラムヘッダ（地区、会社名、住所、電話、HP、FAX、冷凍）
+                    data_rows = rows[3:] if len(rows) > 3 else []
+
+                    if data_rows:
+                        self.logger.debug(f"Table {table_idx}: {len(data_rows)} potential data rows")
+
+                        # 各行をパース
+                        for row in data_rows:
+                            try:
+                                item = self._parse_row(row, region)
+                                if item:
+                                    yield item
+                                    item_count += 1
+                            except Exception as e:
+                                self.logger.warning(f"Error parsing row in {region}: {e}")
+                                continue
 
                 time.sleep(self.DELAY)
 
