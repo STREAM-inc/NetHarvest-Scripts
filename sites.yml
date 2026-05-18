@@ -1364,3 +1364,10 @@ sites:
     url: "https://tattoo-navi.jp/studio/"
     schedule: "0 3 1 * *"
     enabled: true
+
+  - site_id: cabacrown
+    name: "キャバクラウン"
+    module: "jobs.cabacrown"
+    url: "https://cabacrown.net/kw/all/all/"
+    schedule: "0 2 18 * *"
+    enabled: true
