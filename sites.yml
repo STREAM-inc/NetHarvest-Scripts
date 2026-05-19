@@ -1435,3 +1435,10 @@ sites:
     url: "https://naisuta.com/search/honnyu/"
     schedule: "0 2 19 * *"
     enabled: true
+
+  - site_id: shokunin_base
+    name: "??BASE"
+    module: "jobs.shokunin_base"
+    url: "https://shokunin-base.com/cases/"
+    schedule: "50 5 22-28 * SUN"
+    enabled: true
