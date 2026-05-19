@@ -21,6 +21,13 @@ sites:
     schedule: "0 1 1-7 * SAT"
     enabled: true
 
+  - site_id: yorushoku
+    name: "夜職倶楽部" 
+    module: "nightlife.yorushoku"
+    url: "https://yorushoku.jp/job-list/"
+    schedule: "0 3 1-7 * SAT"
+    enabled: true
+  
   - site_id: shinq_compass
     name: "鍼灸コンパス"
     module: "medical.shinq_compass"
