@@ -1420,3 +1420,11 @@ sites:
     url: "https://www.hoskyu.com/"
     schedule: "00 1 18 * *"
     enabled: true
+
+  # 試験運用: 2026-06-19 〜 2026-07-19
+  - site_id: tsukulink
+    name: "ツクリンク"
+    module: "portal.tsukulink"
+    url: "https://tsukulink.net"
+    schedule: "0 2 19 * *"
+    enabled: true
