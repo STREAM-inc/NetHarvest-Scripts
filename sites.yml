@@ -1435,3 +1435,25 @@ sites:
     url: "https://naisuta.com/search/honnyu/"
     schedule: "0 2 19 * *"
     enabled: true
+
+  - site_id: nights_fun
+    name: "ナイツネット"
+    module: "nightlife.nights_fun"
+    url: "https://www.nights.fun/04-sitemap-shop-list.xml"
+    schedule: "30 4 8-14 * SAT"
+    enabled: true
+
+  - site_id: caba2
+    name: "キャバキャバ"
+    module: "nightlife.caba2"
+    url: "https://www.caba2.net/bar_sitemap.xml"
+    schedule: "30 4 1-7 * SUN"
+    enabled: true
+
+  - site_id: yorunabi
+    name: "ヨルナビ"
+    module: "nightlife.yorunabi"
+    url: "https://yorumachi.jp/sitemap.xml"
+    schedule: "30 5 8-14 * SUN"
+    enabled: true
+
