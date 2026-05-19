@@ -1463,4 +1463,9 @@ sites:
     url: "https://yorumachi.jp/sitemap.xml"
     schedule: "30 5 8-14 * SUN"
     enabled: true
-
+  - site_id: itszai
+    name: "イツザイ"
+    module: "jobs.itszai"
+    url: "https://clients.itszai.jp/sitemap.xml"
+    schedule: null
+    enabled: true
