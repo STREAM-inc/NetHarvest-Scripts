@@ -1433,6 +1433,5 @@ sites:
     name: "ナイスタ"
     module: "jobs.naisuta"
     url: "https://naisuta.com/search/honnyu/"
-
     schedule: "0 2 19 * *"
     enabled: true
