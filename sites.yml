@@ -700,6 +700,13 @@ sites:
     url: "https://www.moe-navi.jp/"
     schedule: "40 6 15-21 * SUN"
     enabled: true
+  - site_id: caferun_shop
+    name: "カフェるんショップ検索"
+    module: "nightlife.caferun_shop"
+    url: "https://shop.caferun.jp/shop_search/"
+    schedule: null
+    enabled: true
+
 
 
   - site_id: ai_med_2
