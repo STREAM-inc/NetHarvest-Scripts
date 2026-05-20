@@ -44,6 +44,20 @@ SHOP_ID_RE = re.compile(r"/shops/([^/]+)/")
 DATE_RE = re.compile(
     r"公開\s*([0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2})\s*更新\s*([0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2})"
 )
+ADULT_SERVICE_KEYWORDS = (
+    "デリヘル",
+    "ホテヘル",
+    "ソープ",
+    "ヘルス",
+    "ファッションヘルス",
+    "ピンサロ",
+    "性感",
+    "回春",
+    "SMクラブ",
+    "イメクラ",
+    "人妻デリ",
+    "風俗エステ",
+)
 
 
 def _clean(value: str | None) -> str:
@@ -393,6 +407,9 @@ class NightlyScraper(StaticCrawler):
         if post_code:
             item[Schema.POST_CODE] = post_code
 
+        if self._is_excluded_adult_service(item):
+            return None
+
         return item
 
     def _license_status(self, value: str) -> str:
@@ -402,6 +419,16 @@ class NightlyScraper(StaticCrawler):
         if value.startswith("未確認"):
             return "未確認"
         return value
+
+    def _is_excluded_adult_service(self, item: dict) -> bool:
+        text = " ".join(
+            [
+                item.get(Schema.NAME, ""),
+                item.get(Schema.CAT_SITE, ""),
+                item.get("求人タイトル", ""),
+            ]
+        )
+        return any(keyword in text for keyword in ADULT_SERVICE_KEYWORDS)
 
 
 if __name__ == "__main__":
