@@ -1364,6 +1364,12 @@ sites:
     url: "https://snacknavi.com/girl_top.php?page=1"
     schedule: "30 6 22-28 * SUN"
     enabled: true
+  - site_id: nightly
+    name: "ナイトリー"
+    module: "nightlife.nightly"
+    url: "https://nightly.jp/job/"
+    schedule: "30 7 22-28 * SUN"
+    enabled: true
 
   - site_id: pachi_town
     name: "DMMぱちタウン"
