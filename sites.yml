@@ -14,6 +14,13 @@
 # =============================================================================
 
 sites:
+  - site_id: beautyworld_japan_tokyo
+    name: "Beautyworld Japan Tokyo"
+    module: "beauty.beautyworld_japan_tokyo"
+    url: "https://beautyworld-japan.jp.messefrankfurt.com/tokyo/ja/exhibitor-search.html"
+    schedule: "0 1 1-7 * SAT"
+    enabled: true
+    
   - site_id: furugi_meguru
     name: "古着屋巡りマップガイド MEGURU"
     module: "portal.furugi_meguru"
