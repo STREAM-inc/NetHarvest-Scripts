@@ -14,6 +14,13 @@
 # =============================================================================
 
 sites:
+  - site_id: furugi_meguru
+    name: "古着屋巡りマップガイド MEGURU"
+    module: "portal.furugi_meguru"
+    url: "https://furugi-meguru.com/"
+    schedule: "0 1 1-7 * SAT"
+    enabled: true
+    
   - site_id: eaidem
     name: "イーアイデム"
     module: "jobs.eaidem"
