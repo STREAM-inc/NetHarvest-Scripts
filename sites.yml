@@ -1362,3 +1362,17 @@ sites:
     url: "https://pps-net.org/agency"
     schedule: null
     enabled: true
+
+  - site_id: eiga_theater
+    name: "映画.com 映画館情報"
+    module: "portal.eiga_theater"
+    url: "https://eiga.com/theater/"
+    schedule: null
+    enabled: true
+
+  - site_id: fitness_search
+    name: "フィットネスサーチ"
+    module: "portal.fitness_search"
+    url: "https://www.fitness-search.net/"
+    schedule: null
+    enabled: true
