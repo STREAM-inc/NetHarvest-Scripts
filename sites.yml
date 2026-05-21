@@ -1351,13 +1351,6 @@ sites:
     url: "https://philippine-pub.com/"
     schedule: "30 4 8-14 * SUN"
 
-  - site_id: mynavi2027
-    name: "マイナビ2027"
-    module: "jobs.mynavi2027"
-    url: "https://job.mynavi.jp/2027/"
-    schedule: null
-    enabled: true
-
   - site_id: girlsmeee
     name: "体入ガールズミー"
     module: "nightlife.girlsmeee"
@@ -1393,13 +1386,6 @@ sites:
     schedule: "0 3 1 * *"
     enabled: true
 
-  - site_id: gaten_job
-    name: "ガテン系仕事ナビ"
-    module: "jobs.gaten_job"
-    url: "https://gaten-job.com/"
-    schedule: "0 3 1 * *"
-    enabled: true
-
   - site_id: shokuba_mhlw_import
     name: "しょくばらぼ公式CSV差分"
     module: "government.shokuba_mhlw_import"
@@ -1427,14 +1413,6 @@ sites:
     url: "https://cabacrown.net/kw/all/all/"
     schedule: "0 2 18 * *"
     enabled: true
-
-　- site_id: hoskyu
-    name: "ホスト求人ドットコム"
-    module: "portal.HostKyuzinDotcom_scrape"
-    url: "https://www.hoskyu.com/"
-    schedule: "00 1 18 * *"
-    enabled: true
-
 
   - site_id: tsukulink
     name: "ツクリンク"
