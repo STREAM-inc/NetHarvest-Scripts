@@ -1464,3 +1464,9 @@ sites:
     schedule: "30 5 8-14 * SUN"
     enabled: true
 
+  - site_id: pokepara_tainew
+    name: "ポケパラ体入"
+    module: "jobs.pokepara_tainew"
+    url: "https://www.pokepara-tainew.jp/"
+    schedule: "0 2 21 * *"
+    enabled: true
