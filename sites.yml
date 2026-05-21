@@ -1469,3 +1469,10 @@ sites:
     url: "https://www.fitness-search.net/"
     schedule: null
     enabled: true
+
+  - site_id : haken_kyaba
+    name    : "派遣キャバ夜遊びマップ"
+    module  : "portal.haken_kyaba"
+    url     : "https://haken-kyaba.com/yoasobi-map/tokyo/"
+    schedule: null
+    enabled: true
