@@ -12,7 +12,9 @@
       "WebFetch(domain:snacknavi.com)",
       "Bash(find C:\\\\\\\\Users\\\\\\\\stream-crew\\\\\\\\NetHarvest\\\\\\\\scripts -type f -name \"*.py\")",
       "PowerShell(tail *)",
-      "PowerShell(\\(Get-Content \"C:\\\\NetHarvest\\\\scripts\\\\sites.yml\"\\) | Select-Object -Last 20 | ForEach-Object { $_ })"
+      "PowerShell(\\(Get-Content \"C:\\\\NetHarvest\\\\scripts\\\\sites.yml\"\\) | Select-Object -Last 20 | ForEach-Object { $_ })",
+      "Read(//c/Users/stream-crew/.claude/skills/netharvest/**)",
+      "Bash(python -c \"import sys; print\\('\\\\n'.join\\(sys.path\\)\\)\")"
     ]
   }
 }
