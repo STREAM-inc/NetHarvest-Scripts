@@ -54,6 +54,7 @@ class BeautyworldJapanTokyoScraper(StaticCrawler):
 
     DELAY = 1.5
     EXTRA_COLUMNS = [
+        "出店製品カテゴリー",
         "ホール",
         "ブース番号",
         "ゾーン",
@@ -145,7 +146,7 @@ class BeautyworldJapanTokyoScraper(StaticCrawler):
             Schema.FB: social.get("facebook", ""),
             Schema.X: social.get("twitter", ""),
             Schema.TIKTOK: social.get("tiktok", ""),
-            Schema.CAT_SITE: categories,
+            "出店製品カテゴリー": categories,
             "ホール": hall_id,
             "ブース番号": booth,
             "ゾーン": zone,
