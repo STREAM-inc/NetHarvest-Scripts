@@ -15,14 +15,14 @@ from src.const.schema import Schema
 class NihonRyokoKyokaiCrawler(DynamicCrawler):
     """
     日本旅館協会 宿泊施設検索 - https://www.tour.ne.jp/ext/yadonihon/j_hotel/list/
-    全国の旅館・ホテル情報を地域別に取得
-    約1,744件の施設データを収集
+    全国の旅館・ホテル情報を取得
+    約2,600件の施設データを収集（30件/ページ × 全ページネーション）
     """
 
     SITE_ID = "nihon_ryoko_kyokai"
-    BASE_URL = "https://www.tour.ne.jp"
-    START_URL = "https://www.tour.ne.jp/ext/yadonihon/j_hotel/list/?refpage=form"
-    DELAY = 2.0
+    BASE_URL = "https://www.ryokan.or.jp"
+    START_URL = "https://www.ryokan.or.jp/search/result/"
+    DELAY = 1.0
 
     EXTRA_COLUMNS = [
         "room_type",
@@ -32,31 +32,22 @@ class NihonRyokoKyokaiCrawler(DynamicCrawler):
 
     def prepare(self):
         """初期化処理"""
-        self.regions = [
-            "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
-            "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
-            "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県",
-            "岐阜県", "愛知県", "三重県",
-            "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県",
-            "鳥取県", "島根県", "岡山県", "広島県", "山口県",
-            "徳島県", "香川県", "愛媛県", "高知県",
-            "福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県",
-            "沖縄県",
-        ]
         self.total_items = 0
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        """複数地域から施設情報を取得（初期ページのみ - フォーム操作は複雑）"""
+        """全ページをクロール - ページネーション対応"""
         from bs4 import BeautifulSoup
 
         item_count = 0
+        page_num = 1
+        max_pages = 100  # 最大100ページを想定（2600 ÷ 30 ≈ 87ページ）
 
-        try:
-            self.logger.info(f"Fetching initial results from {self.START_URL}")
+        while page_num <= max_pages:
+            self.logger.info(f"Processing page {page_num}...")
 
             # ページをロード
             self.page.goto(self.START_URL, wait_until="domcontentloaded", timeout=30000)
-            self.page.wait_for_timeout(2000)
+            self.page.wait_for_timeout(1500)
 
             # ページコンテンツを取得
             content = self.page.content()
@@ -66,28 +57,44 @@ class NihonRyokoKyokaiCrawler(DynamicCrawler):
             all_trs = soup.find_all("tr")
             data_trs = [tr for tr in all_trs if tr.get_text(strip=True) and "円" in tr.get_text()]
 
-            self.logger.info(f"Found {len(data_trs)} items on initial page")
+            if not data_trs:
+                self.logger.info(f"No more data found on page {page_num}. Stopping.")
+                break
+
+            self.logger.info(f"Found {len(data_trs)} items on page {page_num}")
 
             # 各行をパース
             for row in data_trs:
                 try:
-                    item = self._parse_row(row, "全国")
+                    item = self._parse_row(row)
                     if item:
                         yield item
                         item_count += 1
                 except Exception as e:
-                    self.logger.warning(f"Error parsing row: {e}")
+                    self.logger.warning(f"Error parsing row on page {page_num}: {e}")
                     continue
 
-            time.sleep(self.DELAY)
+            # 次ページボタンを探して押す
+            next_button = self._find_next_button()
+            if not next_button:
+                self.logger.info(f"No next button found on page {page_num}. Stopping.")
+                break
 
-        except Exception as e:
-            self.logger.error(f"Error in parse: {e}")
+            # 次ページをクリック
+            try:
+                next_button.click()
+                self.page.wait_for_timeout(1500)
+                page_num += 1
+            except Exception as e:
+                self.logger.warning(f"Error clicking next button on page {page_num}: {e}")
+                break
+
+            time.sleep(self.DELAY)
 
         self.total_items = item_count
         self.logger.info(f"Total items scraped: {item_count}")
 
-    def _parse_row(self, row, region: str) -> dict | None:
+    def _parse_row(self, row) -> dict | None:
         """テーブル行から1件分の施設情報をパース"""
         try:
             cells = row.find_all('td')
@@ -100,23 +107,19 @@ class NihonRyokoKyokaiCrawler(DynamicCrawler):
             cell2_text = cells[2].get_text(strip=True)
             cell3_text = cells[3].get_text(strip=True)
 
-            # 施設名の抽出（cell0から）
+            # 施設名の抽出
             facility_name = self._extract_facility_name(cell0_text)
-
             if not facility_name:
                 facility_name = cell1_text[:100] if cell1_text else ""
-
             if not facility_name:
                 return None
 
             # 価格の抽出
             price_match = self._extract_price(cell3_text)
 
-            # Schema マッピング
             item = {
                 Schema.NAME: facility_name,
-                Schema.ADDR: region,
-                # EXTRA_COLUMNS
+                Schema.ADDR: cell0_text[:100] if cell0_text else "",
                 "room_type": cell2_text,
                 "meal_type": cell1_text,
                 "price_from": price_match,
@@ -126,6 +129,32 @@ class NihonRyokoKyokaiCrawler(DynamicCrawler):
 
         except Exception as e:
             self.logger.warning(f"Error parsing row: {e}")
+            return None
+
+    def _find_next_button(self):
+        """次ページボタン（または次へリンク）を探す"""
+        try:
+            # 複数のセレクタを試す
+            selectors = [
+                'a:has-text("次へ")',
+                'button:has-text("次へ")',
+                '[aria-label*="次"]',
+                'a.next',
+                '.pagination a[rel="next"]',
+            ]
+
+            for selector in selectors:
+                try:
+                    element = self.page.query_selector(selector)
+                    if element:
+                        return element
+                except:
+                    continue
+
+            return None
+
+        except Exception as e:
+            self.logger.warning(f"Error finding next button: {e}")
             return None
 
     def _extract_facility_name(self, text: str) -> str:
