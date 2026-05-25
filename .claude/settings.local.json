@@ -1,11 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "mcp__plugin_playwright_playwright__browser_navigate",
-      "mcp__plugin_playwright_playwright__browser_snapshot",
-      "mcp__plugin_playwright_playwright__browser_evaluate",
-      "mcp__plugin_playwright_playwright__browser_close",
-      "Bash(python *)"
+      "Skill(update-config)",
+      "PowerShell(python -c \"import playwright; print\\('Playwright Python:', playwright.__version__\\)\" 2>&1)",
+      "PowerShell(python -c \"import playwright; print\\('✓ Playwright Python is installed'\\)\" 2>&1)",
+      "PowerShell(python -c \"import playwright; print\\('Playwright is installed'\\)\" 2>&1)",
+      "PowerShell(head *)",
+      "PowerShell(python -m playwright install --dry-run 2>&1)",
+      "PowerShell(python -m playwright install)",
+      "Bash(python3 *)",
+      "WebFetch(domain:snacknavi.com)",
+      "Bash(find C:\\\\\\\\Users\\\\\\\\stream-crew\\\\\\\\NetHarvest\\\\\\\\scripts -type f -name \"*.py\")",
+      "PowerShell(tail *)",
+      "PowerShell(\\(Get-Content \"C:\\\\NetHarvest\\\\scripts\\\\sites.yml\"\\) | Select-Object -Last 20 | ForEach-Object { $_ })",
+      "Read(//c/Users/stream-crew/.claude/skills/netharvest/**)",
+      "Bash(python -c \"import sys; print\\('\\\\n'.join\\(sys.path\\)\\)\")"
     ]
   }
 }
