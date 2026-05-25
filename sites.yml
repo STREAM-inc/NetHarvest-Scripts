@@ -1476,3 +1476,10 @@ sites:
     url: "https://www.fitness-search.net/"
     schedule: "0 9 * * SUN"
     enabled: true
+
+  - site_id: sckanto
+    name: "日本スイミングクラブ協会関東支部"
+    module: "service.sckanto"
+    url: "https://sckanto.net/"
+    schedule: "0 3 1 * *"
+    enabled: true
