@@ -846,7 +846,7 @@ sites:
     name: "ハローワーク"
     module: "jobs.hellowork"
     url: "https://www.hellowork.mhlw.go.jp/"
-    schedule: "0 1 * * SAT"
+    schedule: "0 3 2-31/3 * *"  # 3日おき 午前3時 (2,5,8,...,26,29日
     enabled: true
 
   - site_id: baitona_joshi
