@@ -1,262 +1,227 @@
 """
-楽天トラベル 宿泊施設一覧
+Web幹事 — ホームページ制作会社ディレクトリ（web-kanji.com）
 
 取得対象:
-    国内24,000件以上の宿泊施設（名称・URL・評価・アクセス・設備・最低料金）
-    RAKUTEN_APP_ID 設定時: 客室数・電話番号・住所・チェックイン時間をAPI経由で追加取得
+    - 東京都・埼玉県・千葉県・神奈川県・茨城県・栃木県・群馬県・山梨県・大阪府
 
 取得フロー:
-    インデックスページ (/group/TIKU/) → 297エリアを巡回
-    → 各エリアの全ページ (1p目: /yado/{pref}/{area}.html, 2p目以降: search.travel.rakuten.co.jp/ds/yado/...)
+    1. /search/{prefecture}[/page/{N}] を巡回し詳細URLを収集
+    2. 各詳細ページ /companies/{slug} から企業情報を抽出
+    3. 都道府県またぎの重複はURLベースで排除
+
+CAPTCHA対応:
+    実行するとChromiumブラウザが画面に表示される。
+    「ユーザーが人間であることを確認する」画面が出た場合は、
+    ブラウザウィンドウ上で手動で解決すれば自動的に処理が続行される（最大2分待機）。
 
 実行方法:
-    python scripts/sites/travel/rakuten_travel.py
-    python bin/run_flow.py --site-id rakuten_travel
+    python scripts/sites/corporate/web_kanji.py
+    python bin/run_flow.py --site-id web_kanji
 """
 
-import math
-import os
+import random
 import re
 import sys
 import time
 from pathlib import Path
+from typing import Generator
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
 from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
+from src.framework.dynamic import DynamicCrawler
 from src.const.schema import Schema
-from src.framework.static import StaticCrawler
 
-_RAKUTEN_APP_ID = os.environ.get("RAKUTEN_APP_ID", "")
+BASE_URL = "https://web-kanji.com"
 
-_PREF_MAP = {
-    "hokkaido": "北海道",
-    "aomori": "青森県",
-    "iwate": "岩手県",
-    "miyagi": "宮城県",
-    "akita": "秋田県",
-    "yamagata": "山形県",
-    "fukushima": "福島県",
-    "ibaraki": "茨城県",
-    "tochigi": "栃木県",
-    "gunma": "群馬県",
-    "saitama": "埼玉県",
-    "chiba": "千葉県",
-    "tokyo": "東京都",
-    "kanagawa": "神奈川県",
-    "niigata": "新潟県",
-    "toyama": "富山県",
-    "ishikawa": "石川県",
-    "fukui": "福井県",
-    "yamanashi": "山梨県",
-    "nagano": "長野県",
-    "gifu": "岐阜県",
-    "shizuoka": "静岡県",
-    "aichi": "愛知県",
-    "mie": "三重県",
-    "shiga": "滋賀県",
-    "kyoto": "京都府",
-    "osaka": "大阪府",
-    "hyogo": "兵庫県",
-    "nara": "奈良県",
-    "wakayama": "和歌山県",
-    "tottori": "鳥取県",
-    "shimane": "島根県",
-    "okayama": "岡山県",
-    "hiroshima": "広島県",
-    "yamaguchi": "山口県",
-    "tokushima": "徳島県",
-    "kagawa": "香川県",
-    "ehime": "愛媛県",
-    "kochi": "高知県",
-    "fukuoka": "福岡県",
-    "saga": "佐賀県",
-    "nagasaki": "長崎県",
-    "kumamoto": "熊本県",
-    "oita": "大分県",
-    "miyazaki": "宮崎県",
-    "kagoshima": "鹿児島県",
-    "okinawa": "沖縄県",
-}
+_PREFECTURES = [
+    "tokyo",
+    "saitama",
+    "chiba",
+    "kanagawa",
+    "ibaraki",
+    "tochigi",
+    "gunma",
+    "yamanashi",
+    "osaka",
+]
+
+_PREF_RE = re.compile(
+    r"^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|"
+    r"茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|"
+    r"新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|"
+    r"静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|"
+    r"奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|"
+    r"徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|"
+    r"熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
+)
+
+_POST_RE = re.compile(r"〒\s*(\d{3}-\d{4})")
 
 
-class RakutenTravelCrawler(StaticCrawler):
-    """楽天トラベル 宿泊施設一覧スクレイパー"""
+def _clean(s) -> str:
+    if s is None:
+        return ""
+    return re.sub(r"\s+", " ", str(s).replace("　", " ")).strip()
 
-    DELAY = 1.5
-    EXTRA_COLUMNS = [
-        "hotel_id",
-        "review_score",
-        "review_count",
-        "catchphrase",
-        "access",
-        "price_min",
-        "area_en",
-        # API拡張 (RAKUTEN_APP_ID 設定時のみ値が入る)
-        "num_rooms",
-        "tel",
-        "postal_code",
-        "addr_detail",
-        "checkin_time",
-        "checkout_time",
-    ]
 
-    def parse(self, url: str):
-        soup = self.get_soup(url)
-        if not soup:
-            return
+def _dl_value(soup, key: str) -> str:
+    for dt in soup.find_all("dt"):
+        if dt.get_text(strip=True) == key:
+            dd = dt.find_next_sibling("dd")
+            return _clean(dd.get_text()) if dd else ""
+    return ""
 
-        area_hrefs = list(
-            dict.fromkeys(
-                a.get("href", "")
-                for a in soup.select('a[href*="/03"], a[href*="/04"]')
-                if "/group/tiku/" in a.get("href", "")
+
+def _is_blocked(soup) -> bool:
+    if soup is None:
+        return True
+    text = soup.get_text()
+    return "ユーザーが人間であることを確認する" in text or (
+        "Just a moment" in text and "Cloudflare" in text
+    )
+
+
+class WebKanjiScraper(DynamicCrawler):
+    """Web幹事 ホームページ制作会社スクレイパー（Playwright実ブラウザ方式）"""
+
+    DELAY = 2.0
+    EXTRA_COLUMNS: list[str] = []
+
+    def _setup(self):
+        """headless=False でブラウザを起動。CAPTCHAが出た場合に手動解決できるよう画面表示する。"""
+        self.playwright = sync_playwright().start()
+        self.browser = self.playwright.chromium.launch(headless=False)
+        self.context = self.browser.new_context(user_agent=self.USER_AGENT)
+        self.page = self.context.new_page()
+
+    def _navigate(self, url: str) -> BeautifulSoup | None:
+        """ページ遷移してBeautifulSoupを返す。CAPTCHAが出た場合は最大2分待機する。"""
+        time.sleep(self.DELAY + random.uniform(0.5, 1.5))
+        soup = self.get_soup(url, wait_until="load")
+
+        if _is_blocked(soup):
+            self.logger.warning(
+                "CAPTCHA検知 — ブラウザウィンドウで手動解決してください（最大2分）: %s", url
             )
-        )
-
-        self.total_items = 24205
-        self.logger.info("エリア数: %d", len(area_hrefs))
-
-        for href in area_hrefs:
-            yield from self._scrape_area("https://travel.rakuten.co.jp" + href)
-            time.sleep(self.DELAY)
-
-    def _scrape_area(self, area_group_url: str):
-        try:
-            resp = self.session.get(area_group_url, timeout=self.TIMEOUT)
-            resp.raise_for_status()
-        except Exception as e:
-            self.logger.warning("エリア取得失敗: %s — %s", area_group_url, e)
-            return
-
-        m = re.search(r"/yado/([^/]+)/([^/.]+)", resp.url)
-        if not m:
-            self.logger.warning("yado URL解析不可: %s", resp.url)
-            return
-        pref_en, area_en = m.group(1), m.group(2)
-        pref_ja = _PREF_MAP.get(pref_en, pref_en)
-
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-        total_el = soup.select_one(".pagination__info-text--total")
-        area_total = 0
-        if total_el:
-            digits = re.sub(r"\D", "", total_el.get_text())
-            area_total = int(digits) if digits else 0
-
-        yield from self._parse_page(soup, pref_ja, area_en, resp.url)
-
-        if area_total <= 30:
-            return
-
-        next_link = soup.select_one('link[rel="next"]')
-        if not next_link:
-            return
-        base_search = re.sub(r"-p\d+$", "", next_link.get("href", ""))
-        if not base_search:
-            return
-
-        total_pages = math.ceil(area_total / 30)
-        for page_num in range(2, total_pages + 1):
-            page_url = f"{base_search}-p{page_num}"
-            page_soup = self.get_soup(page_url)
-            if page_soup:
-                yield from self._parse_page(page_soup, pref_ja, area_en, page_url)
-            time.sleep(self.DELAY)
-
-    def _parse_page(self, soup, pref_ja: str, area_en: str, page_url: str):
-        for card in soup.select("li.htl-list-card"):
             try:
-                yield self._parse_card(card, pref_ja, area_en, page_url)
+                # 会社一覧 or 会社詳細のいずれかのセレクタが出るまで待つ
+                self.page.wait_for_selector(
+                    ".companies-item, dl dt", timeout=120_000
+                )
+            except Exception:
+                self.logger.error("CAPTCHA解決タイムアウト。スキップします: %s", url)
+                return None
+            soup = BeautifulSoup(self.page.content(), "html.parser")
+
+        return soup
+
+    def parse(self, url: str) -> Generator[dict, None, None]:
+        detail_urls = self._collect_detail_urls()
+        self.total_items = len(detail_urls)
+        self.logger.info("詳細URL収集完了: %d 件", len(detail_urls))
+
+        for detail_url in detail_urls:
+            try:
+                item = self._scrape_detail(detail_url)
             except Exception as e:
-                self.logger.warning("カード解析エラー: %s", e)
+                self.logger.warning("詳細取得失敗 %s: %s", detail_url, e)
+                continue
+            if item and item.get(Schema.NAME):
+                yield item
 
-    def _parse_card(self, card, pref_ja: str, area_en: str, page_url: str) -> dict:
-        link = card.select_one("h2.hotel-list__title-text a")
-        hotel_url = link.get("href", "") if link else ""
-        name = link.get_text(strip=True) if link else ""
+    def _collect_detail_urls(self) -> list[str]:
+        urls: list[str] = []
+        seen: set[str] = set()
 
-        m = re.search(r"/HOTEL/(\d+)/", hotel_url)
-        hotel_id = m.group(1) if m else ""
+        for pref in _PREFECTURES:
+            base = f"{BASE_URL}/search/{pref}"
+            self.logger.info("都道府県巡回: %s", pref)
+            page = 1
+            max_page = 1
 
-        review_text = ""
-        review_el = card.select_one(".cstmrEvl")
-        if review_el:
-            review_text = review_el.get_text(strip=True)
-        score_m = re.search(r"^(\d+\.\d+)", review_text)
-        count_m = re.search(r"（(\d+)件）", review_text)
+            while page <= max_page:
+                page_url = base if page == 1 else f"{base}/page/{page}"
+                soup = self._navigate(page_url)
 
-        access_el = card.select_one(".htlAccess")
-        access = ""
-        if access_el:
-            for a in access_el.select("a"):
-                a.decompose()
-            access = re.sub(r"^アクセス\s*[：:]\s*", "", access_el.get_text(strip=True))
+                if soup is None:
+                    self.logger.warning("%s の %d ページ目をスキップ", pref, page)
+                    break
 
-        features = list(dict.fromkeys(f.get_text(strip=True) for f in card.select(".hotelInfo_features label")))
+                cards = soup.select(".companies-item")
+                if not cards:
+                    break
 
-        price_el = card.select_one(".htlLowprice strong")
-        price_min = re.sub(r"\D", "", price_el.get_text()) if price_el else ""
+                for a in soup.select('.companies-item a[href*="/companies/"]'):
+                    href = a.get("href", "")
+                    if not href or href in seen:
+                        continue
+                    seen.add(href)
+                    urls.append(href)
 
-        special_el = card.select_one(".htlSpecial")
+                if page == 1:
+                    for a in soup.select(".pagination-item a"):
+                        m = re.search(r"/page/(\d+)$", a.get("href", ""))
+                        if m:
+                            max_page = max(max_page, int(m.group(1)))
+                    self.logger.info("  %s: %d ページ", pref, max_page)
 
-        item = {
-            Schema.NAME: name,
-            Schema.URL: hotel_url or page_url,
-            Schema.PREF: pref_ja,
-            Schema.CAT_SITE: "・".join(features),
-            "hotel_id": hotel_id,
-            "review_score": score_m.group(1) if score_m else "",
-            "review_count": count_m.group(1) if count_m else "",
-            "catchphrase": special_el.get_text(strip=True) if special_el else "",
-            "access": access,
-            "price_min": price_min,
-            "area_en": area_en,
-            "num_rooms": "",
-            "tel": "",
-            "postal_code": "",
-            "addr_detail": "",
-            "checkin_time": "",
-            "checkout_time": "",
-        }
+                page += 1
 
-        if _RAKUTEN_APP_ID and hotel_id:
-            item.update(self._fetch_api(hotel_id))
+        return urls
+
+    def _scrape_detail(self, url: str) -> dict | None:
+        soup = self._navigate(url)
+        if soup is None:
+            return None
+
+        name = _dl_value(soup, "会社名")
+        if not name:
+            h1 = soup.select_one(".company-name")
+            name = _clean(h1.get_text()) if h1 else ""
+        if not name:
+            return None
+
+        item: dict = {Schema.URL: url, Schema.NAME: name}
+
+        rep = _dl_value(soup, "代表")
+        if rep:
+            item[Schema.REP_NM] = rep
+
+        established = _dl_value(soup, "設立")
+        if established:
+            item[Schema.OPEN_DATE] = established
+
+        cap = _dl_value(soup, "資本金")
+        if cap:
+            item[Schema.CAP] = cap
+
+        emp = _dl_value(soup, "社員数")
+        if emp:
+            item[Schema.EMP_NUM] = emp
+
+        hp = _dl_value(soup, "URL")
+        if hp:
+            item[Schema.HP] = hp
+
+        address_raw = _dl_value(soup, "本社所在地")
+        if address_raw:
+            m_post = _POST_RE.search(address_raw)
+            if m_post:
+                item[Schema.POST_CODE] = m_post.group(1)
+            addr_text = re.sub(r"〒\s*\d{3}-\d{4}\s*", "", address_raw).strip()
+            m_pref = _PREF_RE.match(addr_text)
+            if m_pref:
+                item[Schema.PREF] = m_pref.group(1)
+                item[Schema.ADDR] = addr_text[m_pref.end():].strip()
+            else:
+                item[Schema.ADDR] = addr_text
 
         return item
-
-    def _fetch_api(self, hotel_id: str) -> dict:
-        import urllib.parse
-
-        params = urllib.parse.urlencode(
-            {
-                "applicationId": _RAKUTEN_APP_ID,
-                "formatVersion": "2",
-                "hotelNo": hotel_id,
-            }
-        )
-        url = f"https://app.rakuten.co.jp/services/api/Travel/SimpleHotelSearch/20170426?{params}"
-        try:
-            resp = self.session.get(url, timeout=10)
-            data = resp.json()
-            hotels = data.get("hotels", [])
-            if not hotels:
-                return {}
-            info = hotels[0].get("hotelBasicInfo", {})
-            return {
-                "num_rooms": str(info.get("numberOfRooms", "")),
-                "tel": info.get("telephoneNo", ""),
-                "postal_code": info.get("postalCode", ""),
-                "addr_detail": (str(info.get("address1", "")) + str(info.get("address2", ""))).strip(),
-                "checkin_time": info.get("checkinTime", ""),
-                "checkout_time": info.get("checkoutTime", ""),
-            }
-        except Exception as e:
-            self.logger.warning("API取得失敗 hotel_id=%s: %s", hotel_id, e)
-            return {}
 
 
 if __name__ == "__main__":
@@ -267,8 +232,8 @@ if __name__ == "__main__":
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    scraper = RakutenTravelCrawler()
-    scraper.execute("https://travel.rakuten.co.jp/group/TIKU/")
+    scraper = WebKanjiScraper()
+    scraper.execute(f"{BASE_URL}/search/tokyo")
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
     print(f"取得件数: {scraper.item_count}")
