@@ -1483,3 +1483,10 @@ sites:
     url: "https://sckanto.net/"
     schedule: "0 3 1 * *"
     enabled: true
+
+  - site_id: rakuten_travel
+    name: "楽天トラベル 宿泊施設一覧"
+    module: "travel.rakuten_travel"
+    url: "https://travel.rakuten.co.jp/group/TIKU/"
+    schedule: null
+    enabled: true
