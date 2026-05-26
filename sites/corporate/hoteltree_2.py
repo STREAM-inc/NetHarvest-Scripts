@@ -1,14 +1,19 @@
 """
-ホテルツリー (hoteltree_2) — 全国のホテル運営会社情報 (HTML SSR 経由)
+ホテルツリー (hoteltree_2) — 全国のホテル施設情報 (HTML SSR 経由)
 
 取得対象:
-    - hoteltree 掲載の運営会社情報 (約170社)
-    - 各社ページの会社概要 (基本情報) + 運営ホテル一覧 + ホテル施設数
+    - hoteltree 掲載のホテル/旅館/ゲストハウス (約400施設)
+    - 各 /hotel/{slug} ページの施設名・住所・公式サイト・開業日 など
 
 取得フロー:
-    1. sitemap-dynamic-company-s--c-slug.xml から会社ページ URL を列挙する
-    2. 各 /company/{slug} を取得し、SSR で埋め込まれた `__NUXT_DATA__` JSON を解析する
-    3. 会社レベルのフィールドと運営ホテル名一覧 (および施設数) を取り出す
+    1. sitemap-dynamic-hotel-s--c-slug.xml からホテルページ URL を列挙する
+    2. 各 /hotel/{slug} を取得し、SSR で埋め込まれた `__NUXT_DATA__` JSON を解析する
+    3. ホテルレベルのフィールドを取り出す
+
+備考:
+    旧版 (~2026-04 まで) は /company/{slug} に運営会社情報が掲載されていたが、
+    サイトリニューアル後に company スキーマは廃止され、施設単位の構成に変更された。
+    そのため本スクリプトもホテル施設情報の取得に変更している。
 
 実行方法:
     python scripts/sites/corporate/hoteltree_2.py
@@ -31,27 +36,21 @@ from src.const.schema import Schema
 
 
 SITE_BASE = "https://hoteltree.jp"
-COMPANY_SITEMAP = f"{SITE_BASE}/sitemap-dynamic/sitemap-dynamic-company-s--c-slug.xml"
+HOTEL_SITEMAP = f"{SITE_BASE}/sitemap-dynamic/sitemap-dynamic-hotel-s--c-slug.xml"
 
-# Studio.Design CMS の難読化フィールドキー (Phase 1 の SSR JSON 解析で確認)
+# Studio.Design CMS の難読化フィールドキー (リニューアル後 SSR JSON を解析して確認)
 F_TITLE = "title"
 F_SLUG = "slug"
 F_AVATAR = "avatar"
-F_ADDRESS = "NMWeIjIS"
-F_HP = "PHopKI0m"
-F_EMPLOYEES = "OtZ3y23v"
-F_FOUNDED = "o3SJjMws"
-F_LOB = "f77UI4Ji"
-F_CATEGORY = "heqs66JP"
-F_AVG_AGE = "NS7gxE7N"
-F_TURNOVER = "ys9DTWR2"
-F_HOTELS_TEXT = "uiG5giJU"
-F_HOTELS_REF = "OQrPBubl"
+F_HEADLINE = "x5BGE5AG"     # キャッチコピー
+F_OPEN_DATE = "S4tOlr07"    # 開業日 (例: "2021年3月16日")
+F_INSTAGRAM = "J7saqAXd"    # Instagram URL
+F_HP = "ID_IRiFT"           # 公式サイト URL
+F_ADDRESS = "F6bHOoaY"      # 〒 + 住所 (<br> で改行)
+F_DESCRIPTION = "IoJ8liKM"  # 施設説明文 (HTML)
+F_SUB_DESC = "xWOdUZz8"     # 補足説明 (任意)
 
-_NUXT_RE = re.compile(
-    r'<script[^>]*id="__NUXT_DATA__"[^>]*>(.*?)</script>', re.S
-)
-
+_POSTCODE_PATTERN = re.compile(r"〒\s*(\d{3})\s*-?\s*(\d{4})")
 _PREF_PATTERN = re.compile(
     r"^(北海道|"
     r"青森県|岩手県|宮城県|秋田県|山形県|福島県|"
@@ -63,52 +62,49 @@ _PREF_PATTERN = re.compile(
     r"徳島県|香川県|愛媛県|高知県|"
     r"福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
 )
-
-_POSTCODE_PATTERN = re.compile(r"〒\s*(\d{3})\s*-?\s*(\d{4})")
 _BR_RE = re.compile(r"<br\s*/?>", re.I)
+_TAG_RE = re.compile(r"<[^>]+>")
+_DATE_RE = re.compile(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日")
 
 
 class HotelTree2Scraper(StaticCrawler):
-    """ホテルツリー 運営会社スクレイパー (HTML SSR 経由)"""
+    """ホテルツリー 施設情報スクレイパー (HTML SSR 経由)"""
 
     DELAY = 1.0
     EXTRA_COLUMNS = [
         "スラッグ",
         "ロゴURL",
-        "平均年齢",
-        "離職率",
-        "運営ホテル",
-        "ホテル施設数",
+        "キャッチコピー",
     ]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        company_urls = self._fetch_company_urls()
-        if not company_urls:
-            self.logger.error("sitemap から会社 URL を取得できませんでした")
+        hotel_urls = self._fetch_hotel_urls()
+        if not hotel_urls:
+            self.logger.error("sitemap からホテル URL を取得できませんでした")
             return
 
-        self.total_items = len(company_urls)
-        self.logger.info("会社ページ総数: %d", len(company_urls))
+        self.total_items = len(hotel_urls)
+        self.logger.info("ホテルページ総数: %d", len(hotel_urls))
 
-        for company_url in company_urls:
+        for hotel_url in hotel_urls:
             try:
-                item = self._scrape_company(company_url)
+                item = self._scrape_hotel(hotel_url)
             except Exception as e:
-                self.logger.warning("会社ページ解析エラー: %s — %s", company_url, e)
+                self.logger.warning("ホテルページ解析エラー: %s — %s", hotel_url, e)
                 continue
             if item and item.get(Schema.NAME):
                 yield item
 
-    def _fetch_company_urls(self) -> list[str]:
-        self.logger.info("sitemap 取得: %s", COMPANY_SITEMAP)
-        resp = self.session.get(COMPANY_SITEMAP, timeout=self.TIMEOUT)
+    def _fetch_hotel_urls(self) -> list[str]:
+        self.logger.info("sitemap 取得: %s", HOTEL_SITEMAP)
+        resp = self.session.get(HOTEL_SITEMAP, timeout=self.TIMEOUT)
         resp.raise_for_status()
         root = ET.fromstring(resp.text)
         ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
         urls = [loc.text.strip() for loc in root.findall(".//sm:loc", ns) if loc.text]
-        return [u for u in urls if "/company/" in u]
+        return [u for u in urls if "/hotel/" in u]
 
-    def _scrape_company(self, url: str) -> dict | None:
+    def _scrape_hotel(self, url: str) -> dict | None:
         soup = self.get_soup(url)
         if soup is None:
             return None
@@ -120,24 +116,22 @@ class HotelTree2Scraper(StaticCrawler):
         except json.JSONDecodeError:
             return None
 
-        company = self._resolve_company(data)
-        if not company:
+        hotel = self._resolve_hotel(data)
+        if not hotel:
             return None
 
-        return self._build_item(url, data, company)
+        return self._build_item(url, data, hotel)
 
     @staticmethod
-    def _resolve_company(data: list) -> dict | None:
-        """`__NUXT_DATA__` の中から `dynamicDatacompany/{slug}` 配下の会社オブジェクトを探す。"""
+    def _resolve_hotel(data: list) -> dict | None:
+        """`__NUXT_DATA__` の中から `dynamicDatahotel/{slug}` 配下のホテルオブジェクトを探す。"""
         if not isinstance(data, list) or len(data) < 4:
             return None
-        # data[0]=['ShallowReactive', 1], data[1]={..., 'data': 2}, data[2]=['ShallowReactive', 3]
-        # data[3]={'dynamicDatacompany/{slug}': N}
         outer = data[3] if isinstance(data[3], dict) else None
         if not outer:
             return None
         for key, idx in outer.items():
-            if not key.startswith("dynamicDatacompany"):
+            if not key.startswith("dynamicDatahotel"):
                 continue
             if not isinstance(idx, int) or idx >= len(data):
                 continue
@@ -146,9 +140,9 @@ class HotelTree2Scraper(StaticCrawler):
                 return target
         return None
 
-    def _build_item(self, url: str, data: list, company: dict) -> dict:
+    def _build_item(self, url: str, data: list, hotel: dict) -> dict:
         def s(key: str) -> str:
-            return self._resolve_str(data, company.get(key))
+            return self._resolve_str(data, hotel.get(key))
 
         record: dict = {Schema.URL: url}
 
@@ -163,21 +157,18 @@ class HotelTree2Scraper(StaticCrawler):
         if hp and hp != "-":
             record[Schema.HP] = hp
 
-        emp = s(F_EMPLOYEES)
-        if emp and emp != "-":
-            record[Schema.EMP_NUM] = emp
+        insta = s(F_INSTAGRAM)
+        if insta and insta != "-":
+            record[Schema.INSTA] = insta
 
-        founded = s(F_FOUNDED)
-        if founded and founded != "-":
-            record[Schema.OPEN_DATE] = founded
+        open_date_raw = s(F_OPEN_DATE)
+        open_date = self._normalize_date(open_date_raw)
+        if open_date:
+            record[Schema.OPEN_DATE] = open_date
 
-        lob = s(F_LOB)
-        if lob and lob != "-":
-            record[Schema.LOB] = self._clean_br(lob)
-
-        category = self._resolve_first_ref_title(data, company.get(F_CATEGORY))
-        if category:
-            record[Schema.CAT_SITE] = category
+        description = self._html_to_text(s(F_DESCRIPTION))
+        if description:
+            record[Schema.DESCRIPTION] = description
 
         slug = s(F_SLUG)
         if slug:
@@ -187,18 +178,9 @@ class HotelTree2Scraper(StaticCrawler):
         if avatar:
             record["ロゴURL"] = avatar
 
-        age = s(F_AVG_AGE)
-        if age and age != "-":
-            record["平均年齢"] = age
-
-        turnover = s(F_TURNOVER)
-        if turnover and turnover != "-":
-            record["離職率"] = turnover
-
-        hotels = self._resolve_hotel_names(data, company)
-        if hotels:
-            record["運営ホテル"] = " / ".join(hotels)
-            record["ホテル施設数"] = str(len(hotels))
+        headline = s(F_HEADLINE)
+        if headline:
+            record["キャッチコピー"] = _BR_RE.sub(" ", headline).strip()
 
         return record
 
@@ -210,63 +192,23 @@ class HotelTree2Scraper(StaticCrawler):
         return v.strip() if isinstance(v, str) else ""
 
     @staticmethod
-    def _resolve_first_ref_title(data: list, idx: Any) -> str:
-        """カテゴリ参照配列 [n1, n2, ...] の先頭から title を取り出す。"""
-        if not isinstance(idx, int) or idx < 0 or idx >= len(data):
+    def _normalize_date(value: str) -> str:
+        if not value:
             return ""
-        arr = data[idx]
-        if not isinstance(arr, list):
+        m = _DATE_RE.search(value.replace(" ", "").replace("　", ""))
+        if not m:
             return ""
-        for elem in arr:
-            if not isinstance(elem, int) or elem >= len(data):
-                continue
-            ref = data[elem]
-            if not isinstance(ref, dict):
-                continue
-            title_idx = ref.get("title")
-            if isinstance(title_idx, int) and title_idx < len(data):
-                v = data[title_idx]
-                if isinstance(v, str) and v.strip():
-                    return v.strip()
-        return ""
-
-    def _resolve_hotel_names(self, data: list, company: dict) -> list[str]:
-        """運営ホテル名のリストを返す。OQrPBubl (構造化参照) を優先し、無ければ uiG5giJU テキストを分解。"""
-        names: list[str] = []
-        ref_idx = company.get(F_HOTELS_REF)
-        if isinstance(ref_idx, int) and 0 <= ref_idx < len(data):
-            arr = data[ref_idx]
-            if isinstance(arr, list):
-                for elem in arr:
-                    if not isinstance(elem, int) or elem >= len(data):
-                        continue
-                    hotel = data[elem]
-                    if not isinstance(hotel, dict):
-                        continue
-                    t_idx = hotel.get("title")
-                    if isinstance(t_idx, int) and t_idx < len(data):
-                        v = data[t_idx]
-                        if isinstance(v, str) and v.strip():
-                            names.append(v.strip())
-
-        if names:
-            return names
-
-        # フォールバック: テキストフィールドを <br> で分解
-        text = self._resolve_str(data, company.get(F_HOTELS_TEXT))
-        if not text or text == "-":
-            return []
-        for raw in _BR_RE.split(text):
-            n = re.sub(r"^[・●■◆※\-\s　]+", "", raw).strip()
-            if n:
-                names.append(n)
-        return names
+        y, mo, d = m.groups()
+        return f"{int(y):04d}-{int(mo):02d}-{int(d):02d}"
 
     @staticmethod
-    def _clean_br(text: str) -> str:
-        parts = [p.strip(" 　・") for p in _BR_RE.split(text)]
-        parts = [p for p in parts if p]
-        return " / ".join(parts)
+    def _html_to_text(value: str) -> str:
+        if not value:
+            return ""
+        text = _BR_RE.sub("\n", value)
+        text = _TAG_RE.sub("", text)
+        text = re.sub(r"[ \t]+", " ", text)
+        return text.strip()
 
     @staticmethod
     def _parse_address(value: str, record: dict) -> None:
