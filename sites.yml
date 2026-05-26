@@ -1491,6 +1491,13 @@ sites:
     schedule: null
     enabled: true
 
+  - site_id: jalan
+    name: "じゃらんnet 宿泊施設"
+    module: "portal.jalan"
+    url: "https://www.jalan.net/yado.html"
+    schedule: "0 3 1 * *"
+    enabled: true
+
   - site_id: type_2
     name: "女の転職type"
     module: "jobs.type_2"
@@ -1503,4 +1510,11 @@ sites:
     module: "corporate.hoteltree_2"
     url: "https://hoteltree.jp"
     schedule: null
+    enabled: true
+
+  - site_id: domonet
+    name: "DOMO NET"
+    module: "jobs.domonet"
+    url: "https://domonet.jp/"
+    schedule: "0 3 1 * *"
     enabled: true

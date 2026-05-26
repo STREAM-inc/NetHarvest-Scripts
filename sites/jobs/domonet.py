@@ -10,7 +10,7 @@ DOMO NET (domonet.jp) — アルバイト・パート求人サイト スクレ�
 
 取得フロー:
     ルート URL (https://domonet.jp/) → 5 地域 (/kanto /shizuoka /nagoya /kansai /pado) の /list
-    → ページネーション (?page=N) → 詳細ページリンク収集 → 各詳細ページから th/td 抽出
+    → ページネーション (?page=N&rs_start=...) → 詳細ページリンク収集 → 各詳細ページから th/td 抽出
 
 実行方法:
     python scripts/sites/jobs/domonet.py
@@ -19,12 +19,15 @@ DOMO NET (domonet.jp) — アルバイト・パート求人サイト スクレ�
 
 import re
 import sys
+import time
 from pathlib import Path
 from urllib.parse import urljoin
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
+
+import bs4
 
 from src.framework.static import StaticCrawler
 from src.const.schema import Schema
@@ -42,12 +45,20 @@ _TEL_RE = re.compile(r"(?:TEL|電話|Tel)[\s:]*([\d\-()\s]{8,20})")
 
 _REGION_PATHS = ["/kanto", "/shizuoka", "/nagoya", "/kansai", "/pado"]
 _BASE = "https://domonet.jp"
+_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "ja,en-US;q=0.7,en;q=0.3",
+}
 
 
 class DomonetScraper(StaticCrawler):
     """DOMO NET アルバイト・パート求人 スクレイパー"""
 
-    DELAY = 1.0
+    DELAY = 3.0
     EXTRA_COLUMNS = [
         "求人タイトル",
         "仕事内容",
@@ -64,6 +75,12 @@ class DomonetScraper(StaticCrawler):
         "その他",
     ]
 
+    def prepare(self):
+        """Bot 判定回避のためヘッダーを整え、トップページでセッションを温める。"""
+        self.session.headers.update(_BROWSER_HEADERS)
+        self.get_soup(_BASE)
+        time.sleep(self.DELAY)
+
     def parse(self, url: str):
         """ルート URL → 5 地域 /list → ページング → 詳細ページ"""
         detail_urls = []
@@ -72,6 +89,7 @@ class DomonetScraper(StaticCrawler):
             region_urls = self._collect_detail_urls(list_base)
             self.logger.info("地域 %s: 詳細URL %d 件", region, len(region_urls))
             detail_urls.extend(region_urls)
+            time.sleep(self.DELAY)
 
         # 重複排除
         seen = set()
@@ -84,28 +102,69 @@ class DomonetScraper(StaticCrawler):
         self.total_items = len(unique_urls)
         self.logger.info("全地域合計: ユニーク詳細URL %d 件", self.total_items)
 
+        referer = _BASE
         for detail_url in unique_urls:
             try:
+                self.session.headers["Referer"] = referer
                 item = self._scrape_detail(detail_url)
+                referer = detail_url
                 if item:
                     yield item
             except Exception as e:
                 self.logger.warning("詳細ページ取得失敗: %s (%s)", detail_url, e)
                 continue
 
+    def _build_list_url(self, list_base: str, page: int, rs_start: str | None) -> str:
+        if page <= 1:
+            return list_base
+        params = [f"page={page}"]
+        if rs_start:
+            params.append(f"rs_start={rs_start}")
+        return f"{list_base}?{'&'.join(params)}"
+
+    def _extract_rs_start(self, soup: bs4.BeautifulSoup) -> str | None:
+        for a in soup.select('a[href*="rs_start="]'):
+            m = re.search(r"rs_start=(\d+)", a.get("href", ""))
+            if m:
+                return m.group(1)
+        return None
+
+    def _fetch_list_soup(self, list_url: str, referer: str) -> bs4.BeautifulSoup | None:
+        """一覧ページ取得。403 時は待機してリトライする。"""
+        for attempt in range(3):
+            time.sleep(self.DELAY)
+            self.session.headers["Referer"] = referer
+            soup = self.get_soup(list_url)
+            if soup is not None:
+                return soup
+            if attempt < 2:
+                wait = self.DELAY * (attempt + 2)
+                self.logger.warning(
+                    "一覧ページ再試行 (%d/3): %s (%d秒待機)",
+                    attempt + 2,
+                    list_url,
+                    wait,
+                )
+                time.sleep(wait)
+        return None
+
     def _collect_detail_urls(self, list_base: str) -> list[str]:
         """ページネーションしながら詳細ページ URL を収集"""
         urls: list[str] = []
         page = 1
+        rs_start: str | None = None
+        referer = _BASE
         max_pages_safety = 2000  # 暴走防止
 
         while page <= max_pages_safety:
-            sep = "&" if "?" in list_base else "?"
-            list_url = f"{list_base}{sep}page={page}"
+            list_url = self._build_list_url(list_base, page, rs_start)
             self.logger.info("一覧ページ取得: %s", list_url)
-            soup = self.get_soup(list_url)
+            soup = self._fetch_list_soup(list_url, referer)
             if soup is None:
                 break
+
+            if rs_start is None:
+                rs_start = self._extract_rs_start(soup)
 
             boxes = soup.select(".searchList_Box")
             if not boxes:
@@ -120,20 +179,17 @@ class DomonetScraper(StaticCrawler):
                 if not href:
                     continue
                 full = urljoin(_BASE, href)
-                # クエリの bp=search は任意、保持してOK
                 urls.append(full)
                 page_found += 1
 
             if page_found == 0:
                 break
 
-            # 最終ページ判定: ページャに次ページリンクがなければ終了
-            pager_next = soup.select_one(
-                f'a[href*="page={page + 1}"]'
-            )
+            pager_next = soup.select_one(f'a[href*="page={page + 1}"]')
             if not pager_next:
                 break
 
+            referer = list_url
             page += 1
 
         return urls
@@ -236,7 +292,14 @@ class DomonetScraper(StaticCrawler):
             if src_key in pairs:
                 item[dst_col] = pairs[src_key]
 
-        # NAME が取れなかった場合はスキップ
+        # NAME が取れなかった場合は一覧の h3（社名）をフォールバック
+        if Schema.NAME not in item:
+            company_el = soup.select_one("#contentsBox h3") or soup.select_one("h3")
+            if company_el:
+                name = company_el.get_text(strip=True)
+                if name:
+                    item[Schema.NAME] = name
+
         if Schema.NAME not in item:
             return None
 
@@ -255,7 +318,7 @@ if __name__ == "__main__":
     scraper.execute("https://domonet.jp/")
 
     print("\n" + "=" * 60)
-    print("📊 実行結果サマリ")
+    print("実行結果サマリ")
     print("=" * 60)
     print(f"  出力ファイル:     {scraper.output_filepath}")
     print(f"  取得件数:         {scraper.item_count}")

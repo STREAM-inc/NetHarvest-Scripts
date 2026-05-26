@@ -1,4 +1,6 @@
 """
+version 1.0.0 niwai パフォーマンス改善
+
 じゃらんnet — 宿泊施設情報 全件回収スクレイパー
 
 取得対象:
@@ -6,8 +8,8 @@
       口コミ件数、高評価項目、チェックイン、チェックアウト、総部屋数、施設内容
 
 取得フロー:
-    yado.html (ハブ) → WID_XX.HTML (地方別) → LRG_XXXXXX/ (エリア別一覧, ?p=N)
-    → 各宿の詳細ページ
+    yado.html (ハブ) → WID_XX.HTML (地方別) → LRG_XXXXXX/ (エリア別一覧, pageN.html)
+    → エリアごとに詳細URLをリスト化 → 詳細ページ取得
 
 実行方法:
     # ローカルテスト
@@ -22,6 +24,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Generator
+from urllib.parse import urlparse, urlunparse
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -47,10 +50,42 @@ _WID_RE = re.compile(r"/WID_\d+\.HTML", re.I)
 _LRG_RE = re.compile(r"/\d{6}/LRG_\d+/")
 _YAD_RE = re.compile(r"/yad\d+/")
 _YAD_AD_RE = re.compile(r"doYadDetail(?:Ad)?\('(\d+)'")
+_SELECT_PAGE_RE = re.compile(r"selectPage\([^,]+,\s*'(\d+)'\)")
 
 
 def _abs(href: str) -> str:
     return href if href.startswith("http") else BASE_URL + href
+
+
+def _normalize_lrg_url(url: str) -> str:
+    """LRG一覧URLをパスのみに正規化する（不要なクエリ・pageN.html を除去）。"""
+    parsed = urlparse(url)
+    path = parsed.path
+    path = re.sub(r"page\d+\.html$", "", path, flags=re.I)
+    if not path.endswith("/"):
+        path += "/"
+    return urlunparse((parsed.scheme or "https", parsed.netloc, path, "", "", ""))
+
+
+def _listing_page_url(base_url: str, page_num: int) -> str:
+    """一覧ページURL（サイトの getPageUrlHtmlStr に準拠）。
+
+    1ページ目: LRG_xxxxxx/ のみ
+    2ページ目以降: LRG_xxxxxx/page{N}.html
+    """
+    if page_num <= 1:
+        return base_url
+    return f"{base_url}page{page_num}.html"
+
+
+def _get_max_listing_page(soup) -> int:
+    """ページャの selectPage から最大ページ番号を取得する。"""
+    max_page = 1
+    for a in soup.select("a.page[onclick], a.next[onclick], a.last[onclick]"):
+        m = _SELECT_PAGE_RE.search(a.get("onclick", ""))
+        if m:
+            max_page = max(max_page, int(m.group(1)))
+    return max_page
 
 
 def _clean(s) -> str:
@@ -63,6 +98,7 @@ class JalanScraper(StaticCrawler):
     """じゃらんnet 宿泊施設スクレイパー"""
 
     DELAY = 1.5
+    SAMPLE_AREAS_FOR_ESTIMATE = 3  # total_items 予測用のサンプルエリア数
     EXTRA_COLUMNS = [
         "エリア", "キャッチフレーズ", "最安値",
         "評価スコア", "口コミ件数", "高評価項目",
@@ -82,55 +118,34 @@ class JalanScraper(StaticCrawler):
         })
         self.logger.info("WIDページ数: %d", len(wid_urls))
 
+        lrg_urls: list[str] = []
         for wid_url in wid_urls:
             self.logger.info("=== WID: %s ===", wid_url)
-            yield from self._parse_wid(wid_url, seen)
+            lrg_urls.extend(self._collect_lrg_urls(wid_url))
+        lrg_urls = list(dict.fromkeys(lrg_urls))
+        self.logger.info("LRGエリア数: %d", len(lrg_urls))
 
-    # ------------------------------------------------------------------
-    # WIDページ → LRGリンク収集
-    # ------------------------------------------------------------------
-
-    def _parse_wid(self, wid_url: str, seen: set[str]) -> Generator[dict, None, None]:
-        soup = self.get_soup(wid_url)
-        if soup is None:
-            return
-
-        lrg_urls = list({
-            _abs(a["href"])
-            for a in soup.find_all("a", href=_LRG_RE)
-        })
-        self.logger.info("  LRGエリア数: %d", len(lrg_urls))
-
+        sample_counts: list[int] = []
         for lrg_url in lrg_urls:
             self.logger.info("  LRG: %s", lrg_url)
-            yield from self._parse_lrg_listing(lrg_url, seen)
-            time.sleep(self.DELAY)
+            entries = self._collect_lrg_entries(lrg_url, seen)
+            self.logger.info("    詳細URL数: %d", len(entries))
 
-    # ------------------------------------------------------------------
-    # LRG一覧ページ（ページネーション）
-    # ------------------------------------------------------------------
+            if len(sample_counts) < self.SAMPLE_AREAS_FOR_ESTIMATE:
+                sample_counts.append(len(entries))
+                if len(sample_counts) >= min(
+                    self.SAMPLE_AREAS_FOR_ESTIMATE, len(lrg_urls)
+                ):
+                    avg = sum(sample_counts) / len(sample_counts)
+                    self.total_items = int(avg * len(lrg_urls))
+                    self.logger.info(
+                        "取得予測件数: %d (平均 %.1f × %d エリア)",
+                        self.total_items,
+                        avg,
+                        len(lrg_urls),
+                    )
 
-    def _parse_lrg_listing(self, lrg_url: str, seen: set[str]) -> Generator[dict, None, None]:
-        page = 1
-
-        while True:
-            current_url = lrg_url if page == 1 else f"{lrg_url}?p={page}"
-            soup = self.get_soup(current_url)
-            if soup is None:
-                break
-
-            items = soup.select(".p-yadoCassette.js-searchResultItem")
-            if not items:
-                break
-
-            for item in items:
-                detail_url = self._extract_detail_url(item)
-                if not detail_url or detail_url in seen:
-                    continue
-                seen.add(detail_url)
-
-                list_data = self._parse_list_item(item)
-
+            for detail_url, list_data in entries:
                 try:
                     record = self._scrape_detail(detail_url, list_data)
                     if record:
@@ -140,7 +155,63 @@ class JalanScraper(StaticCrawler):
 
                 time.sleep(self.DELAY)
 
-            page += 1
+            time.sleep(self.DELAY)
+
+    # ------------------------------------------------------------------
+    # WIDページ → LRGリンク収集
+    # ------------------------------------------------------------------
+
+    def _collect_lrg_urls(self, wid_url: str) -> list[str]:
+        soup = self.get_soup(wid_url)
+        if soup is None:
+            return []
+
+        return list({
+            _normalize_lrg_url(_abs(a["href"]))
+            for a in soup.find_all("a", href=_LRG_RE)
+        })
+
+    # ------------------------------------------------------------------
+    # LRG一覧ページ（ページネーション）→ 詳細URLリスト化
+    # ------------------------------------------------------------------
+
+    def _collect_lrg_entries(
+        self, lrg_url: str, seen: set[str]
+    ) -> list[tuple[str, dict]]:
+        """エリアの全一覧ページから (詳細URL, 一覧データ) のリストを構築する。"""
+        entries: list[tuple[str, dict]] = []
+        for soup, page_num, current_url in self._iter_listing_pages(lrg_url):
+            items = soup.select(".p-yadoCassette.js-searchResultItem")
+            if not items:
+                self.logger.warning("一覧0件 (page=%d): %s", page_num, current_url)
+                break
+
+            for item in items:
+                detail_url = self._extract_detail_url(item)
+                if not detail_url or detail_url in seen:
+                    continue
+                seen.add(detail_url)
+                entries.append((detail_url, self._parse_list_item(item)))
+
+        return entries
+
+    def _iter_listing_pages(self, lrg_url: str):
+        """LRG一覧の各ページ (soup, page_num, url) を順に返す。"""
+        base_url = _normalize_lrg_url(lrg_url)
+        soup = self.get_soup(base_url)
+        if soup is None:
+            return
+
+        max_page = _get_max_listing_page(soup)
+        self.logger.info("    一覧ページ数: %d", max_page)
+
+        for page_num in range(1, max_page + 1):
+            current_url = _listing_page_url(base_url, page_num)
+            if page_num > 1:
+                soup = self.get_soup(current_url)
+                if soup is None:
+                    return
+            yield soup, page_num, current_url
 
     # ------------------------------------------------------------------
     # 詳細URLの抽出
