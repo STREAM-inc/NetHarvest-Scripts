@@ -1,3 +1,10 @@
+"""
+---------------------------------------------------------------------------
+ver 1.0.0 不明 新規作成
+ver 1.1.0 20260526 kanda TELカラム追加し、住所から都道府県を抽出するように修正。
+---------------------------------------------------------------------------
+"""
+
 import re
 import sys
 from pathlib import Path
@@ -126,7 +133,25 @@ class BaitoruScraper(DynamicCrawler):
                     key = dt.get_text(strip=True)
                     val = _clean(dd.get_text(" "))
                     if "所在地" in key:
-                        data[Schema.ADDR] = val
+                        tel_match = re.search(
+                            r"(TEL|ＴＥＬ|電話)[番号]*[：:\s　]*([\d\-（）()０-９ー‐]+)",
+                            val,
+                            flags=re.IGNORECASE,
+                        )
+                        if tel_match and not data.get(Schema.TEL):
+                            data[Schema.TEL] = tel_match.group(2).strip()
+                        addr = re.sub(
+                            r"[\s　]*(TEL|FAX|ＴＥＬ|ＦＡＸ|電話|Fax)[番号]*[：:\s　]*[\d\-（）()０-９ー‐]+",
+                            "",
+                            val,
+                            flags=re.IGNORECASE,
+                        ).strip()
+                        data[Schema.ADDR] = addr
+                        pref_match = re.match(
+                            r"(北海道|東京都|京都府|大阪府|.{2,3}[都道府県])", addr
+                        )
+                        if pref_match:
+                            data[Schema.PREF] = pref_match.group(1)
                     elif "代表電話番号" in key or "電話番号" in key:
                         data[Schema.TEL] = val
                     elif "代表者" in key:
