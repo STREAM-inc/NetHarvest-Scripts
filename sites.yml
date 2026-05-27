@@ -1518,3 +1518,10 @@ sites:
     url: "https://domonet.jp/"
     schedule: "0 3 1 * *"
     enabled: true
+
+  - site_id: g_channel
+    name: "G-CHANNEL"
+    module: "nightlife.g_channel"
+    url: "https://www.g-channel.jp/"
+    schedule: "0 20 9 * *"
+    enabled: true
