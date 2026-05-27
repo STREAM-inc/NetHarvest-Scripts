@@ -1525,3 +1525,10 @@ sites:
     url: "https://www.g-channel.jp/"
     schedule: "0 20 9 * *"
     enabled: true
+
+  - site_id: daikumachi_2
+    name: "水戸市大工町地区繁華街なび"
+    module: "portal.daikumachi_2"
+    url: "https://daikumachi.jp"
+    schedule: null
+    enabled: true
