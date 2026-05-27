@@ -1532,3 +1532,10 @@ sites:
     url: "https://daikumachi.jp"
     schedule: null
     enabled: true
+
+  - site_id: takasaki_night_privity_fun
+    name: "TAKASAKI NIGHT PRIVITY FUN"
+    module: "nightlife.takasaki_night_privity_fun"
+    url: "https://www.takasaki-fun.jp/"
+    schedule: null
+    enabled: true
