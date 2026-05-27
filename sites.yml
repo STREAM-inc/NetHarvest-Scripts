@@ -1903,3 +1903,10 @@ sites:
     url: "https://pps-net.org/agency"
     schedule: "0 0 1 * *"
     enabled: true
+
+  - site_id: xn_pckua2a7gp15o89zb
+    name: "求人ボックス【外国人工場夜勤】"
+    module: "jobs.xn_pckua2a7gp15o89zb"
+    url: "https://xn--pckua2a7gp15o89zb.com"
+    schedule: null
+    enabled: true
