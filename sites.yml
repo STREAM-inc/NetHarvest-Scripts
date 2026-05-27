@@ -1539,3 +1539,10 @@ sites:
     url: "https://www.takasaki-fun.jp/"
     schedule: null
     enabled: true
+
+  - site_id: cute_p
+    name: "求とぴ"
+    module: "nightlife.cute_p"
+    url: "https://cute-p.info/"
+    schedule: null
+    enabled: true
