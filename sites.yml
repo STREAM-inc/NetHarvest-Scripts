@@ -1910,3 +1910,10 @@ sites:
     url: "https://xn--pckua2a7gp15o89zb.com"
     schedule: null
     enabled: true
+
+  - site_id: sunmarie_2
+    name: "サンマリエ"
+    module: "service.sunmarie_2"
+    url: "https://www.sunmarie.co.jp/"
+    schedule: null
+    enabled: true
