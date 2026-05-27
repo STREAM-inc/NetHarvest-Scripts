@@ -202,10 +202,6 @@ class CuramaScraper(StaticCrawler):
         if m:
             item["サービスID"] = m.group(1)
 
-        h1 = soup.find("h1")
-        if h1:
-            item[Schema.NAME] = h1.get_text(strip=True).translate(_TRANS)
-
         store_info = soup.find(attrs={"data-test-id": "store-info"})
         if store_info:
             code = store_info.get("data-test-store-code")
@@ -214,6 +210,20 @@ class CuramaScraper(StaticCrawler):
                 item["店舗コード"] = code
             if sid:
                 item["店舗ID"] = sid
+
+            name_el = store_info.select_one("div.dis_f.mar-b_32 div p:nth-of-type(1)")
+            if name_el:
+                item[Schema.NAME] = name_el.get_text(strip=True).translate(_TRANS)
+
+            if not item.get(Schema.NAME):
+                h1 = soup.find("h1")
+                if h1:
+                    raw_name = h1.get_text(strip=True).translate(_TRANS)
+                    raw_name = re.sub(r"\s*[|｜/／-]\s*くらしのマーケット.*$", "", raw_name)
+                    cat_name = list_info.get("ジャンル", "")
+                    if cat_name and raw_name.startswith(cat_name):
+                        raw_name = raw_name[len(cat_name):].lstrip(" 　|｜/／-:：")
+                    item[Schema.NAME] = raw_name.strip()
 
             manager_node = store_info.find(string=re.compile(r"(店長|代表|責任者)[：:]"))
             if manager_node:
