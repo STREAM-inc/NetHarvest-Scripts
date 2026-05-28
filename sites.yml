@@ -1931,3 +1931,10 @@ sites:
     url: "https://www.loungemembers.com/lounge"
     schedule: "0 4 1-7 * SUN"
     enabled: true
+
+  - site_id: jpnumber_power_agents
+    name: "新電力代理店候補 JPNumber"
+    module: "agency_franchise.jpnumber_power_agents"
+    url: "https://www.jpnumber.com/"
+    schedule: "20 0 1 * *"
+    enabled: true
