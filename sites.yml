@@ -1924,3 +1924,17 @@ sites:
     url: "https://www.sunmarie.co.jp/"
     schedule: null
     enabled: true
+
+  - site_id: jpnumber_new_power_agents
+    name: "日本電話番号検索_新電力代理店"
+    module: "phonebook.jpnumber"
+    url: "https://www.jpnumber.com/"
+    schedule: null
+    enabled: true
+
+  - site_id: telnavi_new_power_agents
+    name: "電話帳ナビ_新電力代理店"
+    module: "phonebook.telnavi"
+    url: "https://www.telnavi.jp/"
+    schedule: null
+    enabled: true
