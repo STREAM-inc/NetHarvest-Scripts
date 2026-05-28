@@ -1924,3 +1924,10 @@ sites:
     url: "https://www.sunmarie.co.jp/"
     schedule: null
     enabled: true
+    
+  - site_id: ibj_members
+    name: "IBJメンバーズ（結婚相談所）"
+    module: "service.ibj_members"
+    url: "https://www.loungemembers.com/lounge"
+    schedule: "0 4 1-7 * SUN"
+    enabled: true
