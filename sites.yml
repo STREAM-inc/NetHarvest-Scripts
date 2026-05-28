@@ -1938,3 +1938,10 @@ sites:
     url: "https://www.jpnumber.com/"
     schedule: "20 0 1 * *"
     enabled: true
+
+  - site_id: milto
+    name: "milto（ミルト）"
+    module: "jobs.milto"
+    url: "https://mil-to.com/"
+    schedule: "0 3 1 * *"
+    enabled: true
