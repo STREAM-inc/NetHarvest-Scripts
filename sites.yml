@@ -1945,3 +1945,10 @@ sites:
     url: "https://mil-to.com/"
     schedule: "0 3 1 * *"
     enabled: true
+
+  - site_id: kitaishihon
+    name: "キタイシホン"
+    module: "corporate.kitaishihon"
+    url: "https://kitaishihon.com/"
+    schedule: null
+    enabled: true
