@@ -1,7 +1,7 @@
+# version: 2 霍 : パス設定がおかしい&ディレクトリ場所がおかしいので修正した
 """タットゥースタジオナビのクローラー"""
 
 import sys
-sys.path.insert(0, r'C:\Users\stream-crew\Desktop\usui')
 
 from src.framework.static import StaticCrawler
 from src.const.schema import Schema

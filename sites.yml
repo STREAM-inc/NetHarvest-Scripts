@@ -1952,3 +1952,10 @@ sites:
     url: "https://kitaishihon.com/"
     schedule: null
     enabled: true
+
+  - site_id: tattoo_studio
+    name: "タトゥースタジオナビ"
+    module: "service.tattoo_studio"
+    url: "https://tattoo-navi.jp/studio/"
+    schedule: "0 3 1 * *"
+    enabled: true
