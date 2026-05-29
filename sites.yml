@@ -1929,7 +1929,7 @@ sites:
     name: "日本電話番号検索_新電力代理店"
     module: "phonebook.jpnumber"
     url: "https://www.jpnumber.com/"
-    schedule: null
+    schedule: "0 3 1 * *"
     enabled: true
 
   - site_id: telnavi_new_power_agents

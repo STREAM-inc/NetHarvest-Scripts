@@ -27,7 +27,7 @@ from src.framework.static import StaticCrawler
 
 BASE_URL = "https://www.jpnumber.com"
 RESULTS_PER_PAGE = 20
-MAX_PAGES_PER_KEYWORD = 50
+MAX_PAGES_PER_KEYWORD: int | None = None
 
 SEARCH_KEYWORDS = [
     "新電力",
@@ -239,7 +239,9 @@ class JpnumberScraper(StaticCrawler):
             return
 
         total = self._extract_total_count(soup)
-        max_page = min(MAX_PAGES_PER_KEYWORD, max(1, math.ceil(total / RESULTS_PER_PAGE))) if total else 1
+        max_page = max(1, math.ceil(total / RESULTS_PER_PAGE)) if total else 1
+        if MAX_PAGES_PER_KEYWORD is not None:
+            max_page = min(MAX_PAGES_PER_KEYWORD, max_page)
 
         yield first_url
         for page in range(2, max_page + 1):
