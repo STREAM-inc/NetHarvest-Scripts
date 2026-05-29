@@ -1959,3 +1959,10 @@ sites:
     url: "https://tattoo-navi.jp/studio/"
     schedule: "0 3 1 * *"
     enabled: true
+
+  - site_id: jbn
+    name: "JBN"
+    module: "construction.jbn"
+    url: "https://www.jbn-support.jp/about/search/"
+    schedule: "0 19 26 * *"
+    enabled: true
