@@ -9,7 +9,8 @@
     2. ページャから最終ページ番号を取得し、`/shop/{pref}/{N}/index.html` を巡回
     3. 一覧 `.caset.caset--shopAll` から店舗カード情報 + 詳細URL を取得
     4. 詳細ページ `/shop/{pref}/{shop_id}/` から `.shopnaviHeader__contents__spec` の
-       法人名 / 住所 / 営業時間 / 定休日 と、telno スクリプト変数のTELを抽出
+       法人名 / 住所 / 営業時間 / 定休日、在庫の本体価格（単価）、telno スクリプト変数のTELを抽出
+    5. 各種サービスページ `/shop/{pref}/{shop_id}/service/` から支払い方法に関する記述を抽出
 
 実行方法:
     # ローカルテスト (1都道府県のみ確認したい場合は引数で渡す)
@@ -60,13 +61,15 @@ _PREFECTURES = [
 _TEL_PATTERN = re.compile(r'telno\s*=\s*"tel:([\d\-]+)"')
 _LAST_PAGE_PATTERN = re.compile(r"/shop/[a-z]+/(\d+)/index\.html")
 _ADDR_TRIM = re.compile(r"\s*MAP\s*$")
+_PRICE_WS = re.compile(r"\s+")
+_PAY_KEYWORDS = re.compile(r"支払|ローン|分割|クレジット|カード|頭金|現金|振込")
 
 
 class CarsensorScraper(StaticCrawler):
     """カーセンサー 中古車販売店スクレイパー"""
 
     DELAY = 1.0
-    EXTRA_COLUMNS = ["法人名", "エリア", "キャッチコピー"]
+    EXTRA_COLUMNS = ["法人名", "エリア", "キャッチコピー", "単価"]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         for pref_slug, pref_name in _PREFECTURES:
@@ -178,7 +181,46 @@ class CarsensorScraper(StaticCrawler):
                 data[Schema.TEL] = m.group(1)
                 break
 
+        unit_prices = self._extract_unit_prices(soup)
+        if unit_prices:
+            data["単価"] = unit_prices
+
+        payments = self._scrape_payments(url)
+        if payments:
+            data[Schema.PAYMENTS] = payments
+
         return data
+
+    @staticmethod
+    def _normalize_price(text: str) -> str:
+        return _PRICE_WS.sub("", text.strip())
+
+    def _extract_unit_prices(self, soup) -> str:
+        prices: list[str] = []
+        seen: set[str] = set()
+        for dd in soup.select(".shopnaviCarStockItem__basePrice dd"):
+            price = self._normalize_price(dd.get_text("", strip=True))
+            if not price or price in seen:
+                continue
+            seen.add(price)
+            prices.append(price)
+        return " / ".join(prices)
+
+    def _scrape_payments(self, shop_url: str) -> str:
+        service_url = shop_url.rstrip("/") + "/service/"
+        soup = self.get_soup(service_url)
+        if soup is None:
+            return ""
+
+        parts: list[str] = []
+        seen: set[str] = set()
+        for p in soup.select(".shopnaviContents__item .media__obj--col3 p"):
+            text = p.get_text(strip=True)
+            if not text or text in seen or not _PAY_KEYWORDS.search(text):
+                continue
+            seen.add(text)
+            parts.append(text)
+        return " / ".join(parts)
 
 
 if __name__ == "__main__":
