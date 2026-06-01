@@ -1994,3 +1994,10 @@ sites:
     url: "https://torecamap.co.jp/"
     schedule: "0 21 1 * *"
     enabled: true
+
+  - site_id: kimonoya
+    name: "着物屋さんナビ"
+    module: "service.kimonoya"
+    url: "https://www.kimonoya.org/aboutme.html"
+    schedule: "0 21 1 * *"
+    enabled: true
