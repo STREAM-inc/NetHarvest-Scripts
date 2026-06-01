@@ -1966,3 +1966,10 @@ sites:
     url: "https://www.jbn-support.jp/about/search/"
     schedule: "0 19 26 * *"
     enabled: true
+
+  - site_id: snack_map
+    name: "スナックマップ"
+    module: "nightlife.snack_map"
+    url: "https://www.snack-map.com/"
+    schedule: "0 8 22-28 * SUN"
+    enabled: true
