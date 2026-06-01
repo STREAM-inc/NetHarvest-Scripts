@@ -1987,3 +1987,10 @@ sites:
     url: "https://www.ibjapan.com/"
     schedule: "0 19 28 * *"
     enabled: true
+
+  - site_id: torecamap
+    name: "トレカの地図"
+    module: "service.torecamap"
+    url: "https://torecamap.co.jp/"
+    schedule: "0 21 1 * *"
+    enabled: true
