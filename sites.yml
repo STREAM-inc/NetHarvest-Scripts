@@ -113,6 +113,13 @@ sites:
     schedule: "20 1 1-7 * SUN"
     enabled: true
 
+  - site_id: minimo
+    name: "ミニモ"
+    module: "beauty.minimo"
+    url: "https://minimodel.jp/"
+    schedule: "50 1 1-7 * SAT"
+    enabled: true
+
   - site_id: goonet
     name: "グーネット"
     module: "auto.goonet"
