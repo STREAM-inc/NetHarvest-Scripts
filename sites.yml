@@ -1971,5 +1971,5 @@ sites:
     name: "スナックマップ"
     module: "nightlife.snack_map"
     url: "https://www.snack-map.com/"
-    schedule: "0 8 22-28 * SUN"
+    schedule: "0 8 1 * *"
     enabled: true
