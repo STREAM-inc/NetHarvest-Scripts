@@ -1973,3 +1973,10 @@ sites:
     url: "https://cabanori.com/top"
     schedule: null
     enabled: true
+
+  - site_id: ibj_2
+    name: "IBJ"
+    module: "service.ibj_2"
+    url: "https://www.ibjapan.com/"
+    schedule: "0 19 28 * *"
+    enabled: true
