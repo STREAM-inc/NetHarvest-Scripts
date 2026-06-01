@@ -2001,3 +2001,10 @@ sites:
     url: "https://www.kimonoya.org/aboutme.html"
     schedule: "0 21 1 * *"
     enabled: true
+
+  - site_id: hatarakuzo
+    name: "働くぞドットコム"
+    module: "jobs.hatarakuzo"
+    url: "https://www.hatarakuzo.com/"
+    schedule: "0 17 1 * *"
+    enabled: true
