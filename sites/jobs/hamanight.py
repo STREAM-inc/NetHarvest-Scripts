@@ -19,30 +19,55 @@ AREA_URLS = [
     "http://www.hamanight.com/location/sakuragicho",
     "http://www.hamanight.com/location/yokohama",
     "http://www.hamanight.com/location/shin-yokohama",
+    "http://www.hamanight.com/location/other-area",
 ]
 
-EXCLUDE_KEYWORDS = ["/genre/", "/location/job"]
+# 店舗詳細ページのURLパターン (例: /location/kannai/loc00007.html)
+DETAIL_RE = re.compile(r"/location/[^/]+/loc[\w\-]*\.html$", re.IGNORECASE)
+
+# このサイト独自の追加カラム (Schema に対応する定義が無いもの)
+SEATS = "座席数"
+KARAOKE = "カラオケ"
+STAFF_NUM = "接客人数"
+BUDGET = "予算目安"
+
+# 詳細ページの <em>ラベル</em><span>値</span> ラベル → 出力カラム名 のマッピング
+LABEL_MAP = {
+    "住所": Schema.ADDR,
+    "所在地": Schema.ADDR,
+    "電話番号": Schema.TEL,
+    "TEL": Schema.TEL,
+    "営業時間": Schema.TIME,
+    "定休日": Schema.HOLIDAY,
+    "座席数": SEATS,
+    "カラオケ": KARAOKE,
+    "接客人数": STAFF_NUM,
+    "予算目安": BUDGET,
+}
 
 
 def _clean(s) -> str:
+    """空白を正規化し、元サイトが未入力箇所に出力する不正値 'Array' を除去する。"""
     if s is None:
         return ""
-    return re.sub(r"\s+", " ", str(s)).strip()
+    text = re.sub(r"\s+", " ", str(s)).strip()
+    # 元サイトのテンプレートが未入力箇所に "Array" を出力するため取り除く
+    text = re.sub(r"\bArray\b", "", text).strip()
+    return re.sub(r"\s+", " ", text).strip()
 
 
 class HamanightScraper(StaticCrawler):
-    """ハマんナイト 横浜ナイト求人スクレイパー（hamanight.com）"""
+    """ハマんナイト 横浜ナイト店舗情報スクレイパー（hamanight.com）"""
 
     DELAY = 1.0
-    EXTRA_COLUMNS = ["業種", "公式サイト"]
+    EXTRA_COLUMNS = [SEATS, KARAOKE, STAFF_NUM, BUDGET]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         detail_urls: list[str] = []
         seen: set[str] = set()
         for area_url in AREA_URLS:
             self.logger.info("エリア取得: %s", area_url)
-            urls = self._collect_area_urls(area_url)
-            for u in urls:
+            for u in self._collect_area_urls(area_url):
                 if u not in seen:
                     seen.add(u)
                     detail_urls.append(u)
@@ -54,34 +79,42 @@ class HamanightScraper(StaticCrawler):
                 yield item
 
     def _collect_area_urls(self, area_url: str) -> list[str]:
+        """エリアページをページネーション追跡しながら店舗詳細URLを収集する。"""
         urls: list[str] = []
         seen: set[str] = set()
-        page = 1
+        visited_pages: set[str] = set()
         current = area_url
-        while current:
+
+        while current and current not in visited_pages:
+            visited_pages.add(current)
             soup = self.get_soup(current)
             if soup is None:
                 break
+
             for a in soup.select("a[href]"):
-                href = a.get("href", "").strip()
+                href = (a.get("href") or "").strip()
                 if not href:
                     continue
-                if any(kw in href for kw in EXCLUDE_KEYWORDS):
-                    continue
-                full = urljoin(BASE_URL, href)
-                if full.startswith(BASE_URL) and "/location/" in full and full not in seen and full != current:
+                full = urljoin(BASE_URL, href).split("#")[0].split("?")[0]
+                if DETAIL_RE.search(full) and full not in seen:
                     seen.add(full)
                     urls.append(full)
 
-            next_a = soup.select_one("a.page-next, a[rel='next']")
-            if next_a and next_a.get("href"):
-                page += 1
-                next_url = f"{area_url}/page/{page}"
-                current = next_url
-            else:
-                current = None
+            # 「次の12件>>」リンク、無ければ page-numbers から次ページを辿る
+            next_a = soup.select_one("span.next a[href]")
+            if not next_a:
+                next_a = self._find_next_page_link(soup, visited_pages)
+            current = urljoin(BASE_URL, next_a["href"]) if next_a else None
 
         return urls
+
+    def _find_next_page_link(self, soup, visited_pages: set[str]):
+        """page-numbers の中から未訪問のページリンクを返す。"""
+        for a in soup.select("a.page-numbers[href]"):
+            full = urljoin(BASE_URL, a["href"])
+            if full not in visited_pages:
+                return a
+        return None
 
     def _scrape_detail(self, url: str) -> dict | None:
         soup = self.get_soup(url)
@@ -90,53 +123,60 @@ class HamanightScraper(StaticCrawler):
 
         data = {Schema.URL: url}
 
-        name_h1 = soup.select_one("#location > div.wrap > div > div.main > h1")
-        name_h2 = soup.select_one("#pickup div.view h2")
-        name = (
-            _clean(name_h1.get_text()) if name_h1
-            else _clean(name_h2.get_text()) if name_h2
-            else ""
-        )
+        # --- 店名 ---
+        name = ""
+        h1 = soup.select_one("div.content div.main h1")
+        if h1:
+            name = _clean(h1.get_text())
+        if not name:
+            # #detail 内 1つ目の <dt> が店名
+            dt = soup.select_one("#detail dl dt")
+            if dt:
+                name = _clean(dt.get_text())
+        if not name:
+            title = soup.select_one("title")
+            if title:
+                name = _clean(title.get_text().split("｜")[0])
         if name:
             data[Schema.NAME] = name
 
-        genre_a = soup.find("a", href=lambda h: h and "genre" in h)
+        # --- ジャンル (サイト定義業種) ---
+        detail = soup.select_one("#detail")
+        genre_a = detail.find("a", href=lambda h: h and "/genre/" in h) if detail else None
+        if genre_a is None:
+            genre_a = soup.find("a", href=lambda h: h and "/genre/" in h)
         if genre_a:
-            data["業種"] = genre_a.get_text(strip=True)
+            genre = _clean(genre_a.get_text())
+            if genre:
+                data[Schema.CAT_SITE] = genre
 
-        # store info from ul
-        ul_main = soup.select_one("#pickup > div.wrap > div > div.main > div.view > dl > dd > ul")
-        if ul_main:
-            self._extract_list_items(ul_main, data)
-
-        # official site
-        official = soup.select_one("div.official a[href]")
-        if official:
-            data["公式サイト"] = official["href"]
+        # --- 基本情報リスト (<em>ラベル</em><span>値</span>) ---
+        self._extract_em_span(soup, data)
 
         if not data.get(Schema.NAME):
             return None
         return data
 
-    def _extract_list_items(self, ul, data: dict):
-        for li in ul.find_all("li"):
-            text = _clean(li.get_text(" "))
-            if "TEL" in text or "電話" in text:
-                m = re.search(r"[\d\-]{8,}", text)
-                if m:
-                    data[Schema.TEL] = m.group(0)
-            elif "住所" in text or "所在地" in text:
-                val = re.sub(r"^[住所所在地]+[：:]\s*", "", text).strip()
-                if val:
-                    data[Schema.ADDR] = val
-            elif "営業時間" in text:
-                val = re.sub(r"^営業時間[：:]\s*", "", text).strip()
-                if val:
-                    data[Schema.TIME] = val
-            elif "定休日" in text:
-                val = re.sub(r"^定休日[：:]\s*", "", text).strip()
-                if val:
-                    data[Schema.HOLIDAY] = val
+    def _extract_em_span(self, soup, data: dict):
+        """詳細ページの em/span 形式の項目を可能な限り全て取得する。"""
+        for li in soup.select("#detail li"):
+            em = li.find("em")
+            if not em:
+                continue
+            label = _clean(em.get_text()).rstrip("：:").strip()
+            span = li.find("span")
+            value = _clean(span.get_text(" ")) if span else ""
+            if not label or not value:
+                continue
+
+            column = LABEL_MAP.get(label)
+            if column is None:
+                continue
+
+            if column == Schema.TEL:
+                m = re.search(r"0\d{1,4}[-(]?\d{1,4}[-)]?\d{3,4}", value)
+                value = m.group(0) if m else value
+            data[column] = value
 
 
 if __name__ == "__main__":
