@@ -1966,3 +1966,10 @@ sites:
     url: "https://www.jbn-support.jp/about/search/"
     schedule: "0 19 26 * *"
     enabled: true
+
+  - site_id: cabago
+    name: "ナイト_キャバゴー"
+    module: "nightlife.cabago"
+    url: "https://lulinego.jp/"
+    schedule: "20 3 1 * *"
+    enabled: true
