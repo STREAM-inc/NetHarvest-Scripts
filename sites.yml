@@ -2008,3 +2008,10 @@ sites:
     url: "https://www.hatarakuzo.com/"
     schedule: "0 17 1 * *"
     enabled: true
+
+  - site_id: snakaranavi
+    name: "スナカラ"
+    module: "nightlife.snakaranavi"
+    url: "https://www.snakaranavi.net/"
+    schedule: "0 19 2 * *"
+    enabled: true
