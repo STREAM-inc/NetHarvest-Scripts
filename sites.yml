@@ -2022,3 +2022,10 @@ sites:
     url: "https://www.techplaza.city.higashiosaka.osaka.jp/"
     schedule: null
     enabled: true
+
+  - site_id: tsukulink_2
+    name: "ツクリンクリスト"
+    module: "portal.tsukulink_2"
+    url: "https://tsukulink.net/"
+    schedule: null
+    enabled: true
