@@ -2029,3 +2029,10 @@ sites:
     url: "https://tsukulink.net/"
     schedule: null
     enabled: true
+
+  - site_id: night
+    name: "神奈川夜遊びNight"
+    module: "nightlife.night"
+    url: "https://www.kanagawa-yoasobi.com/data.php?c=search&page=1"
+    schedule: "0 9 15 * *"
+    enabled: true
