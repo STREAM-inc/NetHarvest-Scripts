@@ -2015,3 +2015,10 @@ sites:
     url: "https://www.snakaranavi.net/"
     schedule: "0 19 2 * *"
     enabled: true
+
+  - site_id: techplaza
+    name: "東大阪市技術交流プラザ"
+    module: "government.techplaza"
+    url: "https://www.techplaza.city.higashiosaka.osaka.jp/"
+    schedule: null
+    enabled: true
