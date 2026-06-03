@@ -2043,3 +2043,10 @@ sites:
     url: "https://www.enecho.meti.go.jp/category/electricity_and_gas/electric/summary/retailers_list/index.html"
     schedule: null
     enabled: true
+
+  - site_id: cabanori_3
+    name: "ハマのり"
+    module: "nightlife.cabanori_3"
+    url: "https://cabanori.com"
+    schedule: "0 9 1 * *"
+    enabled: true
