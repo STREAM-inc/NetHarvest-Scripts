@@ -3,7 +3,7 @@
 
 取得対象:
     - https://www.hellowork.mhlw.go.jp/ の公開求人のうち「新着求人(直近3日間)」のみ
-    - 求人区分: 一般 (必須) + ID_jyoukenBox1 (新着求人直近3日) チェックで全国約3万件を1回の検索で取得
+    - 求人区分: 一般 (必須) + ID_jyoukenBox1 (新着求人直近3日) チェックで全国約15万件を1回の検索で取得
 
 取得フロー:
     1. Playwright で検索ページ (GECA110010) にアクセス
@@ -122,10 +122,9 @@ class HelloworkShinnkikyuujinScraper(DynamicCrawler):
         """一般区分 + 新着フラグで全国検索を実行する"""
         self.page.goto(SEARCH_URL, wait_until="domcontentloaded")
 
-        self.page.evaluate(
-            "document.querySelector('#ID_kjKbnRadioBtn1').checked = true;"
-            "document.querySelector('#ID_jyoukenBox1').checked = true;"
-        )
+        # 一般区分はデフォルトで選択済み
+        # checkbox は label が上を覆っているため label 経由でクリックする
+        self.page.evaluate("document.querySelector('#ID_LjyoukenBox1').click()")
 
         try:
             with self.page.expect_navigation(wait_until="domcontentloaded", timeout=60000):
@@ -143,6 +142,7 @@ class HelloworkShinnkikyuujinScraper(DynamicCrawler):
         page_num = 1
         consecutive_failures = 0
         MAX_FAILURES = 3
+        nav_succeeded = True  # 直前の遷移が成功したかどうか
 
         while True:
             soup = BeautifulSoup(self.page.content(), "html.parser")
@@ -175,7 +175,9 @@ class HelloworkShinnkikyuujinScraper(DynamicCrawler):
                 self.logger.info("最終ページに到達")
                 break
 
-            if len(detail_urls) == before and page_num > 1:
+            # 遷移成功後のみ「新規URLゼロ」を終了条件にする
+            # （遷移失敗後の continue でループ先頭に戻った場合は同一ページを再パースするため除外）
+            if nav_succeeded and len(detail_urls) == before and page_num > 1:
                 self.logger.info("新規 URL がなくなったため終了")
                 break
 
@@ -183,8 +185,10 @@ class HelloworkShinnkikyuujinScraper(DynamicCrawler):
                 with self.page.expect_navigation(wait_until="domcontentloaded", timeout=60000):
                     next_btn.click()
                 consecutive_failures = 0
+                nav_succeeded = True
             except Exception as e:
                 consecutive_failures += 1
+                nav_succeeded = False
                 self.logger.warning(
                     "ページ %d 遷移失敗 (連続 %d/%d): %s",
                     page_num, consecutive_failures, MAX_FAILURES, e,
@@ -238,6 +242,12 @@ class HelloworkShinnkikyuujinScraper(DynamicCrawler):
         if addr_raw:
             self._fill_address(item, addr_raw)
 
+        # 郵便番号セルが独立して存在する場合は所在地抽出より優先
+        post_cell = self._first(pairs.get("郵便番号"))
+        if post_cell:
+            pm = _POST_CODE_PATTERN.search(post_cell)
+            item[Schema.POST_CODE] = pm.group(1) if pm else post_cell.strip()
+
         hp = self._first(pairs.get("ホームページ"))
         if hp:
             item[Schema.HP] = hp
@@ -245,9 +255,17 @@ class HelloworkShinnkikyuujinScraper(DynamicCrawler):
         contact = self._first(pairs.get("担当者"))
         if contact:
             item["担当者"] = contact
+            tel_match = _PHONE_PATTERN.search(contact)
+            if tel_match:
+                item[Schema.TEL] = tel_match.group(1)
             email_match = _EMAIL_PATTERN.search(contact)
             if email_match:
                 item["担当者メール"] = email_match.group(0)
+
+        # 電話番号セルが独立して存在する場合は担当者抽出より優先
+        tel_cell = self._first(pairs.get("電話番号"))
+        if tel_cell:
+            item[Schema.TEL] = tel_cell.strip()
 
         rep = self._first(pairs.get("役職／代表者名"))
         if rep:
