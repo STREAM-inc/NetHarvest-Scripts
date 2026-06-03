@@ -2057,3 +2057,10 @@ sites:
     url: "https://web-kanji.com/search"
     schedule: null
     enabled: true
+
+  - site_id: web_3
+    name: "優良web"
+    module: "corporate.web_3"
+    url: "https://yuryoweb.com/"
+    schedule: null
+    enabled: true
