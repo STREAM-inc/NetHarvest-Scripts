@@ -712,7 +712,7 @@ sites:
     name: "クックドア"
     module: "food.cookdoor"
     url: "https://www.cookdoor.jp/"
-    schedule: null
+    schedule: "0 10 1-7 * SUN"
     enabled: true
 
   - site_id: mypl
