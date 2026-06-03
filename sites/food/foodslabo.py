@@ -50,6 +50,23 @@ def _clean(text) -> str:
     return re.sub(r"\s+", " ", str(text).replace("　", " ")).strip()
 
 
+# 店名末尾の "（関東地方）" のようなエリア名表記を除去する
+_AREA_SUFFIX_PATTERN = re.compile(r"[\(（][^\(（\)）]*[\)）]\s*$")
+
+
+def _strip_area(name: str) -> str:
+    """店名末尾の（エリア名）を取り除く。例: "サイゼリヤ（関東地方）" → "サイゼリヤ" """
+    if not name:
+        return name
+    prev = None
+    cleaned = name.strip()
+    # 複数の括弧が連続するケースに備えて末尾から繰り返し除去
+    while cleaned != prev:
+        prev = cleaned
+        cleaned = _AREA_SUFFIX_PATTERN.sub("", cleaned).strip()
+    return cleaned or name
+
+
 class FoodsLaboScraper(StaticCrawler):
     """foodslabo (フーズラボ) 飲食店求人スクレイパー"""
 
@@ -165,7 +182,7 @@ class FoodsLaboScraper(StaticCrawler):
             # 詳細取得失敗時は一覧情報だけでも拾う
             data = {
                 Schema.URL: url,
-                Schema.NAME: card.get("shop") or "",
+                Schema.NAME: _strip_area(card.get("shop") or ""),
                 Schema.PREF: card.get("pref") or "",
                 Schema.ADDR: card.get("city") or "",
                 Schema.CAT_SITE: card.get("category") or "",
@@ -197,6 +214,7 @@ class FoodsLaboScraper(StaticCrawler):
                 shop_name = h1_text.split("|", 1)[0].strip() or shop_name
             else:
                 shop_name = h1_text or shop_name
+        shop_name = _strip_area(shop_name)
         if shop_name:
             data[Schema.NAME] = shop_name
 
