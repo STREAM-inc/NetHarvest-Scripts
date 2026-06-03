@@ -64,6 +64,16 @@ _ADDR_TRIM = re.compile(r"\s*MAP\s*$")
 _PRICE_WS = re.compile(r"\s+")
 _PAY_KEYWORDS = re.compile(r"支払|ローン|分割|クレジット|カード|頭金|現金|振込")
 
+# 文字化けの原因となる不可視文字（NBSP・全角スペース・各種 Unicode 空白・ゼロ幅文字・BOM）を
+# 半角スペースへ正規化するためのパターン。
+_INVISIBLE_WS = re.compile(
+    "[\u00a0\u1680\u2000-\u200d\u202f\u205f\u2028\u2029\u3000\ufeff]"
+)
+# タブ・改行を除く制御文字（除去対象）
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+# 連続する空白を 1 つにまとめるためのパターン
+_MULTI_WS = re.compile(r"\s+")
+
 
 class CarsensorScraper(StaticCrawler):
     """カーセンサー 中古車販売店スクレイパー"""
@@ -116,20 +126,21 @@ class CarsensorScraper(StaticCrawler):
         name_a = card.select_one("h3.hd2nd a, h3 a")
         if not name_a:
             return None
-        name = name_a.get_text(strip=True)
+        name = self._clean_text(name_a.get_text(strip=True))
         href = name_a.get("href", "")
         detail_url = urljoin(_BASE, href.split("?")[0])
 
         area = ""
         area_p = card.select_one("div.l-box.va-mid p.txt.txt-c")
         if area_p:
-            parts = [t.strip() for t in area_p.get_text("|", strip=True).split("|") if t.strip()]
+            parts = [self._clean_text(t) for t in area_p.get_text("|", strip=True).split("|")]
+            parts = [t for t in parts if t]
             area = parts[1] if len(parts) >= 2 else (parts[0] if parts else "")
 
         catch = ""
         catch_p = card.select_one("p.ttl")
         if catch_p:
-            catch = catch_p.get_text(strip=True)
+            catch = self._clean_text(catch_p.get_text(strip=True))
 
         rev_count = ""
         rev_a = card.select_one("a.daisu")
@@ -163,12 +174,12 @@ class CarsensorScraper(StaticCrawler):
             dts = dl.find_all("dt")
             dds = dl.find_all("dd")
             for dt, dd in zip(dts, dds):
-                label = dt.get_text(strip=True)
-                value = dd.get_text(" ", strip=True)
+                label = self._clean_text(dt.get_text(strip=True))
+                value = self._clean_text(dd.get_text(" ", strip=True))
                 if label == "法人名":
                     data["法人名"] = value
                 elif label == "住所":
-                    data[Schema.ADDR] = _ADDR_TRIM.sub("", value).strip()
+                    data[Schema.ADDR] = self._clean_text(_ADDR_TRIM.sub("", value))
                 elif label == "営業時間":
                     data[Schema.TIME] = value
                 elif label == "定休日":
@@ -190,6 +201,22 @@ class CarsensorScraper(StaticCrawler):
             data[Schema.PAYMENTS] = payments
 
         return data
+
+    @staticmethod
+    def _clean_text(text: str) -> str:
+        """文字を含むカラム用のクリーニング。
+
+        スクレイピングで取得した文字列には、HTML 中の NBSP (\\xa0) や全角スペース、
+        ゼロ幅文字・BOM などの不可視文字が混入しており、CSV 等へ出力した際に
+        文字化け（読めない記号）として現れる。これらを半角スペースへ正規化し、
+        制御文字を除去したうえで連続空白を 1 つにまとめて前後をトリムする。
+        """
+        if not text:
+            return ""
+        cleaned = _INVISIBLE_WS.sub(" ", str(text))
+        cleaned = _CONTROL_CHARS.sub("", cleaned)
+        cleaned = _MULTI_WS.sub(" ", cleaned)
+        return cleaned.strip()
 
     @staticmethod
     def _normalize_price(text: str) -> str:
@@ -215,7 +242,7 @@ class CarsensorScraper(StaticCrawler):
         parts: list[str] = []
         seen: set[str] = set()
         for p in soup.select(".shopnaviContents__item .media__obj--col3 p"):
-            text = p.get_text(strip=True)
+            text = self._clean_text(p.get_text(strip=True))
             if not text or text in seen or not _PAY_KEYWORDS.search(text):
                 continue
             seen.add(text)
