@@ -2050,3 +2050,10 @@ sites:
     url: "https://cabanori.com"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: web_2
+    name: "web幹事"
+    module: "corporate.web_2"
+    url: "https://web-kanji.com/search"
+    schedule: null
+    enabled: true
