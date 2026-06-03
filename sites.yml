@@ -708,6 +708,13 @@ sites:
     schedule: "20 6 1-7 * SUN"
     enabled: true
 
+  - site_id: cookdoor
+    name: "クックドア"
+    module: "food.cookdoor"
+    url: "https://www.cookdoor.jp/"
+    schedule: null
+    enabled: true
+
   - site_id: mypl
     name: "まいぷれ"
     module: "portal.mypl"
