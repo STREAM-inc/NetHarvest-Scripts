@@ -30,8 +30,9 @@ from src.const.schema import Schema
 
 SITEMAP_URL = "https://www.oremichi.com/sitemap/sitemap.shop.xml"
 
+# 都道府県から始まる住所を特定・抽出するための正規表現パターン
 _PREF_RE = re.compile(
-    r"^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
+    r"(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)[^・\n<]+"
 )
 
 
@@ -81,8 +82,6 @@ class OremichiScraper(StaticCrawler):
         item: dict = {Schema.URL: url}
 
         # --- dt/dd ペアをパース ---
-        # 同一 dl 内で dt と dd が対応している前提 (どちらも profile 直下の要素)
-        # find_all で順番に取得し、dt→dd の対応を追跡
         current_dt = None
         for child in profile.find_all(["dt", "dd"], recursive=False):
             if child.name == "dt":
@@ -91,17 +90,28 @@ class OremichiScraper(StaticCrawler):
                 self._parse_dd(current_dt, child, item)
                 current_dt = None
 
-        # --- 住所/TEL は act_map の data 属性から取得 (内部のHTMLノイズを避ける) ---
+        # --- 住所/TEL のクレンジング処理 ---
         act_map = profile.select_one("a.act_map")
         if act_map:
-            addr = act_map.get("data-address", "").strip()
-            if addr:
-                m = _PREF_RE.match(addr)
-                if m:
-                    item[Schema.PREF] = m.group(1)
-                    item[Schema.ADDR] = addr[m.end():].strip()
+            raw_addr = act_map.get("data-address", "").strip()
+            if raw_addr:
+                # 1. HTMLタグの残骸（<br />など）を文字列置換で完全に消去
+                clean_raw = re.sub(r"<[^>]+>", " ", raw_addr)
+
+                # 2. 正規表現で都道府県から始まる「純粋な住所部分」だけを前方からサーチ
+                match = _PREF_RE.search(clean_raw)
+                if match:
+                    # アクセス情報（「・京急線」など）が後ろに混ざるため、・ や 改行 で分断して前半部分のみをキープ
+                    full_address = match.group(0).split("・")[0].split("\n")[0].strip()
+
+                    # 都道府県名を取り出して定数にセット
+                    item[Schema.PREF] = match.group(1)
+                    # 都道府県名を含んだ「完全な住所」をそのまま Schema.ADDR に格納（ビル名だけになるのを防止）
+                    item[Schema.ADDR] = full_address
                 else:
-                    item[Schema.ADDR] = addr
+                    # 都道府県がどうしても見つからない場合のセーフティ
+                    item[Schema.ADDR] = clean_raw.split("・")[0].strip()
+
             phone = act_map.get("data-phone1", "").strip()
             if phone:
                 item[Schema.TEL] = phone
@@ -156,7 +166,7 @@ class OremichiScraper(StaticCrawler):
                 elif alt == "line":
                     item[Schema.LINE] = href
                 elif alt == "youtube":
-                    item["Youtube"] = href
+                    item[Schema.YOUTUBE] = href  # 共通定数があれば割り当て、なければEXTRA_COLUMNSに紐づきます
 
 
 if __name__ == "__main__":
@@ -168,6 +178,8 @@ if __name__ == "__main__":
     )
 
     scraper = OremichiScraper()
+    # 動作テスト用に最初の5件だけで止めたい場合は、下のコメントアウトを解除してください
+    # scraper._test_limit = 5
     scraper.execute(SITEMAP_URL)
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
