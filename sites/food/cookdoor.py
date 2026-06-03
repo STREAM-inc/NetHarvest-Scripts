@@ -162,28 +162,23 @@ class CookdoorScraper(StaticCrawler):
         max_pages = _int_env("COOKDOOR_MAX_PAGES")
         selected_prefs = self._select_prefectures(url)
 
-        pref_pages: list[tuple[str, str, int, bs4.BeautifulSoup]] = []
-        estimated_total = 0
-        for slug, pref_name in selected_prefs:
-            list_url = self._list_url(slug, 1)
-            soup = self.get_soup(list_url)
-            if soup is None:
-                self.logger.warning("都道府県一覧取得失敗: %s", list_url)
-                continue
-            total_count = self._extract_total_count(soup)
-            if total_count == 0:
-                self.logger.warning("総件数を取得できませんでした: %s", list_url)
-            estimated_total += total_count
-            pref_pages.append((slug, pref_name, total_count, soup))
-            self.logger.info("%s: 推定 %d 件", pref_name, total_count)
-            time.sleep(self.LIST_DELAY)
-
-        self.total_items = min(estimated_total, max_items) if max_items else estimated_total
-        self.logger.info("取得対象推定: %d 件", self.total_items or 0)
-
         yielded = 0
+        estimated_total = 0
         seen: set[str] = set()
-        for slug, pref_name, total_count, first_soup in pref_pages:
+        for slug, pref_name in selected_prefs:
+            first_list_url = self._list_url(slug, 1)
+            first_soup = self.get_soup(first_list_url)
+            if first_soup is None:
+                self.logger.warning("都道府県一覧取得失敗: %s", first_list_url)
+                continue
+
+            total_count = self._extract_total_count(first_soup)
+            if total_count == 0:
+                self.logger.warning("総件数を取得できませんでした: %s", first_list_url)
+            estimated_total += total_count
+            self.total_items = min(estimated_total, max_items) if max_items else estimated_total
+            self.logger.info("%s: 推定 %d 件 (累計推定 %d 件)", pref_name, total_count, self.total_items or 0)
+
             page_count = max(1, math.ceil(total_count / PAGE_SIZE)) if total_count else 1
             if max_pages:
                 page_count = min(page_count, max_pages)
@@ -519,8 +514,9 @@ if __name__ == "__main__":
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
     scraper = CookdoorScraper()
-    scraper.site_id = "cookdoor"
-    scraper.site_name = "クックドア"
+    output_label = re.sub(r"[^0-9A-Za-z_-]+", "_", os.getenv("COOKDOOR_OUTPUT_LABEL", "").strip())
+    scraper.site_id = f"cookdoor_{output_label}" if output_label else "cookdoor"
+    scraper.site_name = f"クックドア_{output_label}" if output_label else "クックドア"
     scraper.execute("https://www.cookdoor.jp/")
     print(f"\n出力ファイル: {scraper.output_filepath}")
     print(f"取得件数: {scraper.item_count}")

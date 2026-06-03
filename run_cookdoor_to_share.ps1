@@ -50,8 +50,14 @@ Write-RunLog "Cookdoor scraping started. destination=$Destination repo=$RepoRoot
 $env:PYTHONIOENCODING = "utf-8"
 if ($Prefs) {
     $env:COOKDOOR_PREFS = $Prefs
+    if ($Prefs -notmatch ",") {
+        $env:COOKDOOR_OUTPUT_LABEL = $Prefs
+    } else {
+        Remove-Item Env:\COOKDOOR_OUTPUT_LABEL -ErrorAction SilentlyContinue
+    }
 } else {
     Remove-Item Env:\COOKDOOR_PREFS -ErrorAction SilentlyContinue
+    Remove-Item Env:\COOKDOOR_OUTPUT_LABEL -ErrorAction SilentlyContinue
 }
 if ($MaxItems -gt 0) {
     $env:COOKDOOR_MAX_ITEMS = [string]$MaxItems
@@ -65,20 +71,19 @@ if ($MaxPages -gt 0) {
 }
 
 $attemptLog = Join-Path $OutputDir "cookdoor_to_share_$RunTag.attempt.log"
-$processInfo = New-Object System.Diagnostics.ProcessStartInfo
-$processInfo.FileName = $Python
-$processInfo.Arguments = '"sites/food/cookdoor.py"'
-$processInfo.WorkingDirectory = $RepoRoot
-$processInfo.UseShellExecute = $false
-$processInfo.RedirectStandardOutput = $true
-$processInfo.RedirectStandardError = $true
-$processInfo.CreateNoWindow = $true
-$process = [System.Diagnostics.Process]::Start($processInfo)
-$stdout = $process.StandardOutput.ReadToEnd()
-$stderr = $process.StandardError.ReadToEnd()
-$process.WaitForExit()
+$attemptOutLog = Join-Path $OutputDir "cookdoor_to_share_$RunTag.stdout.log"
+$attemptErrLog = Join-Path $OutputDir "cookdoor_to_share_$RunTag.stderr.log"
+$process = Start-Process -FilePath $Python `
+    -ArgumentList @("sites/food/cookdoor.py") `
+    -WorkingDirectory $RepoRoot `
+    -PassThru `
+    -Wait `
+    -WindowStyle Hidden `
+    -RedirectStandardOutput $attemptOutLog `
+    -RedirectStandardError $attemptErrLog
 $exitCode = $process.ExitCode
-($stdout + $stderr) | Set-Content -LiteralPath $attemptLog -Encoding UTF8
+Get-Content -LiteralPath $attemptOutLog, $attemptErrLog -ErrorAction SilentlyContinue |
+    Set-Content -LiteralPath $attemptLog -Encoding UTF8
 
 Write-RunLog "Cookdoor scraper finished. exit=$exitCode attempt_log=$attemptLog"
 
