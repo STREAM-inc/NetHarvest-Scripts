@@ -50,20 +50,48 @@ def _clean(text) -> str:
     return re.sub(r"\s+", " ", str(text).replace("　", " ")).strip()
 
 
-# 店名末尾の "（関東地方）" のようなエリア名表記を除去する
-_AREA_SUFFIX_PATTERN = re.compile(r"[\(（][^\(（\)）]*[\)）]\s*$")
+# 店名末尾の "（関東地方）" のようなエリア名表記を除去する。
+# 末尾の括弧 (全角/半角) を 1 つ取り出すパターン。
+_PAREN_SUFFIX_PATTERN = re.compile(r"\s*[\(（]\s*([^\(（\)）]*?)\s*[\)）]\s*$")
+
+# 括弧内が「地域・エリア名」を表すと判断するためのキーワード。
+# これに該当する場合のみ除去し、"（本店）" "（渋谷店）" 等の店舗識別子は残す。
+_AREA_KEYWORD_PATTERN = re.compile(
+    r"(地方|地区|地域|エリア|方面|周辺|沿線|全域|全国|近郊|圏内|"
+    r"関東|関西|近畿|東海|北陸|甲信越|信越|東北|中部|中国|四国|九州|首都圏|"
+    r"北海道|青森|岩手|宮城|秋田|山形|福島|茨城|栃木|群馬|埼玉|千葉|東京|神奈川|"
+    r"新潟|富山|石川|福井|山梨|長野|岐阜|静岡|愛知|三重|滋賀|京都|大阪|兵庫|奈良|"
+    r"和歌山|鳥取|島根|岡山|広島|山口|徳島|香川|愛媛|高知|福岡|佐賀|長崎|熊本|"
+    r"大分|宮崎|鹿児島|沖縄|"
+    r"[都道府県]$)"
+)
 
 
 def _strip_area(name: str) -> str:
-    """店名末尾の（エリア名）を取り除く。例: "サイゼリヤ（関東地方）" → "サイゼリヤ" """
+    """店名末尾の（エリア名）を取り除く。
+
+    例: "サイゼリヤ（関東地方）" → "サイゼリヤ"
+        "ガスト（東京都・神奈川県）" → "ガスト"
+
+    括弧内が地域・エリアを表す場合のみ除去する。"餃子の王将（本店）" や
+    "スターバックス（渋谷店）" のように店舗を識別する括弧はそのまま残す。
+    """
     if not name:
         return name
-    prev = None
     cleaned = name.strip()
-    # 複数の括弧が連続するケースに備えて末尾から繰り返し除去
-    while cleaned != prev:
+    prev = None
+    # 複数の括弧が連続するケースに備えて末尾から繰り返し判定する
+    while cleaned and cleaned != prev:
         prev = cleaned
-        cleaned = _AREA_SUFFIX_PATTERN.sub("", cleaned).strip()
+        m = _PAREN_SUFFIX_PATTERN.search(cleaned)
+        if not m:
+            break
+        inner = m.group(1)
+        # 括弧内が空、またはエリア名キーワードを含む場合のみ除去
+        if not inner or _AREA_KEYWORD_PATTERN.search(inner):
+            cleaned = cleaned[: m.start()].strip()
+        else:
+            break
     return cleaned or name
 
 
