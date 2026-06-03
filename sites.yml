@@ -2071,3 +2071,10 @@ sites:
     url: "https://yuryoweb.com/"
     schedule: null
     enabled: true
+
+  - site_id: cookdoor_2
+    name: "クックドア"
+    module: "food.cookdoor_2"
+    url: "https://www.cookdoor.jp/"
+    schedule: null
+    enabled: true
