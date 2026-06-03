@@ -44,11 +44,36 @@ _PREF_PATTERN = re.compile(
     r"福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
 )
 
+# ── 住所クレンジング用定数 ──────────────────────────────
+_ADDR_NOISE_KEYWORDS = [
+    "応募する", "こちらより", "お電話での", "面接時", "折り返し",
+    "選考", "書類", "ハローワーク", "ご応募",
+]
+_ADDR_PAREN_RE = re.compile(r"[（(][^）)]*[）)]")           # 括弧補足
+_ADDR_POSTAL_RE = re.compile(r"^〒?\s*\d{3}[-‐－]\d{4}\s*")  # 郵便番号
+
 
 def _clean(text) -> str:
     if text is None:
         return ""
     return re.sub(r"\s+", " ", str(text)).strip()
+
+
+def _clean_address(addr: str) -> str:
+    """住所文字列からノイズを除去して返す"""
+    # 1. 応募案内文をキーワード以降で切り捨て
+    for kw in _ADDR_NOISE_KEYWORDS:
+        idx = addr.find(kw)
+        if idx != -1:
+            addr = addr[:idx]
+
+    # 2. 括弧補足を除去
+    addr = _ADDR_PAREN_RE.sub("", addr)
+
+    # 3. 郵便番号を除去
+    addr = _ADDR_POSTAL_RE.sub("", addr)
+
+    return addr.strip()
 
 
 class TokyoBmRecruitScraper(StaticCrawler):
@@ -219,6 +244,7 @@ class TokyoBmRecruitScraper(StaticCrawler):
 
         # 連絡先住所を 都道府県 + 住所 にパース(会社本社の住所として使用)
         if contact_addr:
+            contact_addr = _clean_address(contact_addr)   # ← クレンジング追加
             m = _PREF_PATTERN.match(contact_addr)
             if m:
                 data[Schema.PREF] = m.group(1)
