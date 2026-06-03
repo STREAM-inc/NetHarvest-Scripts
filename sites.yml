@@ -15,6 +15,13 @@
 
 sites:
 
+  - site_id: inuki_honpo
+    name: "居抜き本舗（居抜き・クラブキャバクラ・東京都）"
+    module: "realestate.inuki_honpo"
+    url: "https://www.inuki-honpo.jp/rent/?s_prf_cd%5B%5D=13&s_inuki_type%5B%5D=1&s_inuki_category%5B%5D=26&s_city_cd%5B%5D=13101&s_city_cd%5B%5D=13102&s_city_cd%5B%5D=13103&s_city_cd%5B%5D=13104&s_city_cd%5B%5D=13109&s_city_cd%5B%5D=13110&s_city_cd%5B%5D=13112&s_city_cd%5B%5D=13113&s_city_cd%5B%5D=13114&s_city_cd%5B%5D=13115&s_city_cd%5B%5D=13116&s_city_cd%5B%5D=13203&s_walk=&s_tsubo_max=&s_kakaku_m=&s_freeword="
+    schedule: "30 9 * * *"
+    enabled: true
+
   - site_id: beautyworld_japan_tokyo
     name: "Beautyworld Japan Tokyo"
     module: "beauty.beautyworld_japan_tokyo"
