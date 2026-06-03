@@ -25,12 +25,64 @@ NET_HARVEST_ROOT = Path(
         str(Path.home() / "Desktop" / "NetHarvest\u4f50\u6e21"),
     )
 )
+today = datetime.now().strftime("%Y%m%d")
 SHARE_OUTPUT_DIR = Path(
     os.environ.get(
         "STREAMREQ_6259_SHARE_OUTPUT",
-        r"\\STREAM06\Share\Scraping\取得データ\202606\20260601",
+        rf"\\STREAM06\Share\Scraping\取得データ\{today[:6]}\{today}",
     )
 )
+
+POWER_SPLIT_KEYWORDS = [
+    "電力",
+    "電力 北海道",
+    "電力 青森県",
+    "電力 岩手県",
+    "電力 宮城県",
+    "電力 秋田県",
+    "電力 山形県",
+    "電力 福島県",
+    "電力 茨城県",
+    "電力 栃木県",
+    "電力 群馬県",
+    "電力 埼玉県",
+    "電力 千葉県",
+    "電力 東京都",
+    "電力 神奈川県",
+    "電力 新潟県",
+    "電力 富山県",
+    "電力 石川県",
+    "電力 福井県",
+    "電力 山梨県",
+    "電力 長野県",
+    "電力 岐阜県",
+    "電力 静岡県",
+    "電力 愛知県",
+    "電力 三重県",
+    "電力 滋賀県",
+    "電力 京都府",
+    "電力 大阪府",
+    "電力 兵庫県",
+    "電力 奈良県",
+    "電力 和歌山県",
+    "電力 鳥取県",
+    "電力 島根県",
+    "電力 岡山県",
+    "電力 広島県",
+    "電力 山口県",
+    "電力 徳島県",
+    "電力 香川県",
+    "電力 愛媛県",
+    "電力 高知県",
+    "電力 福岡県",
+    "電力 佐賀県",
+    "電力 長崎県",
+    "電力 熊本県",
+    "電力 大分県",
+    "電力 宮崎県",
+    "電力 鹿児島県",
+    "電力 沖縄県",
+]
 
 for import_path in (NET_HARVEST_ROOT, SCRIPTS_ROOT):
     value = str(import_path)
@@ -69,7 +121,7 @@ def main() -> int:
 
     summary: dict[str, object] = {
         "request_id": "STREAMREQ-6259",
-        "keyword": "電力",
+        "keywords": POWER_SPLIT_KEYWORDS,
         "started_at": timestamp,
         "status": "running",
         "log_path": str(log_path),
@@ -77,14 +129,15 @@ def main() -> int:
     }
 
     try:
-        # One-off scope: crawl only the broad JPNumber "電力" search result.
-        jpnumber.SEARCH_KEYWORDS = ["電力"]
+        # One-off scope: split the broad "電力" query to work around JPNumber's
+        # 1000-result search pagination cap while preserving per-run TEL dedupe.
+        jpnumber.SEARCH_KEYWORDS = POWER_SPLIT_KEYWORDS
         jpnumber.MAX_PAGES_PER_KEYWORD = None
         jpnumber.JpnumberScraper.DELAY = float(os.environ.get("JPNUMBER_POWER_DELAY", "2.0"))
 
         scraper = jpnumber.JpnumberScraper()
-        scraper.site_id = "jpnumber_power_keyword"
-        scraper.site_name = "jpnumber_power_keyword"
+        scraper.site_id = "jpnumber_power_split"
+        scraper.site_name = "jpnumber_power_split"
 
         logging.info("Starting JPNumber power keyword crawl")
         scraper.execute(jpnumber.BASE_URL)
@@ -94,7 +147,7 @@ def main() -> int:
 
         local_output = Path(scraper.output_filepath)
         final_output = SHARE_OUTPUT_DIR / (
-            f"STREAMREQ-6259_jpnumber_power_keyword_{timestamp}_{scraper.item_count}件.csv"
+            f"STREAMREQ-6259_jpnumber_power_split_{timestamp}_{scraper.item_count}件.csv"
         )
         shutil.copy2(local_output, final_output)
 
