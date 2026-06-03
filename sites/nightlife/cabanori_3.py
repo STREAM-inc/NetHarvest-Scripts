@@ -1,16 +1,28 @@
 """
-ハマのり 求人 (cabanori.com/yokohama/recruits) — 神奈川エリアのナイトワーク求人情報
+cabanori.com 求人 — 全エリアのナイトワーク求人情報
+
+cabanori.com は複数の地域ブランドを同一ドメインでホストしている。
+従来は「ハマのり(神奈川)」だけを取得していたが、東京エリアの「キャバのり」など
+他ブランドも存在するため、全ブランドを巡回して「全エリア」を取得する。
+
+    - ""          … キャバのり (東京: 立川/八王子/吉祥寺/国分寺/府中/調布/町田 ほか)
+                     → /recruits/page:N         / 詳細: /shops/{id}/recruit
+    - "yokohama"  … ハマのり   (神奈川: 横浜/川崎/湘南/相模原 ほか)
+                     → /yokohama/recruits/page:N / 詳細: /yokohama/shops/{id}/recruit
+
+  ※ 求人詳細リンクは各ブランドの絶対パス (/shops/... または /yokohama/shops/...) で
+    出力されるため、詳細ページの解析処理 (_scrape_recruit) は両ブランド共通で利用できる。
 
 取得対象:
-    - 神奈川県(横浜・川崎・湘南・相模原ほか)のキャバクラ/ガールズバー/セクキャバ等の
+    - 各ブランドのキャバクラ/ガールズバー/セクキャバ等の
       「店舗別 求人(女性求人)」情報
-    - 約 77 店舗 (10件/ページ × 全8ページ) / 1店舗に複数の募集職種がある場合は職種ごとに1レコード
+    - 1店舗に複数の募集職種がある場合は職種ごとに1レコード
 
 取得フロー (一覧 → 詳細 / Pattern B):
-    1. /yokohama/recruits/page:N を page:1 から順に巡回
+    1. ブランドごとに /{prefix}/recruits/page:N を page:1 から順に巡回
        (CakePHP 形式のページネーション。NEXT ボタン(a.c-button--next)が無くなるまでループ)
     2. 各ページの li.p-recruit-list から求人詳細ページ URL
-       (a.p-recruit-list__head-item → /yokohama/shops/{id}/recruit) を取得
+       (a.p-recruit-list__head-item → /shops/{id}/recruit 等) を取得
     3. 詳細ページを 1 件ずつ取得して即 yield (途中 break しても無駄通信を抑える)
          - 店舗情報テーブル (table.p-content--shop-information__table):
              店名 / 所在地 / 業種 / 営業時間 / 定休日
@@ -55,7 +67,19 @@ from src.const.schema import Schema
 
 
 _BASE = "https://cabanori.com"
-_LIST_URL = "https://cabanori.com/yokohama/recruits/page:{page}"
+
+# cabanori.com 上の地域ブランド一覧 (prefix が空文字 = キャバのり)。
+# 全エリアを取得するため、ここに列挙した全ブランドを巡回する。
+_BRANDS = [
+    {"prefix": "", "label": "キャバのり"},        # 東京エリア
+    {"prefix": "yokohama", "label": "ハマのり"},   # 神奈川エリア
+]
+
+
+def _list_url(prefix: str, page: int) -> str:
+    """ブランド prefix とページ番号から求人一覧ページの URL を組み立てる。"""
+    seg = f"/{prefix}" if prefix else ""
+    return f"{_BASE}{seg}/recruits/page:{page}"
 
 _POSTAL_RE = re.compile(r"〒?\s*(\d{3}-?\d{4})")
 _PREF_RE = re.compile(
@@ -121,10 +145,19 @@ class Cabanori3Crawler(StaticCrawler):
     EXTRA_COLUMNS = ["エリア", "募集職種", "給与", "勤務日", "勤務時間"]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        page = 1
+        # 全ブランド(全エリア)を巡回。詳細 URL の重複除去はブランド横断で共有する。
         seen: set[str] = set()
+        for brand in _BRANDS:
+            self.logger.info("ブランド [%s] の求人取得を開始します。", brand["label"])
+            yield from self._crawl_brand(brand["prefix"], brand["label"], seen)
+
+    def _crawl_brand(
+        self, prefix: str, label: str, seen: set[str]
+    ) -> Generator[dict, None, None]:
+        """1ブランド分の求人一覧をページ送りしながら巡回する。"""
+        page = 1
         while True:
-            list_url = _LIST_URL.format(page=page)
+            list_url = _list_url(prefix, page)
             soup = self.get_soup(list_url)
             if soup is None:
                 self.logger.warning("求人一覧ページ取得失敗: %s", list_url)
@@ -132,7 +165,7 @@ class Cabanori3Crawler(StaticCrawler):
 
             cards = soup.select("li.p-recruit-list")
             if not cards:
-                self.logger.info("ページ %d に求人なし。終了します。", page)
+                self.logger.info("[%s] ページ %d に求人なし。終了します。", label, page)
                 break
 
             for card in cards:
@@ -155,7 +188,7 @@ class Cabanori3Crawler(StaticCrawler):
 
             # NEXT ボタンが無ければ最終ページ
             if not soup.select_one("a.c-button--next"):
-                self.logger.info("最終ページ (%d) を処理しました。", page)
+                self.logger.info("[%s] 最終ページ (%d) を処理しました。", label, page)
                 break
             page += 1
 
@@ -270,8 +303,9 @@ if __name__ == "__main__":
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
+    # parse() は内部で全ブランド(全エリア)を巡回するため、シード URL は起点の目印。
     scraper = Cabanori3Crawler()
-    scraper.execute("https://cabanori.com/yokohama/recruits/page:1")
+    scraper.execute("https://cabanori.com/recruits/page:1")
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
     print(f"取得件数: {scraper.item_count}")
