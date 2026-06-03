@@ -5,7 +5,7 @@
     - 全国 47 都道府県の中古車販売店
 
 取得フロー:
-    1. 都道府県ごとに `/shop/{pref}/index.html` (1ページ目) を取得
+    1. 都道府県ごとに `/shop/{pref}/index.html` (1ページ目) を取得します
     2. ページャから最終ページ番号を取得し、`/shop/{pref}/{N}/index.html` を巡回
     3. 一覧 `.caset.caset--shopAll` から店舗カード情報 + 詳細URL を取得
     4. 詳細ページ `/shop/{pref}/{shop_id}/` から `.shopnaviHeader__contents__spec` の
