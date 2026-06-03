@@ -197,16 +197,27 @@ class MynaviTenshokuScraper(StaticCrawler):
                 elif key == "事業内容":
                     data[Schema.LOB] = val
                 elif key == "本社所在地":
-                    # 郵便番号抽出
-                    m_post = re.search(r"〒\s*(\d{3})-?(\d{4})", val)
+                    # 住所が複数の子要素（<span>/<p>/<div>、または <br> 区切り）に
+                    # 分割されているケースがあるため、td 配下の全テキストノードを
+                    # ドキュメント順に取得して結合する。
+                    # これにより「建物名だけ」「階数だけ」しか取れない取得漏れを防ぐ。
+                    full = _clean(" ".join(td.stripped_strings))
+                    # 郵便番号を抽出し、本文からは除去（前後どちらに在っても対応）
+                    m_post = re.search(r"〒\s*(\d{3})-?(\d{4})", full)
                     if m_post:
                         data[Schema.POST_CODE] = f"{m_post.group(1)}-{m_post.group(2)}"
-                        val = val[val.index(m_post.group(0)) + len(m_post.group(0)):].strip(" ,，、：:　")
-                    # 都道府県抽出
-                    m_pref = _PREF_PATTERN.search(val)
+                        full = _clean(full[:m_post.start()] + " " + full[m_post.end():])
+                    # 都道府県を抽出。都道府県名が見つかった場合は、その位置以降を
+                    # 住所として採用することで、必ず「都道府県・市区町村」から始まり
+                    # 建物名・階数まで含んだ完全な住所にする。
+                    m_pref = _PREF_PATTERN.search(full)
                     if m_pref:
                         data[Schema.PREF] = m_pref.group(1)
-                    data[Schema.ADDR] = val
+                        data[Schema.ADDR] = _clean(full[m_pref.start():])
+                    else:
+                        # 政令指定都市表記のみ（例: 京都市…）で都道府県名が無い場合は
+                        # 結合・整形済みの全文をそのまま住所として採用する。
+                        data[Schema.ADDR] = full
                 elif key == "事業所":
                     data["事業所"] = val
                 elif "企業ホームページ" in key or "ホームページ" in key:
