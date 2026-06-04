@@ -2085,3 +2085,10 @@ sites:
     url: "https://etsuran2.mlit.go.jp/TAKKEN/kensetuKensaku.do?outPutKbn=1"
     schedule: null
     enabled: true
+
+  - site_id: tabiiro
+    name: "旅色(宿)"
+    module: "leisure.tabiiro"
+    url: "https://tabiiro.jp/yado/"
+    schedule: "0 22 1 * *"
+    enabled: true
