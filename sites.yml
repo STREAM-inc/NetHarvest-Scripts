@@ -2078,3 +2078,10 @@ sites:
     url: "https://www.cookdoor.jp/"
     schedule: null
     enabled: true
+
+  - site_id: etsuran2_4
+    name: "建設業者・宅建業者等企業情報検索システム【建設業者】"
+    module: "construction.etsuran2_4"
+    url: "https://etsuran2.mlit.go.jp/TAKKEN/kensetuKensaku.do?outPutKbn=1"
+    schedule: null
+    enabled: true
