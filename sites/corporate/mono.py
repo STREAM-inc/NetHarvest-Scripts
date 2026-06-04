@@ -51,6 +51,106 @@ def _clean(s) -> str:
     return re.sub(r"\s+", " ", str(s).replace("　", " ")).strip()
 
 
+def _format_jp_digits(digits: str) -> str:
+    """日本の電話番号数字列を簡易的にハイフン整形する"""
+    if len(digits) == 11:
+        # 070/080/090/050/0120 など
+        return f"{digits[:3]}-{digits[3:7]}-{digits[7:]}"
+    if len(digits) == 10:
+        # 03/06 は 2-4-4、それ以外は 3-3-4 寄せ
+        if digits.startswith(("03", "06")):
+            return f"{digits[:2]}-{digits[2:6]}-{digits[6:]}"
+        return f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
+    return digits
+
+
+def _normalize_jp_country_code_tel(s: str) -> str:
+    """
+    +81 / 81 / 0081 で始まる日本番号を国内表記に戻す。
+
+    例:
+      81-70-3148-9655 -> 070-3148-9655
+      +81-70-3148-9655 -> 070-3148-9655
+      0081-70-3148-9655 -> 070-3148-9655
+      81-3-5443-8770 -> 03-5443-8770
+      81-06-7166-6821 -> 06-7166-6821
+      819086205653 -> 090-8620-5653
+    """
+    raw = s.strip()
+    digits = re.sub(r"\D", "", raw)
+
+    if raw.startswith("+81"):
+        rest = re.sub(r"\D", "", raw[3:])
+    elif digits.startswith("0081"):
+        rest = digits[4:]
+    elif digits.startswith("81") and len(digits) in (11, 12, 13):
+        rest = digits[2:]
+    else:
+        return s
+
+    if not rest:
+        return s
+
+    # 81-06-... のように、81の後ろに既に0がある場合はそのまま
+    if rest.startswith("0"):
+        jp_digits = rest
+    else:
+        jp_digits = "0" + rest
+
+    # 国内番号として10桁または11桁なら整形して返す
+    if len(jp_digits) in (10, 11):
+        return _format_jp_digits(jp_digits)
+
+    return s
+
+
+def _clean_tel(text) -> str:
+    """TEL専用クリーニング。無効値は空欄化し、日本の国番号付きは国内表記へ修正する。"""
+    if text is None:
+        return ""
+
+    s = _clean(text)
+    if not s:
+        return ""
+
+    # ハイフン・ダッシュ類を半角ハイフンに寄せる
+    s = s.translate(str.maketrans({
+        "－": "-",
+        "ー": "-",
+        "―": "-",
+        "−": "-",
+        "‐": "-",
+        "–": "-",
+        "—": "-",
+    }))
+
+    # TEL内の空白は除去
+    s = re.sub(r"\s+", "", s)
+
+    # まず日本の国番号付きTELだけ国内表記へ戻す
+    s = _normalize_jp_country_code_tel(s)
+
+    # ハイフンだけは無効
+    if re.fullmatch(r"-+", s):
+        return ""
+
+    digits = re.sub(r"\D", "", s)
+
+    # 数字がない
+    if not digits:
+        return ""
+
+    # ゼロだけのダミー番号
+    if set(digits) == {"0"}:
+        return ""
+
+    # 短すぎるものは無効
+    if len(digits) < 10:
+        return ""
+
+    return s
+
+
 class MonoIprosScraper(StaticCrawler):
     """イプロスものづくり 企業情報スクレイパー"""
 
@@ -59,7 +159,7 @@ class MonoIprosScraper(StaticCrawler):
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         seen: set[str] = set()
-        detail_urls: list[str] = []
+        yielded = 0
 
         for page in range(1, MAX_PAGES + 1):
             list_url = urljoin(BASE_URL, LIST_PATH) if page == 1 else f"{BASE_URL}{LIST_PATH}?p={page}"
@@ -71,7 +171,8 @@ class MonoIprosScraper(StaticCrawler):
             if not items:
                 break
 
-            new_count = 0
+            # この一覧ページ内の詳細URLだけを収集する
+            page_urls: list[str] = []
             for item in items:
                 a = item.select_one("a.search-result-company-item__name-link")
                 if not a or not a.get("href"):
@@ -82,30 +183,31 @@ class MonoIprosScraper(StaticCrawler):
                 if full in seen:
                     continue
                 seen.add(full)
-                detail_urls.append(full)
-                new_count += 1
+                page_urls.append(full)
 
-            self.logger.info(
-                "一覧ページ %d: 企業 %d 件 (累計 %d 件)", page, new_count, len(detail_urls)
-            )
+            self.logger.info("一覧ページ %d: 企業 %d 件 (新規)", page, len(page_urls))
 
-            if new_count == 0:
+            if not page_urls:
                 break
 
+            # 収集した詳細URLをすぐ取得し、取れたら即 yield する
+            for detail_url in page_urls:
+                try:
+                    item = self._scrape_detail(detail_url)
+                    if item:
+                        yielded += 1
+                        yield item
+                except Exception as e:
+                    self.logger.warning("詳細取得失敗 (スキップ): %s — %s", detail_url, e)
+                    continue
+                time.sleep(self.DELAY)
+
+            self.logger.info("一覧ページ %d まで完了: 累計 yield %d 件", page, yielded)
+
             time.sleep(self.DELAY)
 
-        self.total_items = len(detail_urls)
-        self.logger.info("詳細URL収集完了: %d 件", self.total_items)
-
-        for detail_url in detail_urls:
-            try:
-                item = self._scrape_detail(detail_url)
-                if item:
-                    yield item
-            except Exception as e:
-                self.logger.warning("詳細取得失敗 (スキップ): %s — %s", detail_url, e)
-                continue
-            time.sleep(self.DELAY)
+        self.total_items = yielded
+        self.logger.info("全件取得完了: %d 件", yielded)
 
     def _scrape_detail(self, url: str) -> dict | None:
         soup = self.get_soup(url)
@@ -169,7 +271,7 @@ class MonoIprosScraper(StaticCrawler):
 
             tel_m = _TEL_RE.search(contact)
             if tel_m:
-                data[Schema.TEL] = _clean(tel_m.group(1))
+                data[Schema.TEL] = _clean_tel(tel_m.group(1))
             fax_m = _FAX_RE.search(contact)
             if fax_m:
                 data["FAX"] = _clean(fax_m.group(1))
