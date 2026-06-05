@@ -2,6 +2,7 @@ import gzip
 import io
 import re
 import sys
+import time
 import urllib.parse as urlparse
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -37,6 +38,7 @@ class GoonetPitScraper(StaticCrawler):
         # 発見した店舗から逐次 yield する（時間切れ kill でも CSV が空にならないように）。
         seen: set[str] = set()
         for list_url in list_urls:
+            time.sleep(self.DELAY)
             for shop_url in self._iter_shop_urls(list_url):
                 if shop_url in seen:
                     continue
@@ -80,9 +82,12 @@ class GoonetPitScraper(StaticCrawler):
                 if not (loc.tag.endswith("loc") and loc.text):
                     continue
                 u = loc.text.strip()
-                if _LIST_PATTERN.match(u) and u not in seen:
-                    seen.add(u)
-                    list_urls.append(u)
+                if _LIST_PATTERN.match(u):
+                    # p=N を p=1 に正規化して同じ一覧の別ページを重複処理しない
+                    u = re.sub(r"([?&]p=)\d+", r"\g<1>1", u)
+                    if u not in seen:
+                        seen.add(u)
+                        list_urls.append(u)
         return list_urls
 
     def _iter_shop_urls(self, list_url: str) -> Generator[str, None, None]:
@@ -94,6 +99,7 @@ class GoonetPitScraper(StaticCrawler):
 
         max_page = self._max_page(soup, list_url)
         for p in range(2, max_page + 1):
+            time.sleep(self.DELAY)
             page_url = re.sub(r"([?&]p=)\d+", lambda m: m.group(1) + str(p), list_url)
             page_soup = self.get_soup(page_url)
             if page_soup is None:
