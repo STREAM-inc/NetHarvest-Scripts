@@ -2120,3 +2120,10 @@ sites:
     url: "https://search.fsa.go.jp/"
     schedule: "0 19 6 * *"
     enabled: true
+
+  - site_id: etsuran2_5
+    name: "建設業者・宅建業者等企業情報検索システム【マンション管理業者】"
+    module: "construction.etsuran2_5"
+    url: "https://etsuran2.mlit.go.jp/TAKKEN/mansionKensaku.do"
+    schedule: "0 5 13 * *"
+    enabled: true
