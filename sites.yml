@@ -2113,3 +2113,10 @@ sites:
     url: "https://clearing.fsa.go.jp/kashikin/index.php"
     schedule: "0 18 6 * *"
     enabled: true
+
+  - site_id: search
+    name: "金融商品取引業者等一覧"
+    module: "government.search"
+    url: "https://search.fsa.go.jp/"
+    schedule: "0 19 6 * *"
+    enabled: true
