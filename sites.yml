@@ -2106,3 +2106,10 @@ sites:
     url: "https://www.kenchikukenken.co.jp/"
     schedule: "0 18 7 * *"
     enabled: true
+
+  - site_id: clearing
+    name: "登録貸金業者情報検索"
+    module: "government.clearing"
+    url: "https://clearing.fsa.go.jp/kashikin/index.php"
+    schedule: "0 18 6 * *"
+    enabled: true
