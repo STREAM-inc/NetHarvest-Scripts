@@ -2092,3 +2092,10 @@ sites:
     url: "https://tabiiro.jp/yado/"
     schedule: "0 22 1 * *"
     enabled: true
+
+  - site_id: wam
+    name: "障害福祉サービス情報検索"
+    module: "government.wam"
+    url: "https://www.wam.go.jp/sfkohyoout/COP000100E0000.do"
+    schedule: "0 19 7 * *"
+    enabled: true
