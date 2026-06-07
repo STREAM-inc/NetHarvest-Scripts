@@ -2099,3 +2099,10 @@ sites:
     url: "https://www.wam.go.jp/sfkohyoout/COP000100E0000.do"
     schedule: "0 19 7 * *"
     enabled: true
+
+  - site_id: kenken
+    name: "KenKen!"
+    module: "construction.kenken"
+    url: "https://www.kenchikukenken.co.jp/"
+    schedule: "0 18 7 * *"
+    enabled: true
