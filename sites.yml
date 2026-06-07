@@ -2092,3 +2092,10 @@ sites:
     url: "https://tabiiro.jp/yado/"
     schedule: "0 22 1 * *"
     enabled: true
+
+  - site_id: hatomarksite
+    name: "ハトマークサイト"
+    module: "realestate.hatomarksite"
+    url: "https://www.hatomarksite.com/search/zentaku/agent/area"
+    schedule: "0 19 7 * *"
+    enabled: true
