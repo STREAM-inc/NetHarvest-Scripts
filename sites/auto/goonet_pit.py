@@ -19,7 +19,13 @@ from src.const.schema import Schema
 _SHOP_PATTERN = re.compile(r"https://www\.goo-net\.com/pit/shop/\d+/top")
 # サイトマップに載っているのは店舗URLではなく一覧ページのURL。
 # 例: https://www.goo-net.com/pit/repair/list?area_id=01&jititai_id=011011&cate2=10&p=1
-_LIST_PATTERN = re.compile(r"https://www\.goo-net\.com/pit/[^/]+/list\?")
+#
+# 注意: sitemap_index.xml には店舗一覧(sitemap_shop.xml)の他にブログ一覧
+#   (sitemap_blog*.xml の /pit/blog/list?selectBrand=... 等) も含まれる。
+#   ブログ一覧は area_id を持たず店舗データも無いが index の先頭側に約1500件並ぶため、
+#   /list を無条件に拾うとブログ一覧の巡回だけで時間切れ→0件になっていた。
+#   店舗一覧は必ず area_id= を持つので、これを必須条件にしてブログ一覧を除外する。
+_LIST_PATTERN = re.compile(r"https://www\.goo-net\.com/pit/[^/]+/list\?[^\"'<>]*\barea_id=")
 
 
 class GoonetPitScraper(StaticCrawler):
