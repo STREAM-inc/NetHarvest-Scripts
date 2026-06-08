@@ -347,6 +347,17 @@ class AsoviewScraper(StaticCrawler):
     ]
 
     def parse(self, url: str):
+        index_soup = self.get_soup(url)
+
+        if index_soup is None:
+            print("soup none")
+            return
+
+        print("TITLE:", index_soup.title)
+
+        print("LINKS:", len(index_soup.select("a")))
+
+        print(str(index_soup)[:3000])
 
         index_soup = self.get_soup(url)
 
