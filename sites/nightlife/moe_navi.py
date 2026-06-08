@@ -12,15 +12,27 @@
     2. 各一覧ページから .shoplist-item 配下の詳細リンク (/shop/{id}/) を収集
     3. 各店舗詳細ページから table.shop-info-table をラベル辞書化して全フィールド抽出
 
+WAF 回避 (重要):
+    moe-navi.jp は WAF により直アクセスを全拒否する (requests / 実ブラウザ Playwright とも
+    空ボディの HTTP 903 を返す。TLS/IP 指紋ベースのブロックのため UA 偽装でも突破不可)。
+    そのため本スクレイパーはリーダープロキシ ``r.jina.ai`` 経由で取得する。
+    ``X-Return-Format: html`` ヘッダーを付けることで上流の生 HTML がそのまま返るため、
+    既存の table.shop-info-table 等のセレクタはそのまま機能する。
+    ※ 0 件の真因はセレクタではなく取得段階の WAF ブロックである。
+
 実行方法:
     python scripts/sites/nightlife/moe_navi.py
     python bin/run_flow.py --site-id moe_navi
 """
 
+import logging
 import re
 import sys
 from pathlib import Path
 from urllib.parse import urljoin
+
+import bs4
+import requests
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -29,10 +41,16 @@ if str(_project_root) not in sys.path:
 from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
+logger = logging.getLogger(__name__)
+
 
 BASE_URL = "https://www.moe-navi.jp"
 LIST_PATH = "/shopsearch/"
 ITEMS_PER_PAGE = 20
+
+# WAF 回避用リーダープロキシ。直アクセスは HTTP 903 で全拒否されるため、
+# r.jina.ai 経由で取得する。X-Return-Format: html で上流の生 HTML を取得する。
+PROXY_PREFIX = "https://r.jina.ai/"
 
 _POST_PATTERN = re.compile(r"〒?\s*(\d{3}-?\d{4})")
 _PREF_PATTERN = re.compile(
@@ -124,6 +142,39 @@ class MoeNaviScraper(StaticCrawler):
         "サブ紹介文",
     ]
 
+    # r.jina.ai はレンダリングを挟むため直アクセスより遅い。タイムアウトを延長する。
+    TIMEOUT = 60
+
+    def get_soup(self, url: str):
+        """WAF を回避するため r.jina.ai リーダープロキシ経由で HTML を取得する。
+
+        moe-navi.jp は WAF により requests / 実ブラウザとも空ボディの HTTP 903 を返すため、
+        URL を ``https://r.jina.ai/<元URL>`` に書き換え、``X-Return-Format: html`` を付与して
+        上流の生 HTML を取得する。これにより既存のセレクタがそのまま機能する。
+        パース以降のロジックは基底クラスと同一。
+        """
+        proxied = url if url.startswith(PROXY_PREFIX) else f"{PROXY_PREFIX}{url}"
+        logger.info("取得中 (proxy): %s", url)
+
+        try:
+            response = self.session.get(
+                proxied,
+                timeout=self.TIMEOUT,
+                headers={"X-Return-Format": "html"},
+            )
+            response.raise_for_status()
+            content_type = response.headers.get("Content-Type", "")
+            if "charset=" not in content_type.lower():
+                response.encoding = response.apparent_encoding
+            return bs4.BeautifulSoup(response.text, "html.parser")
+        except requests.exceptions.RequestException as e:
+            if self.CONTINUE_ON_ERROR:
+                self.error_count += 1
+                logger.warning("通信エラー (スキップして継続): %s — %s", url, e)
+                return None
+            logger.error("通信エラー: %s", e)
+            raise
+
     def parse(self, url: str):
         list_url_first = urljoin(BASE_URL, LIST_PATH)
         first = self.get_soup(list_url_first)
@@ -182,26 +233,66 @@ class MoeNaviScraper(StaticCrawler):
                 break
 
     def _extract_total_count(self, soup) -> int:
-        """'N件がヒット' の数字を抽出する。見つからなければ 0。"""
+        """'N件がヒット' の数字を抽出する。見つからなければ 0。
+
+        件数は <span>4106件</span><span>がヒット</span> のように複数の span に
+        分割されており、get_text() で連結すると「4106件 がヒット」と空白が入る。
+        このため「件がヒット」を直接マッチさせると失敗するので、間の空白を許容する。
+        """
         node = soup.select_one(".dataTables_info")
         text = node.get_text(" ", strip=True) if node else soup.get_text(" ", strip=True)
-        m = re.search(r"([\d,]+)\s*件がヒット", text)
+        m = re.search(r"([\d,]+)\s*件\s*がヒット", text)
+        if not m and node is not None:
+            # 「がヒット」の表記揺れに備え、dataTables_info 内の最初の「N件」を採用
+            m = re.search(r"([\d,]+)\s*件", text)
         if m:
             return int(m.group(1).replace(",", ""))
         return 0
 
     def _collect_detail_urls(self, soup) -> list[str]:
         urls: list[str] = []
-        for item in soup.select(".shoplist-item"):
+        items = soup.select(".shoplist-item")
+        if not items:
+            # クラス名変更などで .shoplist-item が取れない場合のフォールバック。
+            # 一覧コンテナ (.shoplist-area) 配下の店舗リンクを直接拾う。
+            # ※ 「最近のリアクション」マーキー (.reaction_marquee) を巻き込まないよう
+            #    一覧コンテナに限定する。
+            container = soup.select_one(".shoplist-area") or soup.select_one(".list_shop_pc")
+            scope = container if container is not None else soup
+            return self._extract_shop_links(scope)
+        for item in items:
+            # 詳細リンクは .shop-icon-wrapper 配下にあるが、無い場合は item 内の
+            # /shop/ リンク全体から /job/ を除いたものを採用する。
             a = item.select_one(".shop-icon-wrapper a[href]")
-            if not a:
-                a = item.select_one('a[href*="/shop/"]')
+            if not a or "/job" in a.get("href", ""):
+                a = self._first_shop_anchor(item)
             if not a:
                 continue
             href = a.get("href", "").strip()
             if not href or "/job" in href:
                 continue
             # /shop/NNN/ 形式のみ採用
+            full = urljoin(BASE_URL, href)
+            if re.search(r"/shop/\d+/?$", full):
+                urls.append(full)
+        return list(dict.fromkeys(urls))
+
+    @staticmethod
+    def _first_shop_anchor(scope):
+        """scope 内の最初の /shop/NNN/ アンカー (/job/ を除く) を返す。"""
+        for a in scope.select('a[href*="/shop/"]'):
+            href = a.get("href", "").strip()
+            if href and "/job" not in href and re.search(r"/shop/\d+/?$", urljoin(BASE_URL, href)):
+                return a
+        return None
+
+    def _extract_shop_links(self, scope) -> list[str]:
+        """scope 内の全店舗詳細リンク (/shop/NNN/) を重複排除して返す。"""
+        urls: list[str] = []
+        for a in scope.select('a[href*="/shop/"]'):
+            href = a.get("href", "").strip()
+            if not href or "/job" in href:
+                continue
             full = urljoin(BASE_URL, href)
             if re.search(r"/shop/\d+/?$", full):
                 urls.append(full)
