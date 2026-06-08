@@ -101,6 +101,8 @@ _PREF_PATTERN = re.compile(
     r"佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
 )
 _POST_CODE_PATTERN = re.compile(r"〒?\s*(\d{3}-\d{4})")
+# /base/{id}/ 形式の詳細ページ href を判定する。href ベース抽出の中核。
+_BASE_HREF_PATTERN = re.compile(r"^/base/\d+/?$")
 
 
 def _clean(s) -> str:
@@ -347,129 +349,78 @@ class AsoviewScraper(StaticCrawler):
     ]
 
     def parse(self, url: str):
-        index_soup = self.get_soup(url)
-
-        if index_soup is None:
-            print("soup none")
-            return
-
-        print("TITLE:", index_soup.title)
-
-        print("LINKS:", len(index_soup.select("a")))
-
-        print(str(index_soup)[:3000])
-
-        index_soup = self.get_soup(url)
-
-        if index_soup is None:
-            self.logger.error("index page取得失敗")
-            return
-
-        html = str(index_soup)
-
-        if "The request could not be satisfied" in html:
-            self.logger.error("CloudFront Blocked")
-            return
-
-        targets = []
-
-        regions = index_soup.select(".page-base__region-wrap")
-
-        self.logger.info(f"region count={len(regions)}")
-
-        for region in regions:
-
-            pref_el = region.select_one(".page-base__region")
-            pref_text = _clean(pref_el.get_text()) if pref_el else ""
-
-            for a in region.select("a.page-base__base-link"):
-
-                href = a.get("href", "").strip()
-
-                if not href.startswith("/base/"):
-                    continue
-
-                targets.append(
-                    (
-                        urljoin(BASE_URL, href),
-                        _clean(a.get_text()),
-                        pref_text,
-                    )
-                )
-
-        if not targets:
-
+        # CloudFront が稀に /base/ に対してトップページや施設リンクを含まない
+        # 応答を返すことがある (実行ログで title=トップ・region count=0・
+        # LINKS:0 になった原因)。/base/{id}/ リンクが取れるまで数回リトライし、
+        # それでも取れない場合のみ失敗とする。
+        index_soup = None
+        for attempt in range(1, 4):
+            soup = self.get_soup(url)
+            if soup is None:
+                continue
+            if "The request could not be satisfied" in str(soup):
+                self.logger.warning("CloudFront ブロック応答 (試行 %d)", attempt)
+                continue
+            if soup.select_one('a[href^="/base/"]'):
+                index_soup = soup
+                break
+            title = soup.title.get_text(strip=True) if soup.title else "?"
             self.logger.warning(
-                "旧セレクタで取得失敗。hrefベース抽出へ切替"
+                "施設リンクを含まない応答 (title=%s, 試行 %d)", title, attempt
             )
 
-            seen = set()
-
-            for a in index_soup.select("a[href]"):
-
-                href = a.get("href", "")
-
-                if not re.match(r"^/base/\d+/?$", href):
-                    continue
-
-                full_url = urljoin(BASE_URL, href)
-
-                if full_url in seen:
-                    continue
-
-                seen.add(full_url)
-
-                targets.append(
-                    (
-                        full_url,
-                        _clean(a.get_text()),
-                        "",
-                    )
-                )
-
-        self.total_items = len(targets)
-
-        self.logger.info(
-            f"取得対象施設数={self.total_items}"
-        )
-
-        if not targets:
-
-            self.logger.error("施設リンク0件")
-
-            with open(
-                "asoview_debug.html",
-                "w",
-                encoding="utf-8"
-            ) as f:
-                f.write(html)
-
+        if index_soup is None:
+            self.logger.error("インデックスページ取得失敗 (施設リンクなし)")
             return
 
+        # --- href ベース抽出 -------------------------------------------------
+        # 旧セレクタ (.page-base__region-wrap / a.page-base__base-link) は
+        # マークアップ変更で 0 件になりやすいため、/base/{id}/ 形式の href を
+        # 直接拾う方式を主とする。都道府県は region ブロックが残っていれば補完
+        # する (取れなくても詳細ページの住所から復元できるため必須ではない)。
+        href_pref: dict[str, str] = {}
+        for region in index_soup.select(".page-base__region-wrap"):
+            pref_el = region.select_one(".page-base__region")
+            pref_text = _clean(pref_el.get_text()) if pref_el else ""
+            if not pref_text:
+                continue
+            for a in region.select('a[href^="/base/"]'):
+                href = (a.get("href") or "").strip()
+                if _BASE_HREF_PATTERN.match(href):
+                    href_pref[urljoin(BASE_URL, href)] = pref_text
+
+        targets: list[tuple[str, str, str]] = []
+        seen: set[str] = set()
+        for a in index_soup.select('a[href^="/base/"]'):
+            href = (a.get("href") or "").strip()
+            if not _BASE_HREF_PATTERN.match(href):
+                continue
+            full_url = urljoin(BASE_URL, href)
+            if full_url in seen:
+                continue
+            seen.add(full_url)
+            targets.append((full_url, _clean(a.get_text()), href_pref.get(full_url, "")))
+
+        self.total_items = len(targets)
+        self.logger.info("取得対象施設数=%d", self.total_items)
+
+        if not targets:
+            self.logger.error("施設リンク0件")
+            return
+
+        # ネットワーク I/O が支配的 (fetch ≈0.4s / parse ≈22ms) なため、スレッドで
+        # 多数のリクエストを重ねて待ち時間を相殺する。requests の I/O 待ち中は
+        # GIL が解放されるので、単一プロセスのスレッドプールで十分に並行化できる。
         success_count = 0
-
-        with ThreadPoolExecutor(max_workers=16) as pool:
-
-            for result in pool.map(
-                _scrape_detail,
-                targets
-            ):
-
+        with ThreadPoolExecutor(max_workers=THREADS_PER_PROCESS) as pool:
+            for result in pool.map(_scrape_detail, targets):
                 if result:
-
                     success_count += 1
-
                     if success_count % 100 == 0:
-
-                        self.logger.info(
-                            f"取得済={success_count}"
-                        )
-
+                        self.logger.info("取得済=%d / %d", success_count, self.total_items)
                     yield result
 
-        self.logger.info(
-            f"完了件数={success_count}"
-        )
+        self.logger.info("完了件数=%d", success_count)
 
 
 if __name__ == "__main__":
