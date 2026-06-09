@@ -739,7 +739,7 @@ sites:
   - site_id: asoview
     name: "アソビュー"
     module: "portal.asoview"
-    url: "https://www.asoview.com/"
+    url: "https://www.asoview.com/base/"
     schedule: "40 6 1-7 * SAT"
     enabled: true
 
