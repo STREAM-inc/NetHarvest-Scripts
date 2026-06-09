@@ -2134,3 +2134,10 @@ sites:
     url: "https://keaj.org/members/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: caretaxi_net
+    name: "介護タクシー案内所"
+    module: "service.caretaxi_net"
+    url: "https://caretaxi-net.com/"
+    schedule: "0 14 1 * *"
+    enabled: true
