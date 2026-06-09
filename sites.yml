@@ -2127,3 +2127,10 @@ sites:
     url: "https://etsuran2.mlit.go.jp/TAKKEN/mansionKensaku.do"
     schedule: "0 5 13 * *"
     enabled: true
+
+  - site_id: keaj
+    name: "在日中国朝鮮族経営者協会"
+    module: "corporate.keaj"
+    url: "https://keaj.org/members/"
+    schedule: "0 9 1 * *"
+    enabled: true
