@@ -51,6 +51,32 @@ _POST_CODE_PATTERN = re.compile(r"〒?\s*(\d{3}-\d{4})")
 _PHONE_PATTERN = re.compile(r"電話番号\s*([0-9０-９\-－]{8,})")
 _EMAIL_PATTERN = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
 
+# 「担当者（カタカナ）でない担当者」の直後～電話番号/FAX/Eメールの前を名前として抽出
+_CONTACT_NAME_PATTERN = re.compile(
+    r"担当者(?!（カタカナ）)[　\s]+(.+?)(?=[　\s]*電話番号|[　\s]*ＦＡＸ|[　\s]*Ｅメール|$)"
+)
+# 役職・肩書きのみで個人名でないパターン
+_ROLE_ONLY_PATTERN = re.compile(
+    r"^(採用担当者?|人事担当者?|営業担当者?|担当者?|採用係|採用センター|採用受付|採用窓口|採用責任者)$"
+)
+
+
+def _extract_contact_name(text):
+    """担当者セルから個人名のみ抽出。名前と判定できない場合は空文字を返す。"""
+    m = _CONTACT_NAME_PATTERN.search(text)
+    if m:
+        return m.group(1).strip()
+    if _PHONE_PATTERN.search(text):
+        return ""
+    if len(text) > 20:
+        return ""
+    if any(kw in text for kw in ("電話番号", "ＦＡＸ", "Ｅメール", "課係名", "ハローワーク")):
+        return ""
+    if _ROLE_ONLY_PATTERN.match(text):
+        return ""
+    return text
+
+
 # 従業員数内訳パターン: "企業全体 393人 就業場所 195人 うち女性 151人 うちパート 35人"
 _EMP_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("従業員数_企業全体",  re.compile(r"企業全体\s*([\d,]+)\s*人")),
@@ -254,7 +280,9 @@ class HelloworkShinnkikyuujinScraper(DynamicCrawler):
 
         contact = self._first(pairs.get("担当者"))
         if contact:
-            item["担当者"] = contact
+            name = _extract_contact_name(contact)
+            if name:
+                item["担当者"] = name
             tel_match = _PHONE_PATTERN.search(contact)
             if tel_match:
                 item[Schema.TEL] = tel_match.group(1)
