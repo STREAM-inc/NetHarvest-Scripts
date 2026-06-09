@@ -98,4 +98,18 @@ git push origin main
 
 > （もっと細かく設定したい場合は、ChatGPTなどのAIに「毎週金曜の18時に動かしたいからcron式を教えて」と聞くと一発で教えてくれます！）
 
+---
+
+## 🔒 補足：プライベートリポジトリの連携・認証（GitHub Token）
+
+NetHarvest本体やフロントエンドの実行環境(`.env`)側で、このリポジトリを自動クローンさせる場合などで認証が必要になることがあります。
+プライベートリポジトリであったり認証を自動で通す場合は、環境変数の `SCRIPTS_REPO_URL` に設定するURLに **パーソナルアクセストークン(PAT)** を埋め込みます。
+
+`https://` の直後に `<あなたのGitHubトークン>@` を挿入してください。
+
+**設定例（`.env`）**:
+```env
+SCRIPTS_REPO_URL=https://<あなたのGitHubトークン>@github.com/STREAM-inc/NetHarvest-Scripts.git
+```
+
 以上で、NetHarvest への連携は完了です！お疲れ様でした！🌾

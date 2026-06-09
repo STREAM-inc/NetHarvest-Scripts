@@ -50,9 +50,16 @@ _PREF_PATTERN = re.compile(
 _POST_CODE_PATTERN = re.compile(r"〒?\s*(\d{3}-?\d{4})")
 _TEL_PATTERN = re.compile(r"TEL[：:]?\s*([\d\-()]+)")
 _HP_PATTERN = re.compile(r"https?://[^\s<]+")
-_NAME_SUFFIX = re.compile(r"の男性求人募集\s*$")
+# H1 例: "店名の<wbr>男性求人募集"。<wbr> が get_text で空白化するため、
+# 「の」直後や各語間に空白が入っても末尾の定型句を除去できるようにする。
+_NAME_SUFFIX = re.compile(r"\s*の?\s*男性\s*求人\s*募集\s*$")
 _COUNT_PATTERN = re.compile(r"([\d,]+)\s*件\s*の求人があります")
+# 勤務地/連絡先の先頭に付く丸数字(①②…)
 _LEADING_CIRCLE_NUM = re.compile(r"^[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]+")
+# 複数勤務地を区切る丸数字(途中に出現する①②…)
+_CIRCLE_NUM = re.compile(r"[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]")
+# 郵便番号トークン(住所文字列から除去する用)
+_POST_TOKEN = re.compile(r"〒?\s*\d{3}-?\d{4}\s*")
 
 
 def _clean(s) -> str:
@@ -66,7 +73,6 @@ class UpStageScraper(StaticCrawler):
 
     DELAY = 1.5
     EXTRA_COLUMNS = [
-        "キャッチコピー",
         "職種",
         "給与",
         "勤務地",
@@ -74,7 +80,6 @@ class UpStageScraper(StaticCrawler):
         "特徴",
         "社会保険",
         "受動喫煙対策",
-        "採用担当者から",
         "応募方法",
         "面接地",
         "情報最終更新日",
@@ -111,7 +116,7 @@ class UpStageScraper(StaticCrawler):
                 self.logger.info("[%s] stline=%d でアイテム無し。エリア完了。", region, offset)
                 break
 
-            detail_tasks: list[tuple[str, str]] = []
+            detail_urls: list[str] = []
             for art in articles:
                 a = art.select_one("a[href*='/jobdetail/']")
                 if not a:
@@ -127,13 +132,11 @@ class UpStageScraper(StaticCrawler):
                 if job_id in seen_ids:
                     continue
                 seen_ids.add(job_id)
-                catch_el = art.select_one("p.catchPhrase")
-                catch_txt = _clean(catch_el.get_text(" ")) if catch_el else ""
-                detail_tasks.append((detail_url, catch_txt))
+                detail_urls.append(detail_url)
 
-            for detail_url, catch_txt in detail_tasks:
+            for detail_url in detail_urls:
                 try:
-                    item = self._scrape_detail(detail_url, catch_txt, region)
+                    item = self._scrape_detail(detail_url, region)
                     if item:
                         yield item
                 except Exception as e:
@@ -147,7 +150,7 @@ class UpStageScraper(StaticCrawler):
                 self.logger.warning("[%s] stline=%d 取得失敗。次のエリアへ。", region, offset)
                 break
 
-    def _scrape_detail(self, url: str, catch_txt: str, region: str) -> dict | None:
+    def _scrape_detail(self, url: str, region: str) -> dict | None:
         soup = self.get_soup(url)
         if soup is None:
             return None
@@ -185,25 +188,14 @@ class UpStageScraper(StaticCrawler):
             hm = _HP_PATTERN.search(contact)
             if hm:
                 data[Schema.HP] = hm.group(0).strip().rstrip(".,)")
-            addr_full = self._extract_address(contact)
-            if addr_full:
-                pref_m = _PREF_PATTERN.match(addr_full)
-                if pref_m:
-                    data[Schema.PREF] = pref_m.group(1)
-                    data[Schema.ADDR] = addr_full[pref_m.end():].strip()
-                else:
-                    data[Schema.ADDR] = addr_full
 
-        if Schema.ADDR not in data:
-            workplace = kv.get("勤務地", "")
-            addr = _LEADING_CIRCLE_NUM.sub("", workplace).strip()
-            if addr:
-                pref_m = _PREF_PATTERN.match(addr)
-                if pref_m:
-                    data[Schema.PREF] = pref_m.group(1)
-                    data[Schema.ADDR] = addr[pref_m.end():].strip()
-                else:
-                    data[Schema.ADDR] = addr
+        # 住所は「勤務地」が最もクリーン(店名・TEL を含まない)なので優先し、
+        # 無ければ「連絡先」から復元する。いずれも _extract_pref_addr で正規化。
+        pref, addr = self._extract_pref_addr(kv.get("勤務地", "") or contact)
+        if pref:
+            data[Schema.PREF] = pref
+        if addr:
+            data[Schema.ADDR] = addr
 
         if kv.get("ジャンル"):
             data[Schema.CAT_SITE] = kv["ジャンル"]
@@ -226,25 +218,66 @@ class UpStageScraper(StaticCrawler):
 
         for col in (
             "職種", "給与", "勤務地", "最寄駅", "特徴",
-            "社会保険", "受動喫煙対策", "採用担当者から",
+            "社会保険", "受動喫煙対策",
             "応募方法", "面接地",
             "情報最終更新日", "掲載終了予定日",
         ):
             if kv.get(col):
                 data[col] = kv[col]
-        if catch_txt:
-            data["キャッチコピー"] = catch_txt
         data["エリア"] = region
 
         if not data.get(Schema.NAME):
             return None
         return data
 
+    @classmethod
+    def _extract_pref_addr(cls, raw: str) -> tuple[str, str]:
+        """生の勤務地/連絡先文字列から (都道府県, 市区町村以降) を抽出する。
+
+        当サイトの住所欄には以下のノイズが混入するため、順に除去する:
+            - 店名・職種が住所の前に連結される (例: "店名 職種 大阪府…")
+            - 「都道府県+市区」が二重連結される (例: "大阪府豊中市大阪府豊中市東寺内町…")
+            - 先頭/途中の丸数字 (①②…) による複数勤務地の列挙
+            - 〒郵便番号・TEL・URL・※注記・【面接地】等の付随情報
+        """
+        s = _clean(raw)
+        if not s:
+            return "", ""
+        # 【勤務地】… があれば実際の勤務地はその直後に書かれている
+        if "【勤務地】" in s:
+            s = s.split("【勤務地】", 1)[1]
+        # 注記・面接地・連絡先など、住所より後ろの情報を切り落とす
+        s = re.split(r"※|【|TEL[：:]|https?://", s)[0]
+        # 先頭の丸数字を除去 → 途中の丸数字以降(2件目以降の勤務地)は捨て先頭1件のみ採用
+        s = _LEADING_CIRCLE_NUM.sub("", s).strip()
+        s = _CIRCLE_NUM.split(s)[0]
+        # 郵便番号トークンを除去
+        s = _clean(_POST_TOKEN.sub(" ", s))
+        return cls._split_pref(s)
+
     @staticmethod
-    def _extract_address(contact: str) -> str:
-        text = re.sub(r"^.*?〒?\s*\d{3}-?\d{4}\s*", "", contact)
-        text = re.split(r"TEL[：:]|https?://", text)[0]
-        return _clean(text)
+    def _split_pref(s: str) -> tuple[str, str]:
+        """都道府県名を起点に (都道府県, 市区町村以降) へ分割する。
+
+        都道府県より前の文字列(店名など)は捨てる。
+        「都道府県+市区」が二重連結されている場合は重複分を除去する。
+        """
+        s = _clean(s)
+        m1 = _PREF_PATTERN.search(s)
+        if not m1:
+            return "", s
+        m2 = _PREF_PATTERN.search(s, m1.end())
+        if m2:
+            dup = s[m1.start():m2.start()]
+            # 例: "大阪府豊中市" + "大阪府豊中市東寺内町…" → 後半(完全な住所)を採用
+            if dup and s[m2.start():].startswith(dup):
+                s = s[m2.start():]
+            else:
+                s = s[m1.start():]
+        else:
+            s = s[m1.start():]
+        pref_m = _PREF_PATTERN.match(s)
+        return pref_m.group(1), s[pref_m.end():].strip()
 
 
 if __name__ == "__main__":

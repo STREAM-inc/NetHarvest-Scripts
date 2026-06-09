@@ -50,6 +50,36 @@ def _clean(text) -> str:
     return re.sub(r"\s+", " ", str(text).replace("　", " ")).strip()
 
 
+# 丸括弧 (全角 （） / 半角 () ) とその中身を取り出すパターン。
+# 中身にネストした括弧を含まない最小単位にマッチさせ、while で繰り返し除去する。
+_PAREN_PATTERN = re.compile(r"\s*[\(（][^\(\)（）]*[\)）]\s*")
+
+
+def _clean_shop_name(name: str) -> str:
+    """店名に含まれる丸括弧表記を内容に関わらずすべて除去する。
+
+    エリア名・読み仮名・店舗補足・仮称・部門名など、括弧内の内容が
+    何であっても削除する。途中・末尾・複数いずれの括弧にも対応し、
+    ネストした括弧も while で繰り返し除去する。
+
+    例: "サイゼリヤ（関東地方） 大和代官店" → "サイゼリヤ 大和代官店"
+        "FRESH(フレッシュ) 関西空港店(仮)" → "FRESH 関西空港店"
+
+    `★` `『』` `「」` 等、丸括弧以外の記号・装飾は残す。
+    削除後に空文字になる場合は元の名称を返す。
+    """
+    if not name:
+        return name
+    cleaned = name
+    prev = None
+    # ネストした括弧に備えて括弧が無くなるまで繰り返し除去する
+    while cleaned != prev:
+        prev = cleaned
+        cleaned = _PAREN_PATTERN.sub(" ", cleaned)
+    cleaned = _clean(cleaned)
+    return cleaned or name
+
+
 class FoodsLaboScraper(StaticCrawler):
     """foodslabo (フーズラボ) 飲食店求人スクレイパー"""
 
@@ -165,7 +195,7 @@ class FoodsLaboScraper(StaticCrawler):
             # 詳細取得失敗時は一覧情報だけでも拾う
             data = {
                 Schema.URL: url,
-                Schema.NAME: card.get("shop") or "",
+                Schema.NAME: _clean_shop_name(card.get("shop") or ""),
                 Schema.PREF: card.get("pref") or "",
                 Schema.ADDR: card.get("city") or "",
                 Schema.CAT_SITE: card.get("category") or "",
@@ -197,6 +227,7 @@ class FoodsLaboScraper(StaticCrawler):
                 shop_name = h1_text.split("|", 1)[0].strip() or shop_name
             else:
                 shop_name = h1_text or shop_name
+        shop_name = _clean_shop_name(shop_name)
         if shop_name:
             data[Schema.NAME] = shop_name
 

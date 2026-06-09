@@ -88,9 +88,16 @@ class HanacupidScraper(StaticCrawler):
         yomi = h2.select_one("span.yomi")
         if yomi:
             data["名称_フリガナ"] = yomi.get_text(strip=True)
-        spans = h2.find_all("span")
-        if spans:
-            data[Schema.NAME] = spans[-1].get_text(strip=True)
+        name_spans = [
+            s
+            for s in h2.find_all("span")
+            if "yomi" not in (s.get("class") or [])
+            and "休業情報" not in s.get_text()
+        ]
+        if name_spans:
+            name = name_spans[-1].get_text(strip=True).replace("※休業情報あり", "").strip()
+            if name:
+                data[Schema.NAME] = name
 
         data_dl = soup.select_one("#wrap > main > article > div > div > div.data > dl")
         if data_dl:

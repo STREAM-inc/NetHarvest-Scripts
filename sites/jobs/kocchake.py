@@ -156,10 +156,10 @@ class KocchakeScraper(StaticCrawler):
         if pc_m:
             post_code = pc_m.group(1)
             addr_body = address_raw[pc_m.end():].strip()
+        # 都道府県は別フィールドにも切り出すが、住所(ADDR)には都道府県を含めたまま保持する
         pref_m = _PREF_PATTERN.match(addr_body)
         if pref_m:
             pref = pref_m.group(1)
-            addr_body = addr_body[pref_m.end():].strip()
 
         return {
             Schema.URL: url,

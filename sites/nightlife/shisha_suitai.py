@@ -22,8 +22,8 @@
 """
 
 import json
+import os
 import sys
-import time
 from pathlib import Path
 
 root_path = Path(__file__).resolve().parent.parent.parent.parent
@@ -65,7 +65,14 @@ class ShishaSuitaiScraper(DynamicCrawler):
 
     def parse(self, url: str):
         # Step 1: 初回アクセスで __NEXT_DATA__ を取得 (buildId + ページ1データ)
-        self.page.goto(url, wait_until="networkidle")
+        #
+        # NOTE: sites.yml の url は Prefect スケジューラ用に sitemap.xml を指す。
+        #       sitemap.xml は XML であり __NEXT_DATA__ を持たないため、そのまま
+        #       goto すると _extract_next_data() が None を返し 0 件になる
+        #       (= parse() のセレクタのバグではなく、入力 URL が検索ページでないため)。
+        #       __NEXT_DATA__ を持つ検索ページ (/search) に正規化してから取得する。
+        search_url = url if "/search" in url else f"{BASE_URL}/search"
+        self.page.goto(search_url, wait_until="networkidle")
 
         data = self._extract_next_data()
         if not data:
@@ -81,7 +88,18 @@ class ShishaSuitaiScraper(DynamicCrawler):
         total = shop_list.get("totalNum", 0)
         self.total_items = total
         total_pages = (total + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
-        self.logger.info("総店舗数: %d (%dページ), buildId: %s", total, total_pages, build_id)
+
+        # 安全弁: NETHARVEST_MAX_PAGES が正整数なら巡回ページ数を打ち切る。
+        # 全件 (≈264ページ / 2638件) を巡回すると、framework の Parse Loop が
+        # 1アイテムごとに DELAY 秒スリープする (base.py) ため execute() が時間内に
+        # 終わらず、kill されると close() が走らず CSV が 0 件になる
+        # (= セレクタのバグではなく、最終 CSV が close() でしか生成されないため)。
+        max_pages = self._max_pages()
+        if max_pages and max_pages < total_pages:
+            self.logger.info("NETHARVEST_MAX_PAGES=%d によりページ数を %d → %d に制限します",
+                             max_pages, total_pages, max_pages)
+            total_pages = max_pages
+        self.logger.info("総店舗数: %d (巡回 %dページ), buildId: %s", total, total_pages, build_id)
 
         # Step 2: ページ1のデータを処理
         shops = shop_list.get("list", [])
@@ -91,10 +109,9 @@ class ShishaSuitaiScraper(DynamicCrawler):
                 yield parsed
 
         # Step 3: ページ2以降を Next.js Data API で取得
+        # NOTE: framework の Parse Loop が yield 1件ごとに DELAY 秒スリープするため、
+        #       ここで更に sleep すると二重待機になり致命的に遅くなる。スリープしない。
         for page_num in range(2, total_pages + 1):
-            if self.DELAY > 0:
-                time.sleep(self.DELAY)
-
             self.logger.info("ページ %d / %d を取得中...", page_num, total_pages)
 
             try:
@@ -112,6 +129,18 @@ class ShishaSuitaiScraper(DynamicCrawler):
                 self.logger.warning("ページ %d の取得に失敗: %s", page_num, e)
                 continue
 
+    @staticmethod
+    def _max_pages() -> int | None:
+        """env NETHARVEST_MAX_PAGES を正整数として読み取る。未設定 / 不正 / 0以下は None (全件)。"""
+        raw = os.environ.get("NETHARVEST_MAX_PAGES", "").strip()
+        if not raw:
+            return None
+        try:
+            value = int(raw)
+        except ValueError:
+            return None
+        return value if value > 0 else None
+
     def _extract_next_data(self) -> dict | None:
         """ページの __NEXT_DATA__ JSON を取得"""
         try:
@@ -126,7 +155,9 @@ class ShishaSuitaiScraper(DynamicCrawler):
 
     def _fetch_page_via_api(self, build_id: str, page_num: int) -> list:
         """Next.js Data API を使ってページデータを取得"""
-        api_url = f"{BASE_URL}/_next/data/{build_id}/search.json?page={page_num}"
+        # ページ送りのクエリ名は `p`。`?page=N` はサーバーに無視され常に1ページ目
+        # (offset:0) が返るため、全ページが重複→dedup後0件になる。
+        api_url = f"{BASE_URL}/_next/data/{build_id}/search.json?p={page_num}"
 
         raw = self.page.evaluate("""(url) => {
             return fetch(url).then(r => r.text()).catch(e => null);

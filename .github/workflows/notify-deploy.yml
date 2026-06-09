@@ -1,0 +1,33 @@
+name: Notify NetHarvest deploy
+
+# NetHarvest-Scripts は NetHarvest 本体の ./scripts/ に nested clone されており、
+# 本体側 deploy workflow (sync ジョブ) が origin/main を fetch して反映する。
+# このリポジトリへの push だけでは本体の workflow は起動しないため、
+# 本体の Deploy workflow を REST API で workflow_dispatch する。
+#
+# 必要な secret: DEPLOY_DISPATCH_TOKEN
+#   STREAM-inc/NetHarvest に actions:write 権限を持つ Fine-grained PAT。
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: notify-netharvest-deploy
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger NetHarvest deploy workflow
+        env:
+          GH_TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Triggered by ${GITHUB_SHA} on ${GITHUB_REF_NAME}"
+          gh workflow run deploy.yml \
+            --repo STREAM-inc/NetHarvest \
+            --ref master
+          echo "Dispatched STREAM-inc/NetHarvest deploy.yml on master"

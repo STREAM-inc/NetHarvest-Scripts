@@ -20,12 +20,17 @@
 
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Generator
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
+
+import bs4
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from src.framework.static import StaticCrawler
 from src.const.schema import Schema
@@ -68,15 +73,94 @@ class MynaviTenshokuScraper(StaticCrawler):
         "事業所",
     ]
 
+    # 一覧ページ取得失敗時の挙動チューニング用パラメータ
+    PAGE_FETCH_RETRIES = 4      # 1ページあたりの取得リトライ回数
+    PAGE_RETRY_WAIT = 5.0       # リトライ時の待機秒数（指数バックオフのベース）
+    MAX_EMPTY_PAGES = 3         # 連続でカード無し/取得失敗が続いたら終了とみなす閾値
+
+    def _setup(self):
+        """通信セッションをマイナビ向けに強化する。
+
+        マイナビ転職は Bot 対策により、ブラウザ相当の HTTP ヘッダや Cookie が
+        揃っていないリクエストへ 403 / 429 を返すことがある。基底クラスの
+        Retry は 5xx しか対象にしないため、403/429 が返ると get_soup() が即座に
+        None を返し「1ページめからページ取得失敗」でクロールが止まってしまう。
+
+        そこで本メソッドで以下を上書きする:
+            1. ブラウザ相当の追加ヘッダ（Accept / Accept-Language / Referer 等）
+            2. 403 / 408 / 429 / 5xx を対象に含む Retry（Retry-After 尊重）
+            3. 初回アクセスでトップ/一覧ルートを踏んで Cookie をウォームアップ
+        """
+        super()._setup()
+
+        # 1. ブラウザ相当の追加ヘッダ（Bot 判定の主要因を潰す）
+        self.session.headers.update({
+            "Accept": (
+                "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                "image/avif,image/webp,*/*;q=0.8"
+            ),
+            "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+            "Upgrade-Insecure-Requests": "1",
+            "Referer": BASE_URL + "/",
+        })
+
+        # 2. 403/408/429/5xx も対象に含む Retry を再マウントする
+        retries = Retry(
+            total=4,
+            backoff_factor=2,
+            status_forcelist=[403, 408, 429, 500, 502, 503, 504],
+            allowed_methods=frozenset(["GET", "HEAD"]),
+            respect_retry_after_header=True,
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        self.session.mount("https://", adapter)
+        self.session.mount("http://", adapter)
+
+        # 3. Cookie ウォームアップ（トップページを踏んでセッション Cookie を取得）
+        try:
+            self.session.get(BASE_URL + "/", timeout=self.TIMEOUT)
+        except Exception as e:  # noqa: BLE001 — ウォームアップ失敗は致命的ではない
+            self.logger.debug("Cookie ウォームアップ失敗（続行）: %s", e)
+
+    def _fetch_list_soup(self, list_url: str) -> bs4.BeautifulSoup | None:
+        """一覧ページを取得する。一時的な失敗はその場でリトライする。
+
+        基底クラスの get_soup() は 1 回失敗すると None を返すだけなので、
+        ここで明示的にリトライ＋バックオフを挟み、単発の失敗で
+        クロール全体が止まらないようにする。
+        """
+        for attempt in range(1, self.PAGE_FETCH_RETRIES + 1):
+            soup = self.get_soup(list_url)
+            if soup is not None:
+                return soup
+            if attempt < self.PAGE_FETCH_RETRIES:
+                wait = self.PAGE_RETRY_WAIT * attempt
+                self.logger.warning(
+                    "一覧ページ取得失敗 (%d/%d) %s — %.1f秒後に再試行",
+                    attempt, self.PAGE_FETCH_RETRIES, list_url, wait,
+                )
+                time.sleep(wait)
+        return None
+
     def parse(self, url: str) -> Generator[dict, None, None]:
         seen: set[str] = set()
+        empty_streak = 0  # 連続で「カード無し/取得失敗」が続いた回数
 
         for page in range(1, MAX_PAGES + 1):
             list_url = LIST_URL.format(page)
-            soup = self.get_soup(list_url)
+            soup = self._fetch_list_soup(list_url)
             if soup is None:
-                self.logger.warning("ページ取得失敗: %s", list_url)
-                break
+                # 単発失敗ではクロールを止めず、連続失敗が閾値に達したら終了する
+                empty_streak += 1
+                self.logger.warning(
+                    "ページ取得失敗: %s (連続失敗 %d/%d)",
+                    list_url, empty_streak, self.MAX_EMPTY_PAGES,
+                )
+                if empty_streak >= self.MAX_EMPTY_PAGES:
+                    self.logger.error("連続でページ取得に失敗したため終了します")
+                    break
+                continue
 
             # 初回ページで総件数を設定
             if page == 1:
@@ -89,8 +173,18 @@ class MynaviTenshokuScraper(StaticCrawler):
             # 求人カードから詳細URLを収集
             cards = soup.select("div.cassetteRecruit, div.cassetteRecruitRecommend")
             if not cards:
-                self.logger.info("pg%d: カードなし、終了", page)
-                break
+                empty_streak += 1
+                self.logger.info(
+                    "pg%d: カードなし (連続 %d/%d)",
+                    page, empty_streak, self.MAX_EMPTY_PAGES,
+                )
+                if empty_streak >= self.MAX_EMPTY_PAGES:
+                    self.logger.info("カード無しが続いたため終了します")
+                    break
+                continue
+
+            # 取得・カード抽出に成功したので連続失敗カウンタをリセット
+            empty_streak = 0
 
             page_urls: list[str] = []
             for card in cards:
@@ -197,16 +291,27 @@ class MynaviTenshokuScraper(StaticCrawler):
                 elif key == "事業内容":
                     data[Schema.LOB] = val
                 elif key == "本社所在地":
-                    # 郵便番号抽出
-                    m_post = re.search(r"〒\s*(\d{3})-?(\d{4})", val)
+                    # 住所が複数の子要素（<span>/<p>/<div>、または <br> 区切り）に
+                    # 分割されているケースがあるため、td 配下の全テキストノードを
+                    # ドキュメント順に取得して結合する。
+                    # これにより「建物名だけ」「階数だけ」しか取れない取得漏れを防ぐ。
+                    full = _clean(" ".join(td.stripped_strings))
+                    # 郵便番号を抽出し、本文からは除去（前後どちらに在っても対応）
+                    m_post = re.search(r"〒\s*(\d{3})-?(\d{4})", full)
                     if m_post:
                         data[Schema.POST_CODE] = f"{m_post.group(1)}-{m_post.group(2)}"
-                        val = val[val.index(m_post.group(0)) + len(m_post.group(0)):].strip(" ,，、：:　")
-                    # 都道府県抽出
-                    m_pref = _PREF_PATTERN.search(val)
+                        full = _clean(full[:m_post.start()] + " " + full[m_post.end():])
+                    # 都道府県を抽出。都道府県名が見つかった場合は、その位置以降を
+                    # 住所として採用することで、必ず「都道府県・市区町村」から始まり
+                    # 建物名・階数まで含んだ完全な住所にする。
+                    m_pref = _PREF_PATTERN.search(full)
                     if m_pref:
                         data[Schema.PREF] = m_pref.group(1)
-                    data[Schema.ADDR] = val
+                        data[Schema.ADDR] = _clean(full[m_pref.start():])
+                    else:
+                        # 政令指定都市表記のみ（例: 京都市…）で都道府県名が無い場合は
+                        # 結合・整形済みの全文をそのまま住所として採用する。
+                        data[Schema.ADDR] = full
                 elif key == "事業所":
                     data["事業所"] = val
                 elif "企業ホームページ" in key or "ホームページ" in key:

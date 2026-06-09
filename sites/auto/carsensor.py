@@ -5,11 +5,12 @@
     - 全国 47 都道府県の中古車販売店
 
 取得フロー:
-    1. 都道府県ごとに `/shop/{pref}/index.html` (1ページ目) を取得
+    1. 都道府県ごとに `/shop/{pref}/index.html` (1ページ目) を取得します
     2. ページャから最終ページ番号を取得し、`/shop/{pref}/{N}/index.html` を巡回
     3. 一覧 `.caset.caset--shopAll` から店舗カード情報 + 詳細URL を取得
     4. 詳細ページ `/shop/{pref}/{shop_id}/` から `.shopnaviHeader__contents__spec` の
-       法人名 / 住所 / 営業時間 / 定休日 と、telno スクリプト変数のTELを抽出
+       法人名 / 住所 / 営業時間 / 定休日、在庫の本体価格（単価）、telno スクリプト変数のTELを抽出
+    5. 各種サービスページ `/shop/{pref}/{shop_id}/service/` から支払い方法に関する記述を抽出
 
 実行方法:
     # ローカルテスト (1都道府県のみ確認したい場合は引数で渡す)
@@ -60,13 +61,25 @@ _PREFECTURES = [
 _TEL_PATTERN = re.compile(r'telno\s*=\s*"tel:([\d\-]+)"')
 _LAST_PAGE_PATTERN = re.compile(r"/shop/[a-z]+/(\d+)/index\.html")
 _ADDR_TRIM = re.compile(r"\s*MAP\s*$")
+_PRICE_WS = re.compile(r"\s+")
+_PAY_KEYWORDS = re.compile(r"支払|ローン|分割|クレジット|カード|頭金|現金|振込")
+
+# 文字化けの原因となる不可視文字（NBSP・全角スペース・各種 Unicode 空白・ゼロ幅文字・BOM）を
+# 半角スペースへ正規化するためのパターン。
+_INVISIBLE_WS = re.compile(
+    "[\u00a0\u1680\u2000-\u200d\u202f\u205f\u2028\u2029\u3000\ufeff]"
+)
+# タブ・改行を除く制御文字（除去対象）
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+# 連続する空白を 1 つにまとめるためのパターン
+_MULTI_WS = re.compile(r"\s+")
 
 
 class CarsensorScraper(StaticCrawler):
     """カーセンサー 中古車販売店スクレイパー"""
 
     DELAY = 1.0
-    EXTRA_COLUMNS = ["法人名", "エリア", "キャッチコピー"]
+    EXTRA_COLUMNS = ["法人名", "エリア", "キャッチコピー", "単価"]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         for pref_slug, pref_name in _PREFECTURES:
@@ -113,20 +126,21 @@ class CarsensorScraper(StaticCrawler):
         name_a = card.select_one("h3.hd2nd a, h3 a")
         if not name_a:
             return None
-        name = name_a.get_text(strip=True)
+        name = self._clean_text(name_a.get_text(strip=True))
         href = name_a.get("href", "")
         detail_url = urljoin(_BASE, href.split("?")[0])
 
         area = ""
         area_p = card.select_one("div.l-box.va-mid p.txt.txt-c")
         if area_p:
-            parts = [t.strip() for t in area_p.get_text("|", strip=True).split("|") if t.strip()]
+            parts = [self._clean_text(t) for t in area_p.get_text("|", strip=True).split("|")]
+            parts = [t for t in parts if t]
             area = parts[1] if len(parts) >= 2 else (parts[0] if parts else "")
 
         catch = ""
         catch_p = card.select_one("p.ttl")
         if catch_p:
-            catch = catch_p.get_text(strip=True)
+            catch = self._clean_text(catch_p.get_text(strip=True))
 
         rev_count = ""
         rev_a = card.select_one("a.daisu")
@@ -160,12 +174,12 @@ class CarsensorScraper(StaticCrawler):
             dts = dl.find_all("dt")
             dds = dl.find_all("dd")
             for dt, dd in zip(dts, dds):
-                label = dt.get_text(strip=True)
-                value = dd.get_text(" ", strip=True)
+                label = self._clean_text(dt.get_text(strip=True))
+                value = self._clean_text(dd.get_text(" ", strip=True))
                 if label == "法人名":
                     data["法人名"] = value
                 elif label == "住所":
-                    data[Schema.ADDR] = _ADDR_TRIM.sub("", value).strip()
+                    data[Schema.ADDR] = self._clean_text(_ADDR_TRIM.sub("", value))
                 elif label == "営業時間":
                     data[Schema.TIME] = value
                 elif label == "定休日":
@@ -178,7 +192,62 @@ class CarsensorScraper(StaticCrawler):
                 data[Schema.TEL] = m.group(1)
                 break
 
+        unit_prices = self._extract_unit_prices(soup)
+        if unit_prices:
+            data["単価"] = unit_prices
+
+        payments = self._scrape_payments(url)
+        if payments:
+            data[Schema.PAYMENTS] = payments
+
         return data
+
+    @staticmethod
+    def _clean_text(text: str) -> str:
+        """文字を含むカラム用のクリーニング。
+
+        スクレイピングで取得した文字列には、HTML 中の NBSP (\\xa0) や全角スペース、
+        ゼロ幅文字・BOM などの不可視文字が混入しており、CSV 等へ出力した際に
+        文字化け（読めない記号）として現れる。これらを半角スペースへ正規化し、
+        制御文字を除去したうえで連続空白を 1 つにまとめて前後をトリムする。
+        """
+        if not text:
+            return ""
+        cleaned = _INVISIBLE_WS.sub(" ", str(text))
+        cleaned = _CONTROL_CHARS.sub("", cleaned)
+        cleaned = _MULTI_WS.sub(" ", cleaned)
+        return cleaned.strip()
+
+    @staticmethod
+    def _normalize_price(text: str) -> str:
+        return _PRICE_WS.sub("", text.strip())
+
+    def _extract_unit_prices(self, soup) -> str:
+        prices: list[str] = []
+        seen: set[str] = set()
+        for dd in soup.select(".shopnaviCarStockItem__basePrice dd"):
+            price = self._normalize_price(dd.get_text("", strip=True))
+            if not price or price in seen:
+                continue
+            seen.add(price)
+            prices.append(price)
+        return " / ".join(prices)
+
+    def _scrape_payments(self, shop_url: str) -> str:
+        service_url = shop_url.rstrip("/") + "/service/"
+        soup = self.get_soup(service_url)
+        if soup is None:
+            return ""
+
+        parts: list[str] = []
+        seen: set[str] = set()
+        for p in soup.select(".shopnaviContents__item .media__obj--col3 p"):
+            text = self._clean_text(p.get_text(strip=True))
+            if not text or text in seen or not _PAY_KEYWORDS.search(text):
+                continue
+            seen.add(text)
+            parts.append(text)
+        return " / ".join(parts)
 
 
 if __name__ == "__main__":
