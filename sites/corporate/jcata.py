@@ -1,21 +1,21 @@
 """
-一般社団法人 在日華人旅行業協会 (jcata.net) — 開催イベント一覧スクレイパー
+一般社団法人 在日華人旅行業協会 (jcata.net) — 会員一覧スクレイパー
 
 取得対象:
-    - 協会が公開する「開催予定のイベント」一覧（中日交流・観光関連イベント）
-    - イベント名・開催日時・会場・住所・郵便番号・都道府県・電話番号・チケット料金・URL
+    - 協会トップページに掲載されている「会員一覧」
+    - 会員企業の名称・代表者名・役職・都道府県
 
 取得フロー:
-    Wix Events ウィジェットの一覧ページ (/event-list) を取得し、
-    各イベントカード (data-hook="events-card") からイベント名・開催日・会場・
-    詳細URL を抽出。続けて各詳細ページ (/event-details/...) を取得し、
-    開催日時(フル)・会場住所・チケット料金を補完して 1 件ずつ即 yield する。
+    トップページ (parse() の引数 url = sites.yml の正規 URL) を取得し、
+    「会員一覧」見出しに続く Wix の折りたたみテキスト (collapsible-text) ブロックを
+    抽出する。ブロック内は 1 行 1 会員で、
+        氏名｜役職｜会社名（都道府県）
+    の形式（全角縦棒 ｜ 区切り）になっている。各行を分解して 1 件ずつ即 yield する。
 
-    ※ 協会には公開の会員企業ディレクトリが存在しない（ポートフォリオの
-       「Member Unit Directory」は未登録のプレースホルダ）。構造化データとして
-       公開されている一覧は本イベント一覧のみ。
-    ※ イベント説明文 (event-description / about-section-text) は自由記述の
-       プロース（著作権リスク）のため取得対象から除外。
+    ※ 会員一覧はトップページ内に静的テキストとして埋め込まれており、会員ごとの
+       詳細ページは存在しない。したがって全件のソース URL は起点 (url) となる。
+    ※ 旧実装は「開催予定のイベント」一覧 (Wix Events) を取得していたが、
+       追加指示により会員一覧の取得へ切り替えた。
 
 実行方法:
     # ローカルテスト
@@ -28,7 +28,6 @@
 import re
 import sys
 from pathlib import Path
-from urllib.parse import urljoin
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -38,36 +37,34 @@ from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
 
-BASE_URL = "https://www.jcata.net"
-# 公開されている唯一の構造化一覧。トップ (sites.yml の url) には一覧が無いため固定で参照する。
-EVENT_LIST_URL = f"{BASE_URL}/event-list"
+# sites.yml に登録された正規 URL（コンテナ実行・ローカル実行で一致させる）
+ROOT_URL = "https://www.jcata.net/"
 
-# Wix Events の住所は英語表記 (例: "..., Osaka, 540-0008日本")。
-# 住所中の英語県/都市トークンを日本語の都道府県へマップする（取得できなければ空文字）。
-_PREF_MAP = {
-    "Hokkaido": "北海道",
-    "Aomori": "青森県", "Iwate": "岩手県", "Miyagi": "宮城県", "Akita": "秋田県",
-    "Yamagata": "山形県", "Fukushima": "福島県",
-    "Ibaraki": "茨城県", "Tochigi": "栃木県", "Gunma": "群馬県", "Saitama": "埼玉県",
-    "Chiba": "千葉県", "Tokyo": "東京都", "Kanagawa": "神奈川県",
-    "Niigata": "新潟県", "Toyama": "富山県", "Ishikawa": "石川県", "Fukui": "福井県",
-    "Yamanashi": "山梨県", "Nagano": "長野県",
-    "Gifu": "岐阜県", "Shizuoka": "静岡県", "Aichi": "愛知県", "Mie": "三重県",
-    "Shiga": "滋賀県", "Kyoto": "京都府", "Osaka": "大阪府", "Hyogo": "兵庫県",
-    "Nara": "奈良県", "Wakayama": "和歌山県",
-    "Tottori": "鳥取県", "Shimane": "島根県", "Okayama": "岡山県",
-    "Hiroshima": "広島県", "Yamaguchi": "山口県",
-    "Tokushima": "徳島県", "Kagawa": "香川県", "Ehime": "愛媛県", "Kochi": "高知県",
-    "Fukuoka": "福岡県", "Saga": "佐賀県", "Nagasaki": "長崎県", "Kumamoto": "熊本県",
-    "Oita": "大分県", "Miyazaki": "宮崎県", "Kagoshima": "鹿児島県", "Okinawa": "沖縄県",
-}
+# 会員エントリのフィールド区切りに使われる全角縦棒
+_DELIM = "｜"
 
-# 末尾が「日本」等の非ASCII語に直結すると \b が成立しないため境界指定は付けない
-_POST_RE = re.compile(r"(\d{3}-\d{4})")
+# 47 都道府県の正式名称
+_PREFS = [
+    "北海道",
+    "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
+    "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
+    "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県",
+    "岐阜県", "静岡県", "愛知県", "三重県",
+    "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県",
+    "鳥取県", "島根県", "岡山県", "広島県", "山口県",
+    "徳島県", "香川県", "愛媛県", "高知県",
+    "福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
+]
+# 略記（都/道/府/県 を省いた形, 例: "東京" "大阪" "三重"）→ 正式名称。
+# 北海道は省略形が存在しないため正式名のみを対象とする。
+_PREF_STEMS = [(re.sub(r"[都道府県]$", "", p), p) for p in _PREFS if p != "北海道"]
+# stem 完全一致で判定するため衝突は起きないが、長い stem を優先しておく
+_PREF_STEMS.sort(key=lambda x: len(x[0]), reverse=True)
 
-# 電話番号。市外局番(0始まり)で始まり 3 グループのもの。郵便番号(2グループ)や
-# 日付(末尾2桁)とは桁構成が異なるため誤検出しにくい。
-_TEL_RE = re.compile(r"(0\d{1,4}-\d{1,4}-\d{3,4})")
+# 所在地括弧内の区切り（"東京･埼玉･大阪" や "東京都/大阪府" 等）
+_LOC_SPLIT_RE = re.compile(r"[／/･・、,]")
+# 全角括弧（非ネスト）。会社形態の （株）（有）（合）と所在地 （大阪府）を含む
+_PAREN_RE = re.compile(r"（([^（）]*)）")
 
 
 def _clean(text: str) -> str:
@@ -76,117 +73,110 @@ def _clean(text: str) -> str:
     return re.sub(r"[\s　\xa0]+", " ", text).strip()
 
 
-def _hook_text(node, hook: str) -> str:
-    """指定 data-hook 要素のテキストを返す（無ければ空文字）。"""
-    if node is None:
+def _match_pref(token: str) -> str:
+    """都道府県トークンを正式名称に正規化する（一致しなければ空文字）。"""
+    token = token.strip()
+    if not token:
         return ""
-    el = node.select_one(f'[data-hook="{hook}"]')
-    return _clean(el.get_text(" ", strip=True)) if el else ""
-
-
-def _derive_pref(location: str) -> str:
-    for token, pref in _PREF_MAP.items():
-        if re.search(rf"\b{token}\b", location):
-            return pref
+    if token in _PREFS:
+        return token
+    for stem, full in _PREF_STEMS:
+        if token == stem:
+            return full
     return ""
 
 
-def _extract_tel(soup) -> str:
-    """詳細ページから電話番号を抽出する。tel: リンクを優先し、無ければ本文から正規表現で探す。"""
+def _split_company_pref(field: str) -> tuple[str, str]:
+    """会社名フィールドを「会社名」と「都道府県」に分離する。
+
+    入力例:
+        "（株）日中文化旅行センター（大阪府）"  → ("（株）日中文化旅行センター", "大阪府")
+        "金冠国际旅行社（東京都）／ロイヤルジュエリー（株）（愛知県）"
+            → ("金冠国际旅行社／ロイヤルジュエリー（株）", "東京都")
+        "華青旅行（韓国）"                       → ("華青旅行（韓国）", "")
+
+    所在地（都道府県）を含む括弧のみを会社名から除去し、最初に見つかった
+    都道府県を返す。（株）等の会社形態を表す括弧は会社名に残す。
+    """
+    pref = ""
+    company = field
+    for m in _PAREN_RE.finditer(field):
+        tokens = _LOC_SPLIT_RE.split(m.group(1))
+        matched = [p for p in (_match_pref(t) for t in tokens) if p]
+        if matched:
+            if not pref:
+                pref = matched[0]
+            # 所在地括弧なので会社名から取り除く
+            company = company.replace(m.group(0), "")
+    return _clean(company), pref
+
+
+def _find_member_block(soup) -> str:
+    """会員一覧のテキストブロックを返す（見つからなければ空文字）。
+
+    会員行は全角縦棒 ｜ 区切りなので、折りたたみテキスト要素のうち ｜ を
+    最も多く含むものを会員一覧とみなす（Wix の自動生成 id に依存しない）。
+    """
     if soup is None:
         return ""
-    # 1) tel: リンク（最も確実）
-    for a in soup.select('a[href^="tel:"]'):
-        m = _TEL_RE.search(a.get_text(" ", strip=True))
-        if m:
-            return m.group(1)
-        digits = re.sub(r"[^\d+]", "", a.get("href", "")[len("tel:"):])
-        if digits:
-            return digits
-    # 2) 本文テキストから抽出
-    m = _TEL_RE.search(soup.get_text(" ", strip=True))
-    return m.group(1) if m else ""
+    candidates = soup.select(
+        'p.wixui-collapsible-text__text, [data-testid="ellipsis_text_viewer_text_wrapper"]'
+    )
+    best, best_count = "", 0
+    for el in candidates:
+        text = el.get_text("\n", strip=False)
+        count = text.count(_DELIM)
+        if count > best_count:
+            best, best_count = text, count
+    return best
 
 
 class JcataCrawler(StaticCrawler):
-    """一般社団法人 在日華人旅行業協会 イベント一覧スクレイパー"""
+    """一般社団法人 在日華人旅行業協会 会員一覧スクレイパー"""
 
-    DELAY = 1.5
-    EXTRA_COLUMNS = ["開催日", "開催日時", "会場", "チケット料金"]
+    # 取得は起点ページ 1 枚のみ。会員ごとの追加リクエストは無いため待機不要。
+    DELAY = 0.0
 
     def parse(self, url: str):
-        # url (トップページ) は使わず、固定のイベント一覧ページを参照する
-        soup = self.get_soup(EVENT_LIST_URL)
+        # 引数 url（= 正規 URL）を唯一の起点とする
+        soup = self.get_soup(url)
         if soup is None:
             return
 
-        cards = soup.select('li[data-hook="events-card"]')
-        self.total_items = len(cards)
+        block = _find_member_block(soup)
+        if not block:
+            self.logger.warning("会員一覧ブロックが見つかりませんでした: %s", url)
+            return
 
-        for card in cards:
+        # 1 行 1 会員。｜ 区切りを含む行のみを会員エントリとして扱う。
+        lines = [ln for ln in re.split(r"\n+", block) if _DELIM in ln]
+        self.total_items = len(lines)
+
+        for line in lines:
             try:
-                title_a = card.select_one('a[data-hook="title"]')
-                name = _clean(title_a.get_text(" ", strip=True)) if title_a else _hook_text(card, "title")
-                detail_url = ""
-                if title_a and title_a.get("href"):
-                    detail_url = urljoin(BASE_URL, title_a["href"])
+                parts = [p.strip() for p in line.split(_DELIM)]
+                if len(parts) < 3:
+                    continue
 
-                item = {
-                    Schema.NAME: name,
-                    Schema.URL: detail_url or EVENT_LIST_URL,
-                    "開催日": _hook_text(card, "short-date"),
-                    "会場": _hook_text(card, "short-location"),
-                    "開催日時": "",
-                    "チケット料金": "",
-                    Schema.PREF: "",
-                    Schema.POST_CODE: "",
-                    Schema.ADDR: "",
-                    Schema.TEL: "",
+                rep_name = _clean(parts[0])
+                position = _clean(parts[1])
+                # 会社名に ｜ は通常含まれないが、念のため残りを結合
+                company_field = _DELIM.join(parts[2:])
+                company, pref = _split_company_pref(company_field)
+
+                if not company:
+                    continue
+
+                yield {
+                    Schema.NAME: company,
+                    Schema.URL: url,
+                    Schema.REP_NM: rep_name,
+                    Schema.POS_NM: position,
+                    Schema.PREF: pref,
                 }
-
-                if detail_url:
-                    item.update(self._scrape_detail(detail_url))
-
-                yield item
             except Exception as e:
-                self.logger.warning("イベントカードの解析に失敗: %s", e)
+                self.logger.warning("会員エントリの解析に失敗: %s — %s", line, e)
                 continue
-
-    def _scrape_detail(self, url: str) -> dict:
-        """詳細ページから開催日時・住所・料金を補完する。"""
-        out = {}
-        soup = self.get_soup(url)
-        if soup is None:
-            return out
-
-        # 名称（詳細側を優先・確実）
-        title = _hook_text(soup, "event-title")
-        if title:
-            out[Schema.NAME] = title
-
-        out["開催日時"] = _hook_text(soup, "event-full-date")
-
-        location = _hook_text(soup, "event-full-location")
-        if location:
-            out[Schema.ADDR] = location
-            # 会場名は先頭カンマまで（例: "大阪音乐厅, 1 Chome-1 ..." → "大阪音乐厅"）
-            out["会場"] = location.split(",")[0].strip()
-            m = _POST_RE.search(location)
-            if m:
-                out[Schema.POST_CODE] = m.group(1)
-            pref = _derive_pref(location)
-            if pref:
-                out[Schema.PREF] = pref
-
-        price = _hook_text(soup, "price")
-        if price:
-            out["チケット料金"] = price
-
-        tel = _extract_tel(soup)
-        if tel:
-            out[Schema.TEL] = tel
-
-        return out
 
 
 if __name__ == "__main__":
@@ -194,7 +184,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     scraper = JcataCrawler()
-    scraper.execute(BASE_URL + "/")
+    scraper.execute(ROOT_URL)
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
     print(f"取得件数: {scraper.item_count}")
