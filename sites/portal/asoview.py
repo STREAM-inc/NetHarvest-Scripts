@@ -23,6 +23,7 @@
 import json
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Generator
 from urllib.parse import urljoin
@@ -57,6 +58,22 @@ class AsoviewScraper(StaticCrawler):
     """アソビュー (asoview.com) 拠点情報スクレイパー"""
 
     DELAY = 1.5
+
+    # asoview は User-Agent のみのリクエストを bot とみなし、
+    # 500 エラーページやトップページ (施設リンク 0 件) を返すことがある。
+    # ブラウザ相当の Accept / Accept-Language を付与して検知確率を下げる。
+    EXTRA_HEADERS = {
+        "Accept": (
+            "text/html,application/xhtml+xml,application/xml;q=0.9,"
+            "image/avif,image/webp,*/*;q=0.8"
+        ),
+        "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+    }
+
+    # インデックスが soft-block (200 だが施設リンク 0 件) で返ったときの再取得設定
+    INDEX_MAX_ATTEMPTS = 4
+    INDEX_RETRY_WAITS = [5, 15, 30]  # 試行間の待機秒 (指数的バックオフ)
+
     EXTRA_COLUMNS = [
         "アクセス",
         "緯度",
@@ -68,13 +85,14 @@ class AsoviewScraper(StaticCrawler):
         "画像URL",
     ]
 
-    def parse(self, url: str) -> Generator[dict, None, None]:
-        index_soup = self.get_soup(url)
-        if index_soup is None:
-            return
+    def _setup(self):
+        super()._setup()
+        # ブラウザ相当のヘッダを付与 (bot 検知による soft-block 対策)
+        self.session.headers.update(self.EXTRA_HEADERS)
 
+    def _collect_index_targets(self, soup) -> list[tuple[str, str, str]]:
         targets: list[tuple[str, str, str]] = []  # (detail_url, name, prefecture)
-        for region in index_soup.select(".page-base__region-wrap"):
+        for region in soup.select(".page-base__region-wrap"):
             pref_el = region.select_one(".page-base__region")
             pref_text = _clean(pref_el.get_text()) if pref_el else ""
             for a in region.select("a.page-base__base-link"):
@@ -86,6 +104,51 @@ class AsoviewScraper(StaticCrawler):
                     _clean(a.get_text()),
                     pref_text,
                 ))
+        return targets
+
+    def _fetch_index_targets(self, url: str) -> list[tuple[str, str, str]]:
+        """インデックスを取得し施設リンクを収集する。
+
+        asoview は bot 検知時に 200 でトップ/エラーページ (施設リンク 0 件) を
+        返すことがある。requests の Retry は HTTP 500 系しか見ないため、
+        ここで「0 件 = soft-block」とみなしてバックオフ付きで再取得する。
+        """
+        for attempt in range(1, self.INDEX_MAX_ATTEMPTS + 1):
+            soup = self.get_soup(url)
+            if soup is not None:
+                targets = self._collect_index_targets(soup)
+                if targets:
+                    if attempt > 1:
+                        self.logger.info("asoview: インデックス再取得に成功 (試行 %d)", attempt)
+                    return targets
+                title_el = soup.select_one("title")
+                title = _clean(title_el.get_text()) if title_el else "(なし)"
+                self.logger.warning(
+                    "asoview: 施設リンクを含まない応答 (bot 検知の可能性, title=%s, 試行 %d/%d)",
+                    title, attempt, self.INDEX_MAX_ATTEMPTS,
+                )
+            else:
+                self.logger.warning(
+                    "asoview: インデックス取得に失敗 (試行 %d/%d)",
+                    attempt, self.INDEX_MAX_ATTEMPTS,
+                )
+
+            if attempt < self.INDEX_MAX_ATTEMPTS:
+                wait = self.INDEX_RETRY_WAITS[min(attempt - 1, len(self.INDEX_RETRY_WAITS) - 1)]
+                self.logger.info("asoview: %d 秒待機して再取得します...", wait)
+                time.sleep(wait)
+
+        return []
+
+    def parse(self, url: str) -> Generator[dict, None, None]:
+        targets = self._fetch_index_targets(url)
+        if not targets:
+            self.logger.error(
+                "asoview: インデックスから施設リンクを取得できませんでした "
+                "(%d 回試行, bot 検知 / レート制限の可能性): %s",
+                self.INDEX_MAX_ATTEMPTS, url,
+            )
+            return
 
         self.total_items = len(targets)
         self.logger.info("asoview: インデックスから %d 施設を検出", self.total_items)
