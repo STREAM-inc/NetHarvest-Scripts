@@ -859,7 +859,7 @@ sites:
     name: "ハローワーク"
     module: "jobs.hellowork"
     url: "https://www.hellowork.mhlw.go.jp/"
-    schedule: "0 3 2-31/3 * *"  # 3日おき 午前3時 (2,5,8,...,26,29日
+    schedule: "0 6 * * SUN"  # 失敗することがあるらしいので、一旦週一実行に変更
     enabled: true
 
   - site_id: hellowork_shinnkikyuujin
