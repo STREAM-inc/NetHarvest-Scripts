@@ -2148,3 +2148,10 @@ sites:
     url: "https://www.jcata.net/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: dancesagasu
+    name: "ダンサガ"
+    module: "leisure.dancesagasu"
+    url: "https://dancesagasu.net/"
+    schedule: "0 9 18 * *"
+    enabled: true
