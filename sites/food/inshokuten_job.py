@@ -18,7 +18,7 @@ class InshokutenJobScraper(StaticCrawler):
     """求人飲食店ドットコム（job.inshokuten.com）飲食店情報スクレイパー"""
 
     DELAY = 0.5
-    EXTRA_COLUMNS = ["オープン日", "公開日", "客単価", "席数", "喫煙", "最寄駅", "運営", "特徴"]
+    EXTRA_COLUMNS = ["オープン日", "公開日", "客単価", "席数", "喫煙", "最寄駅", "運営", "特徴", "雇用条件"]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         shop_urls = self._collect_shop_urls(url)
@@ -105,6 +105,17 @@ class InshokutenJobScraper(StaticCrawler):
         data["最寄駅"] = get_by_th("最寄駅")
         data[Schema.HOLIDAY] = get_by_th("定休日")
         data["運営"] = get_by_th("運営")
+
+        emp_th = next(
+            (t for t in soup.find_all("th") if "雇用形態" in t.get_text()), None
+        )
+        if emp_th:
+            td = emp_th.find_next("td")
+            if td:
+                first_line = td.get_text("\n", strip=True).split("\n")[0]
+                emp_type = re.split(r"[　\s]", first_line, maxsplit=1)[0].strip()
+                if emp_type:
+                    data["雇用条件"] = emp_type
 
         feats = [sp.get_text(strip=True) for sp in soup.select("span.ji-tag__characteristics")]
         feats = [f for f in feats if f]
