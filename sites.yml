@@ -2141,3 +2141,10 @@ sites:
     url: "https://caretaxi-net.com/"
     schedule: "0 14 1 * *"
     enabled: true
+
+  - site_id: jcata
+    name: "在日華人旅行業協会公式"
+    module: "corporate.jcata"
+    url: "https://www.jcata.net/"
+    schedule: "0 9 1 * *"
+    enabled: true
