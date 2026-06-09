@@ -2155,3 +2155,10 @@ sites:
     url: "https://dancesagasu.net/"
     schedule: "0 9 18 * *"
     enabled: true
+
+  - site_id: npo
+    name: "内閣府NPO法人情報ポータルサイト"
+    module: "government.npo"
+    url: "https://www.npo-homepage.go.jp/npoportal/"
+    schedule: "0 9 1 * *"
+    enabled: true
