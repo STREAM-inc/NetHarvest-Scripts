@@ -2169,3 +2169,10 @@ sites:
     url: "https://kyujin.hotsearch.jp/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: cabasite
+    name: "cabasite"
+    module: "nightlife.cabasite"
+    url: "https://cabasite.com/"
+    schedule: "0 9 1 * *"
+    enabled: true
