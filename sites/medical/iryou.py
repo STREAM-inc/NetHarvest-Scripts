@@ -446,6 +446,13 @@ class IryouScraper(StaticCrawler):
             if not dept_name:
                 continue
 
+            # ── グループ見出し（〜領域 / 〜系 等）はスキップ ────────────
+            # 例: "歯科領域" "内科領域" "外科系" など診療科目ではない見出し
+            _GROUP_SUFFIX = re.compile(r"(領域|系|部門|グループ)$")
+            if _GROUP_SUFFIX.search(dept_name):
+                self.logger.debug("グループ見出しをスキップ: %s", dept_name)
+                continue
+
             # ── 診療属性（括弧内テキストから正規表現で抽出） ──────────────
             attrs: dict[str, str | None] = {k: None for k in _ATTR_PATTERNS}
             for ancestor in [strong.parent,
@@ -544,6 +551,7 @@ if __name__ == "__main__":
     )
 
     scraper = IryouScraper()
+    # 🔒 この URL は sites.yml に登録する url と完全一致させること (SSOT = sites.yml)。
     scraper.execute("https://www.iryou.teikyouseido.mhlw.go.jp/znk-web/juminkanja/S2300/initialize")
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
