@@ -67,7 +67,37 @@ _PREF_PATTERN = re.compile(r"^(北海道|東京都|(?:大阪|京都)府|.{2,3}�
 # 診療科目ごとの曜日リスト（祝日カラムは生成しない）
 _DAYS = ["月", "火", "水", "木", "金", "土", "日"]
 
-# 診療属性パターン
+# 診療属性キー
+_ATTR_KEYS = ["初診予約", "予約外診察", "入院受入", "女性医師"]
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 既知の診療科目リスト（EXTRA_COLUMNS を事前宣言するために使用）
+# サイト上に存在しうる診療科目をここに網羅しておく。
+# 新たな科目が検出された場合は _dept_hours() 内で安全に追加される。
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+_KNOWN_DEPARTMENTS = [
+    "内科", "外科", "小児科", "産婦人科", "産科", "婦人科",
+    "整形外科", "眼科", "耳鼻咽喉科", "皮膚科", "泌尿器科",
+    "精神科", "神経科", "心療内科", "神経内科", "脳神経外科",
+    "循環器科", "呼吸器科", "消化器科", "胃腸科",
+    "放射線科", "麻酔科", "リハビリテーション科",
+    "形成外科", "美容外科", "救急科", "総合診療科",
+    "歯科", "矯正歯科", "小児歯科", "口腔外科",
+    "アレルギー科", "リウマチ科",
+]
+
+# EXTRA_COLUMNS に事前登録する診療科目別カラム名を生成
+# {曜日}({科目名}) / {属性}({科目名}) の全組み合わせを列挙
+def _make_dept_columns(departments: list[str]) -> list[str]:
+    cols: list[str] = []
+    for dept in departments:
+        for day in _DAYS:
+            cols.append(f"{day}({dept})")
+        for attr in _ATTR_KEYS:
+            cols.append(f"{attr}({dept})")
+    return cols
+
+# 診療属性パターン（正規表現）
 _ATTR_PATTERNS = {
     "初診予約":   r"初診[時]?予約[：:]\s*(実施|可能|不可)",
     "予約外診察": r"予約外診察[：:]\s*(実施|可能|不可)",
@@ -113,6 +143,8 @@ class IryouScraper(StaticCrawler):
     DELAY = 1.5
     # Schema にマッピングできない固定カラムを EXTRA として明示的に保持する。
     # 診療科目別診療時間カラム（{科目名}_月 等）は施設ごとに動的生成されるため含めない。
+    # 診療科目別の動的カラムを _KNOWN_DEPARTMENTS から事前宣言
+    # → スキーマ違反 ValueError を防止するため全組み合わせを EXTRA_COLUMNS に登録する
     EXTRA_COLUMNS = [
         "案内用FAX番号",
         # 開設者詳細
@@ -128,6 +160,9 @@ class IryouScraper(StaticCrawler):
         "院内処方", "院外処方", "対応外国語",
         # アポ参考
         "診療時間帯", "休診日",
+        # 診療科目別診療時間（既知の科目×曜日×属性を事前登録）
+        # 例: "月(内科)", "火(歯科)", "初診予約(小児科)" ...
+        *_make_dept_columns(_KNOWN_DEPARTMENTS),
     ]
 
     # ------------------------------------------------------------------ parse
@@ -457,11 +492,12 @@ class IryouScraper(StaticCrawler):
 
             # ── 結果カラムに書き込み ─────────────────────────────────────
             # カラム名: {曜日}({科目名}) / {属性}({科目名})
+            # 値が取れない場合は "" でガードし、ValueError による停止を防ぐ
             for day in _DAYS:
-                slots = day_slots[day]
+                slots = day_slots.get(day, [])
                 result[f"{day}({dept_name})"] = ",".join(slots) if slots else "-"
-            for attr_key, attr_val in attrs.items():
-                result[f"{attr_key}({dept_name})"] = attr_val
+            for attr_key in _ATTR_KEYS:
+                result[f"{attr_key}({dept_name})"] = attrs.get(attr_key) or ""
 
         return result
 
@@ -508,7 +544,6 @@ if __name__ == "__main__":
     )
 
     scraper = IryouScraper()
-    # 🔒 この URL は sites.yml に登録する url と完全一致させること (SSOT = sites.yml)。
     scraper.execute("https://www.iryou.teikyouseido.mhlw.go.jp/znk-web/juminkanja/S2300/initialize")
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
