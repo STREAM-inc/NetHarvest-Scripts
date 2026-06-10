@@ -58,6 +58,68 @@ def _clean(s) -> str:
     return re.sub(r"\s+", " ", str(s)).strip()
 
 
+# ── お客さん側 (来店客) の支払い方法判定 ──────────────────────────────
+# 当サイトは求人専門のため、来店客向けの決済情報は原則記載されない。
+# 本文中に例外的に書かれていた場合のみ、以下 3 条件をすべて満たす文を抽出する。
+#
+#   (1) 来店客向け決済キーワードを含む
+#   (2) 求職者向けの「給与支払い方法」キーワードを含まない (完全除外)
+#   (3) 来店客向けと明示する文脈語を含む
+#
+# (2) を必須の除外条件とすることで「日払い」「週払い」「給与手渡し」等の
+# スタッフ給与に関する記述を確実に弾く。
+
+# (1) 来店客向け決済手段キーワード
+_CUSTOMER_PAY_PATTERN = re.compile(
+    r"クレジットカード|クレジット|クレカ|電子マネー|QR決済|QRコード決済|"
+    r"キャッシュレス|各種カード|カード払い|カード利用|カード決済|"
+    r"VISA|MASTER|JCB|AMEX|AMERICAN EXPRESS|DINERS|PayPay|"
+    r"交通系IC|Suica|PASMO|iD|QUICPAY|楽天Edy|nanaco|WAON",
+    re.IGNORECASE,
+)
+
+# (2) 求職者向け給与支払いキーワード (この語を含む文は除外)
+_STAFF_PAY_PATTERN = re.compile(
+    r"日払い|週払い|即日払い|前払い|前借り|当日払い|給与手渡し|手渡し|"
+    r"日給|週給|月給|時給|給料|給与|報酬|バック|歩合"
+)
+
+# (3) 来店客向けと明示する文脈語
+_CUSTOMER_CONTEXT_PATTERN = re.compile(
+    r"お客様|お客さん|ご来店|来店|お会計|会計|ご利用|ご精算|精算|お支払い時"
+)
+
+
+def _extract_customer_payment(text: str) -> str:
+    """ページ全文から「来店客向けの支払い方法」に言及する文だけを抽出する。
+
+    該当が無ければ必ず空文字 "" を返す (通常ケース)。抽出できた場合は前後の
+    空白・改行をトリムし、複数該当はスペース区切りでフラットな 1 行に整形する。
+    """
+    if not text:
+        return ""
+
+    matches: list[str] = []
+    # 句読点・改行・記号で文単位に分割し、文ごとに 3 条件を判定する。
+    for seg in re.split(r"[。.！!？?\n\r、,／/｜|・]+", text):
+        seg = _clean(seg)
+        if not seg:
+            continue
+        # (1) 決済キーワードを含むか
+        if not _CUSTOMER_PAY_PATTERN.search(seg):
+            continue
+        # (2) 給与支払い方法に関する記述は完全に除外
+        if _STAFF_PAY_PATTERN.search(seg):
+            continue
+        # (3) 来店客向けと明示されている文脈のみ採用
+        if not _CUSTOMER_CONTEXT_PATTERN.search(seg):
+            continue
+        if seg not in matches:
+            matches.append(seg)
+
+    return _clean(" ".join(matches))
+
+
 class KyujinScraper(StaticCrawler):
     """ほっとサーチ (kyujin.hotsearch.jp) スクレイパー"""
 
@@ -71,6 +133,7 @@ class KyujinScraper(StaticCrawler):
         "雇用形態",       # アルバイト 等 (未記載の場合あり)
         "勤務条件",       # 週1からOK / 未経験者歓迎 等の条件タグ
         "特徴タグ",       # 即日勤務可能 / Wワーク歓迎 等の特徴タグ
+        "客側支払い方法", # 来店客向け決済手段 (求人サイトのため通常は空。本文に例外記載があれば抽出)
     ]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
@@ -194,6 +257,15 @@ class KyujinScraper(StaticCrawler):
         # --- TEL: 募集方法テキストから電話番号の塊だけを抽出 ---
         tel_match = _TEL_PATTERN.search(method_text)
         data[Schema.TEL] = tel_match.group(0) if tel_match else ""
+
+        # --- 客側支払い方法 (来店客向け決済手段) ---
+        # ページ全文 (店舗紹介・アピールポイント・特徴タグ等) を対象に、来店客向けと
+        # 明示された決済記述のみを抽出する。給与支払い(日払い等)は除外。該当無しは ""。
+        try:
+            data["客側支払い方法"] = _extract_customer_payment(soup.get_text(" "))
+        except Exception:
+            # 想定外のテキストでも全体を止めず安全に空文字で終了する
+            data["客側支払い方法"] = ""
 
         return data
 
