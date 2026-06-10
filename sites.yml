@@ -2176,3 +2176,10 @@ sites:
     url: "https://cabasite.com/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: iryou
+    name: "医療情報ネット（ナビイ）"
+    module: "medical.iryou"
+    url: "https://www.iryou.teikyouseido.mhlw.go.jp/znk-web/juminkanja/S2300/initialize"
+    schedule: "0 9 1 * *"
+    enabled: true
