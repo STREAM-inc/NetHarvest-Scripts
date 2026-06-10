@@ -2162,3 +2162,10 @@ sites:
     url: "https://www.npo-homepage.go.jp/npoportal/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: kyujin
+    name: "ほっとサーチ"
+    module: "nightlife.kyujin"
+    url: "https://kyujin.hotsearch.jp/"
+    schedule: "0 9 1 * *"
+    enabled: true
