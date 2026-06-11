@@ -23,7 +23,35 @@
     - アポ参考: 診療時間帯 / 休診日
     ※ 自由記述・コメント系テキストは著作権リスクのため取得しない。
 
-取得フロー（一覧→詳細, Pattern B: detail 取得ごとに即 yield）:
+取得件数について（全国 ~18万件 / 旧実装は ~5000件で頭打ち）:
+    原因は検索の表示上限ではない。都道府県（所在地）検索は全件到達可能
+    （例: 東京都 21,974件 = 最終ページまで取得可）。頭打ちの真因はスループットで、
+    詳細ページを 1 件ずつ逐次取得し、かつ item ごとに DELAY スリープしていたため
+    実行時間内に数千件しか処理できなかった。本実装では DELAY=0 とし、詳細取得を
+    ThreadPool（WORKERS 本）で並行化して時間内に全件を取得する。
+
+全国網羅について（「北海道分しか取れない」問題への回答）:
+    全国データは PREFECTURES（47都道府県名）を keywordType=4（所在地検索）で
+    1 県ずつ検索し、各県の一覧を最終ページまでめくることで取得する。すなわち
+    全国網羅は「47都道府県の所在地検索ループ」で達成しており、特定地域に限定
+    されない。旧実装が北海道（PREFECTURES 先頭）分しか取れていなかった場合の
+    典型原因は、ループが先頭県で止まる／詳細取得のスループット不足で時間切れに
+    なるケースであり、本実装は 47 県ループ＋詳細の並行取得でこれを解消する。
+    ※ ルート URL（sites.yml の url = S2300/initialize）は正しく、変更不要。
+      全国網羅は URL の指定変更ではなく所在地検索ループで実現する。
+
+セッション分離（スレッドセーフ性のための設計）:
+    検索ID（iryoSearch が返す id）は、レスポンスごとに再発行される
+    SESSION / AWSALB クッキー（ロードバランサのスティッキー）と結び付く。
+    一方 requests.Session は複数スレッドからの共有がスレッドセーフではなく、
+    クッキー保存領域を多数の詳細取得スレッドと共有すると競合の温床になる。
+    そこでクッキー保存領域を分離する:
+      - 一覧／検索の走査（ステートフル）は メインスレッドの self.session のみで実行。
+      - 詳細取得は ワーカースレッドごとの 専用セッション（スレッドローカル）で実行。
+        詳細ページは URL パラメータ（prefCd/kikanCd/kikanKbn）だけで完結する
+        ステートレスなページのため、検索セッションのクッキーは一切不要。
+
+取得フロー（一覧→詳細, 詳細は並行取得し完了順に即 yield）:
     1. {root}/S2300/iryoSearch?keywordType=4&keyword={都道府県名}  → 検索ID(JSON) を取得
        （keywordType=4 = 所在地検索。47都道府県名で全国を網羅）
     2. {root}/S2400/initialize?id={検索ID}&page={N}&sortNo=1       → 検索結果一覧（20件/頁）
@@ -44,9 +72,16 @@ URL 一貫性:
 
 import re
 import sys
+import threading
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, as_completed, wait
 from pathlib import Path
 from typing import Generator
 from urllib.parse import urljoin
+
+import bs4
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -174,7 +209,12 @@ def _val(s) -> str | None:
 class IryouScraper(StaticCrawler):
     """医療情報ネット（ナビイ）スクレイパー（iryou.teikyouseido.mhlw.go.jp）"""
 
-    DELAY = 1.5
+    # 全国 ~18万件。詳細ページは施設ごとに 1 リクエスト必要なため、逐次取得 +
+    # item ごとの DELAY スリープでは時間切れ（~5000件で打ち切り）になる。
+    # 都道府県検索自体は全件到達可能（例: 東京都 21,974件 = 全ページ取得可、上限なし）。
+    # よってボトルネックはスループット。DELAY を 0 にし、詳細取得を並行化する。
+    DELAY = 0.0
+    WORKERS = 8  # 詳細ページ同時取得数（.go.jp サイト。上げ過ぎは WAF 起因の遮断に注意）
     # Schema にマッピングできない固定カラムを EXTRA として明示的に保持する。
     # 診療科目別診療時間は「科目別 × 曜日別」にカラム分割する。カラム名に科目名を
     # 含むため、_KNOWN_DEPARTMENTS の全 {曜日}/{属性}×{科目} 組み合わせをここで
@@ -213,6 +253,19 @@ class IryouScraper(StaticCrawler):
         search_url = base_dir + "S2300/iryoSearch"
         list_url   = base_dir + "S2400/initialize"
 
+        # 詳細取得ワーカー用のスレッドローカルセッション置き場を初期化する。
+        # （__init__ はフレームワークで override 禁止のため、メインスレッドで動く
+        #   parse() の冒頭で 1 度だけ生成する。ワーカー起動前なので競合しない。）
+        self._detail_local = threading.local()
+
+        # 一覧から詳細 URL を逐次生成し、詳細取得は WORKERS 本で並行化して即 yield。
+        # 一覧ページ取得（軽量）はメインスレッドの self.session、詳細取得（重い・件数多い）
+        # は各ワーカー専用のスレッドローカルセッションで実行する（クッキー保存領域を分離）。
+        detail_urls = self._iter_detail_urls(search_url, list_url)
+        yield from self._fetch_details(detail_urls)
+
+    def _iter_detail_urls(self, search_url: str, list_url: str) -> Generator[str, None, None]:
+        """47都道府県を所在地検索し、全ページをめくって施設詳細 URL を生成する。"""
         seen: set[str] = set()
         total = 0
 
@@ -251,17 +304,36 @@ class IryouScraper(StaticCrawler):
                         continue
                     seen.add(detail_url)
                     new_on_page += 1
-                    try:
-                        item = self._scrape_detail(detail_url)
-                    except Exception as e:
-                        self.logger.warning("詳細取得エラー: %s — %s", detail_url, e)
-                        continue
-                    if item and item.get(Schema.NAME):
-                        yield item
+                    yield detail_url
 
                 if len(links) < 20 or new_on_page == 0:
                     break
                 page += 1
+
+    def _fetch_details(self, urls) -> Generator[dict, None, None]:
+        """詳細 URL を WORKERS 本で並行取得し、完了したものから yield する。"""
+        def safe(u: str):
+            try:
+                return self._scrape_detail(u)
+            except Exception as e:
+                self.logger.warning("詳細取得エラー: %s — %s", u, e)
+                return None
+
+        with ThreadPoolExecutor(max_workers=self.WORKERS) as pool:
+            pending: set = set()
+            for u in urls:
+                pending.add(pool.submit(safe, u))
+                # in-flight を抑え、完了分を先に流す（メモリ・進捗の両面で有利）
+                if len(pending) >= self.WORKERS * 2:
+                    done, pending = wait(pending, return_when=FIRST_COMPLETED)
+                    for f in done:
+                        item = f.result()
+                        if item and item.get(Schema.NAME):
+                            yield item
+            for f in as_completed(pending):
+                item = f.result()
+                if item and item.get(Schema.NAME):
+                    yield item
 
     # ------------------------------------------------------------------ search
 
@@ -288,8 +360,49 @@ class IryouScraper(StaticCrawler):
 
     # ------------------------------------------------------------------ detail
 
+    def _new_session(self) -> requests.Session:
+        """self.session（_setup 相当）と同等設定の新しい Session を生成する。"""
+        s = requests.Session()
+        retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+        s.mount("https://", HTTPAdapter(max_retries=retries))
+        s.mount("http://", HTTPAdapter(max_retries=retries))
+        s.headers.update({"User-Agent": self.USER_AGENT})
+        return s
+
+    def _detail_session(self) -> requests.Session:
+        """
+        詳細取得を行うワーカースレッド専用の Session を返す（スレッドローカル）。
+
+        一覧／検索を保持する self.session のクッキー（SESSION/AWSALB＝検索IDの
+        固定先）を、並行する詳細取得が上書き・撹乱しないよう、スレッドごとに
+        独立したクッキー保存領域を持たせる。詳細ページは URL パラメータだけで
+        完結するステートレスなページのため、検索セッションのクッキーは不要。
+        """
+        s = getattr(self._detail_local, "session", None)
+        if s is None:
+            s = self._new_session()
+            self._detail_local.session = s
+        return s
+
+    def _get_detail_soup(self, url: str) -> bs4.BeautifulSoup | None:
+        """スレッドローカルセッションで詳細ページを取得し Soup を返す（get_soup 相当）。"""
+        session = self._detail_session()
+        try:
+            resp = session.get(url, timeout=self.TIMEOUT)
+            resp.raise_for_status()
+            content_type = resp.headers.get("Content-Type", "")
+            if "charset=" not in content_type.lower():
+                resp.encoding = resp.apparent_encoding
+            return bs4.BeautifulSoup(resp.text, "html.parser")
+        except requests.exceptions.RequestException as e:
+            if self.CONTINUE_ON_ERROR:
+                self.error_count += 1
+                self.logger.warning("通信エラー (スキップして継続): %s — %s", url, e)
+                return None
+            raise
+
     def _scrape_detail(self, url: str) -> dict | None:
-        soup = self.get_soup(url)
+        soup = self._get_detail_soup(url)
         if soup is None:
             return None
 
