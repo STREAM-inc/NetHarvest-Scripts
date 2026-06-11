@@ -2183,3 +2183,10 @@ sites:
     url: "https://www.iryou.teikyouseido.mhlw.go.jp/znk-web/juminkanja/S2300/initialize"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: arukita
+    name: "アルキタ"
+    module: "jobs.arukita"
+    url: "https://www.arukita.com/job_list"
+    schedule: "0 20 10 * *"
+    enabled: true
