@@ -45,8 +45,11 @@
     SESSION / AWSALB クッキー（ロードバランサのスティッキー）と結び付く。
     一方 requests.Session は複数スレッドからの共有がスレッドセーフではなく、
     クッキー保存領域を多数の詳細取得スレッドと共有すると競合の温床になる。
+    また 同一セッションを県跨ぎで使い回すと サーバが先頭県の検索コンテキストを
+    再利用し「北海道しか取れない」頭打ちを招く（_iter_detail_urls 参照）。
     そこでクッキー保存領域を分離する:
-      - 一覧／検索の走査（ステートフル）は メインスレッドの self.session のみで実行。
+      - 一覧／検索の走査（ステートフル）は メインスレッドで、都道府県ごとに新規生成した
+        専用セッションで実行する（検索フォーム root_url を開いて検索コンテキストを初期化）。
       - 詳細取得は ワーカースレッドごとの 専用セッション（スレッドローカル）で実行。
         詳細ページは URL パラメータ（prefCd/kikanCd/kikanKbn）だけで完結する
         ステートレスなページのため、検索セッションのクッキーは一切不要。
@@ -259,27 +262,44 @@ class IryouScraper(StaticCrawler):
         self._detail_local = threading.local()
 
         # 一覧から詳細 URL を逐次生成し、詳細取得は WORKERS 本で並行化して即 yield。
-        # 一覧ページ取得（軽量）はメインスレッドの self.session、詳細取得（重い・件数多い）
-        # は各ワーカー専用のスレッドローカルセッションで実行する（クッキー保存領域を分離）。
-        detail_urls = self._iter_detail_urls(search_url, list_url)
+        # 一覧／検索は都道府県ごとの専用セッション（メインスレッドで生成）、詳細取得
+        # （重い・件数多い）は各ワーカー専用のスレッドローカルセッションで実行する
+        # （クッキー保存領域を分離）。root_url（引数 url）は検索コンテキスト初期化に使う。
+        detail_urls = self._iter_detail_urls(url, search_url, list_url)
         yield from self._fetch_details(detail_urls)
 
-    def _iter_detail_urls(self, search_url: str, list_url: str) -> Generator[str, None, None]:
-        """47都道府県を所在地検索し、全ページをめくって施設詳細 URL を生成する。"""
+    def _iter_detail_urls(self, root_url: str, search_url: str, list_url: str) -> Generator[str, None, None]:
+        """47都道府県を所在地検索し、全ページをめくって施設詳細 URL を生成する。
+
+        ⚠ 「北海道しか取れない（≒先頭県だけ ≈4781件 で頭打ち）」の真因と対策:
+            iryoSearch が返す検索IDは セッションの SESSION/AWSALB（＝サーバ側の検索
+            コンテキスト）に紐づく。先頭県（北海道）で検索コンテキストを確立した後、
+            同一セッションで次県を検索しても、サーバは既存の検索コンテキストを再利用し、
+            2県目以降が北海道の結果を返す → 取得URLが全て seen 済み → new_on_page==0
+            で即 break。結果、ユニーク件数が北海道分だけになり頭打ちになる。
+            対策: 都道府県ごとに専用セッションを用意し、検索フォーム(root_url)を一度
+            開いて検索コンテキストを初期化してから iryoSearch を実行する。これにより
+            各県が独立した検索IDを得て、47県分＝全国を網羅できる。
+        """
         seen: set[str] = set()
         total = 0
 
         for pref in PREFECTURES:
-            search_id = self._fetch_search_id(search_url, pref)
+            # 都道府県ごとに独立した検索コンテキストを得るため、専用セッションで
+            # 検索フォーム(root_url)を開いてから検索する（上記 docstring 参照）。
+            session = self._new_session()
+            self._get_soup(session, root_url)
+            search_id = self._fetch_search_id(session, search_url, pref)
             if not search_id:
                 self.logger.warning("検索ID取得失敗: %s", pref)
                 continue
 
             page = 0
             counted = False
+            pref_new = 0
             while True:
                 page_url = f"{list_url}?id={search_id}&page={page}&sortNo=1"
-                soup = self.get_soup(page_url)
+                soup = self._get_soup(session, page_url)
                 if soup is None:
                     break
 
@@ -304,11 +324,14 @@ class IryouScraper(StaticCrawler):
                         continue
                     seen.add(detail_url)
                     new_on_page += 1
+                    pref_new += 1
                     yield detail_url
 
                 if len(links) < 20 or new_on_page == 0:
                     break
                 page += 1
+
+            self.logger.info("%s: 詳細URL %d 件を抽出", pref, pref_new)
 
     def _fetch_details(self, urls) -> Generator[dict, None, None]:
         """詳細 URL を WORKERS 本で並行取得し、完了したものから yield する。"""
@@ -337,8 +360,12 @@ class IryouScraper(StaticCrawler):
 
     # ------------------------------------------------------------------ search
 
-    def _fetch_search_id(self, search_url: str, pref: str) -> str | None:
-        """所在地（都道府県名）で検索し、結果一覧用の検索IDを取得する"""
+    def _fetch_search_id(self, session: requests.Session, search_url: str, pref: str) -> str | None:
+        """所在地（都道府県名）で検索し、結果一覧用の検索IDを取得する。
+
+        都道府県ごとの専用 session を受け取る（検索コンテキストを県ごとに分離して
+        「北海道しか取れない」頭打ちを防ぐため。詳細は _iter_detail_urls 参照）。
+        """
         params = {
             "iyakuKbn": "1",
             "lang": "ja",
@@ -348,7 +375,7 @@ class IryouScraper(StaticCrawler):
             "keyword": pref,
         }
         try:
-            resp = self.session.get(search_url, params=params, timeout=self.TIMEOUT)
+            resp = session.get(search_url, params=params, timeout=self.TIMEOUT)
             resp.raise_for_status()
             data = resp.json()
             return (data.get("result") or {}).get("id")
@@ -384,9 +411,12 @@ class IryouScraper(StaticCrawler):
             self._detail_local.session = s
         return s
 
-    def _get_detail_soup(self, url: str) -> bs4.BeautifulSoup | None:
-        """スレッドローカルセッションで詳細ページを取得し Soup を返す（get_soup 相当）。"""
-        session = self._detail_session()
+    def _get_soup(self, session: requests.Session, url: str) -> bs4.BeautifulSoup | None:
+        """指定セッションでページを取得し Soup を返す（get_soup 相当）。
+
+        一覧／検索（県ごとの専用セッション）と詳細取得（スレッドローカルセッション）の
+        双方から使う共通ヘルパー。セッションを引数で受けることでクッキー保存領域を分離する。
+        """
         try:
             resp = session.get(url, timeout=self.TIMEOUT)
             resp.raise_for_status()
@@ -400,6 +430,10 @@ class IryouScraper(StaticCrawler):
                 self.logger.warning("通信エラー (スキップして継続): %s — %s", url, e)
                 return None
             raise
+
+    def _get_detail_soup(self, url: str) -> bs4.BeautifulSoup | None:
+        """スレッドローカルセッションで詳細ページを取得し Soup を返す。"""
+        return self._get_soup(self._detail_session(), url)
 
     def _scrape_detail(self, url: str) -> dict | None:
         soup = self._get_detail_soup(url)
