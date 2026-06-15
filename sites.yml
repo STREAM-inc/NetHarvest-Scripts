@@ -2204,3 +2204,10 @@ sites:
     url: "https://demae-can.com/shopDetail"
     schedule: null
     enabled: true
+
+  - site_id: jadma
+    name: "JADMA 正会員一覧"
+    module: "corporate.jadma"
+    url: "https://jadma.or.jp/membercompany/fmember"
+    schedule: null
+    enabled: true
