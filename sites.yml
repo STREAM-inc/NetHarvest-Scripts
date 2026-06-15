@@ -2211,3 +2211,10 @@ sites:
     url: "https://jadma.or.jp/membercompany/fmember"
     schedule: null
     enabled: true
+
+  - site_id: re
+    name: "Re就活"
+    module: "jobs.re"
+    url: "https://re-katsu.jp/career/"
+    schedule: "0 1 * * 6"
+    enabled: true
