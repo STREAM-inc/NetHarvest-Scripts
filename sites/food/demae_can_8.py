@@ -11,17 +11,17 @@
     起点 url = https://demae-can.com/shopDetail  (= sites.yml の url / __main__ の execute 引数)。
     店舗詳細 URL は f"{url}/{shop_id}" で url から直接派生させる。別 URL をハードコードしない。
 
-取得フロー (ID 列挙型 — 一覧ページなし):
-    1. shop_id = 1, 2, 3, ... と順に増加
-    2. f"{url}/{shop_id}" = .../shopDetail/{id} にアクセス
-    3. 有効な店舗ページ (店名あり) → yield、404/エラーページ → スキップ
-    4. 連続 _CONSECUTIVE_MISS_LIMIT 件スキップが続いたら終了
-    ※ 一覧ページが存在しないため ID 直接アクセスで全件を網羅する (備考対応)。
-    ※ 推定件数: ~100,000 件 / ID 上限: _MAX_SHOP_ID (調整可能)
+取得フロー (ID ブロック列挙型 — 一覧ページなし):
+    1. _START_SHOP_ID (3,000,000) から上方向にスキャン開始
+    2. 連続ミスが _BLOCK_MISS_LIMIT に達したらそのブロック終了
+    3. 1,000,000 戻して次ブロックをスキャン (3M→, 2M-3M, 1M-2M, 0-1M の順)
+    4. 取得成功時は INFO ログで店名・都道府県・URL を出力 (取得確認用)
+    ※ 実績 ID 例: 3110319 → 3M 帯を優先探索
+    ※ 一覧ページが存在しないため ID 直接アクセスで全件を網羅する。
 
 注意 (重要):
     - demae-can.com は Akamai WAF 配下。requests ベースは 403 全拒否 → Playwright 必須。
-    - 有効 ID が疎な分布の場合、全件収集に長時間を要する。_CONSECUTIVE_MISS_LIMIT を
+    - 有効 ID が疎な分布の場合、全件収集に長時間を要する。_BLOCK_MISS_LIMIT を
       調整することで早期終了のしきい値を変更できる。
 
 実行方法:
@@ -69,8 +69,12 @@ _SECTION_HEADINGS = {
     "配達員", "店舗からのコメント", "Information", "配達エリア", "店舗からのお知らせ",
 }
 
-# 連続してこの件数だけ invalid だったら終了 (ID が疎な場合は大きくする)
-_CONSECUTIVE_MISS_LIMIT = 100_000
+# ブロック内で連続してこの件数だけ invalid だったらそのブロックを終了
+_BLOCK_MISS_LIMIT = 20_000
+# 探索開始 ID (実績 ID 3110319 が存在する 3M 帯を優先)
+_START_SHOP_ID = 3_000_000
+# ブロックサイズ (連続ミス上限到達後に戻す幅)
+_BLOCK_SIZE = 1_000_000
 # ID 列挙の絶対上限
 _MAX_SHOP_ID = 10_000_000
 
@@ -203,39 +207,82 @@ class DemaeCan8Scraper(DynamicCrawler):
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         """
-        起点 url (= sites.yml の url = .../shopDetail) から ID を 1〜_MAX_SHOP_ID まで
-        順に列挙し、有効な店舗ページのみ即 yield する (早期 yield)。
-        連続 _CONSECUTIVE_MISS_LIMIT 件スキップが続いたら有効 ID 範囲を超えたとみなして終了する。
+        起点 _START_SHOP_ID (3,000,000) から上方向にスキャンし、有効な店舗を即 yield。
+        連続ミスが _BLOCK_MISS_LIMIT に達したら _BLOCK_SIZE (1,000,000) 戻して次ブロックへ。
+        スキャン順: 3M→MAX, 2M→3M-1, 1M→2M-1, 1→1M-1 (重複なし)。
+        取得成功時は INFO ログで店名・都道府県・URL を出力して取得確認できるようにする。
         """
         count = 0
-        consecutive_misses = 0
 
-        for shop_id in range(1, _MAX_SHOP_ID + 1):
-            shop_url = f"{url}/{shop_id}"
-            try:
-                item = self._scrape_shop(shop_url)
-            except Exception as exc:  # noqa: BLE001
-                self.logger.debug("スキップ: %s — %s", shop_url, exc)
-                consecutive_misses += 1
-                if consecutive_misses >= _CONSECUTIVE_MISS_LIMIT:
-                    self.logger.info(
-                        "連続 %d 件 invalid → 終了 (最終 ID: %d)", _CONSECUTIVE_MISS_LIMIT, shop_id
-                    )
-                    break
-                continue
+        # ブロック境界リスト: (block_start, block_end_exclusive) の降順
+        # 3M から上は上限 MAX まで、以降は 1M ずつ下げた範囲を重複なしでカバー
+        blocks: list[tuple[int, int]] = []
+        s = _START_SHOP_ID
+        blocks.append((s, _MAX_SHOP_ID + 1))
+        while s > 1:
+            s -= _BLOCK_SIZE
+            block_start = max(1, s)
+            block_end = s + _BLOCK_SIZE  # = 前ブロックの start (重複なし)
+            blocks.append((block_start, block_end))
 
-            if item and item.get(Schema.NAME):
-                consecutive_misses = 0
-                count += 1
-                self.total_items = count
-                yield item
-            else:
-                consecutive_misses += 1
-                if consecutive_misses >= _CONSECUTIVE_MISS_LIMIT:
+        for block_start, block_end in blocks:
+            self.logger.info(
+                "=== ブロック開始: ID %d 〜 %d ===", block_start, block_end - 1
+            )
+            consecutive_misses = 0
+            block_count = 0
+
+            for shop_id in range(block_start, block_end):
+                shop_url = f"{url}/{shop_id}"
+                try:
+                    item = self._scrape_shop(shop_url)
+                except Exception as exc:  # noqa: BLE001
+                    self.logger.debug("例外スキップ: ID=%d — %s", shop_id, exc)
+                    consecutive_misses += 1
+                    if consecutive_misses % 1_000 == 0:
+                        self.logger.info(
+                            "連続ミス中: ID=%d, 連続=%d件 (ブロック取得=%d件 / 累計=%d件)",
+                            shop_id, consecutive_misses, block_count, count,
+                        )
+                    if consecutive_misses >= _BLOCK_MISS_LIMIT:
+                        self.logger.info(
+                            "連続 %d 件 invalid → ブロック終了 (ID: %d)",
+                            _BLOCK_MISS_LIMIT, shop_id,
+                        )
+                        break
+                    continue
+
+                if item and item.get(Schema.NAME):
+                    consecutive_misses = 0
+                    count += 1
+                    block_count += 1
+                    self.total_items = count
                     self.logger.info(
-                        "連続 %d 件 invalid → 終了 (最終 ID: %d)", _CONSECUTIVE_MISS_LIMIT, shop_id
+                        "✓ 取得 [累計%d件 / ブロック%d件]: %s | %s | %s",
+                        count, block_count,
+                        item[Schema.NAME],
+                        item.get(Schema.PREF, ""),
+                        shop_url,
                     )
-                    break
+                    yield item
+                else:
+                    consecutive_misses += 1
+                    if consecutive_misses % 1_000 == 0:
+                        self.logger.info(
+                            "連続ミス中: ID=%d, 連続=%d件 (ブロック取得=%d件 / 累計=%d件)",
+                            shop_id, consecutive_misses, block_count, count,
+                        )
+                    if consecutive_misses >= _BLOCK_MISS_LIMIT:
+                        self.logger.info(
+                            "連続 %d 件 invalid → ブロック終了 (ID: %d)",
+                            _BLOCK_MISS_LIMIT, shop_id,
+                        )
+                        break
+
+            self.logger.info(
+                "=== ブロック完了: ID %d 〜 %d, 取得 %d 件 (累計 %d 件) ===",
+                block_start, block_end - 1, block_count, count,
+            )
 
         self.total_items = count
 
