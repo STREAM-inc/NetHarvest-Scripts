@@ -2190,3 +2190,10 @@ sites:
     url: "https://www.arukita.com/job_list"
     schedule: "0 20 10 * *"
     enabled: true
+
+  - site_id: kaigoshoku
+    name: "マイナビ介護職"
+    module: "jobs.kaigoshoku"
+    url: "https://kaigoshoku.mynavi.jp/"
+    schedule: null
+    enabled: true
