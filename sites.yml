@@ -2225,3 +2225,10 @@ sites:
     url: "https://it-trend.jp/"
     schedule: "0 23 16 * *"
     enabled: true
+
+  - site_id: boxil
+    name: "BOXIL"
+    module: "portal.boxil"
+    url: "https://boxil.jp/"
+    schedule: "0 20 30 * *"
+    enabled: true
