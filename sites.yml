@@ -2218,3 +2218,10 @@ sites:
     url: "https://re-katsu.jp/career/"
     schedule: "0 1 * * 6"
     enabled: true
+
+  - site_id: it
+    name: "ITトレンド"
+    module: "corporate.it"
+    url: "https://it-trend.jp/"
+    schedule: "0 23 16 * *"
+    enabled: true
