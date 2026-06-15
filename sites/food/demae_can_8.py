@@ -12,12 +12,12 @@
     店舗詳細 URL は f"{url}/{shop_id}" で url から直接派生させる。別 URL をハードコードしない。
 
 取得フロー (ID 列挙型 — 一覧ページなし):
-    1. shop_id = 1,000,000 から順に増加 (実績上 7 桁 ID が大半)
+    1. shop_id = 1, 2, 3, ... と順に増加
     2. f"{url}/{shop_id}" = .../shopDetail/{id} にアクセス
     3. 有効な店舗ページ (店名あり) → yield、404/エラーページ → スキップ
     4. 連続 _CONSECUTIVE_MISS_LIMIT 件スキップが続いたら終了
     ※ 一覧ページが存在しないため ID 直接アクセスで全件を網羅する (備考対応)。
-    ※ 推定件数: ~100,000 件 / ID 開始: _START_SHOP_ID / 上限: _MAX_SHOP_ID (調整可能)
+    ※ 推定件数: ~100,000 件 / ID 上限: _MAX_SHOP_ID (調整可能)
 
 注意 (重要):
     - demae-can.com は Akamai WAF 配下。requests ベースは 403 全拒否 → Playwright 必須。
@@ -70,9 +70,7 @@ _SECTION_HEADINGS = {
 }
 
 # 連続してこの件数だけ invalid だったら終了 (ID が疎な場合は大きくする)
-_CONSECUTIVE_MISS_LIMIT = 2000
-# ID 列挙の開始点 (実績上 7 桁 ID が大半のため 1,000,000 から開始)
-_START_SHOP_ID = 1_000_000
+_CONSECUTIVE_MISS_LIMIT = 100_000
 # ID 列挙の絶対上限
 _MAX_SHOP_ID = 10_000_000
 
@@ -205,14 +203,14 @@ class DemaeCan8Scraper(DynamicCrawler):
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         """
-        起点 url (= sites.yml の url = .../shopDetail) から ID を _START_SHOP_ID〜_MAX_SHOP_ID まで
+        起点 url (= sites.yml の url = .../shopDetail) から ID を 1〜_MAX_SHOP_ID まで
         順に列挙し、有効な店舗ページのみ即 yield する (早期 yield)。
         連続 _CONSECUTIVE_MISS_LIMIT 件スキップが続いたら有効 ID 範囲を超えたとみなして終了する。
         """
         count = 0
         consecutive_misses = 0
 
-        for shop_id in range(_START_SHOP_ID, _MAX_SHOP_ID + 1):
+        for shop_id in range(1, _MAX_SHOP_ID + 1):
             shop_url = f"{url}/{shop_id}"
             try:
                 item = self._scrape_shop(shop_url)
