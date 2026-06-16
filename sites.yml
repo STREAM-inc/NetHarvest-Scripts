@@ -2246,3 +2246,10 @@ sites:
     url: "https://www.zenshukyo.or.jp/memberlist/"
     schedule: "0 9 18 * *"
     enabled: true
+
+  - site_id: softbank
+    name: "ソフトバンクショップ"
+    module: "agency_franchise.softbank"
+    url: "https://www.softbank.jp/shop/search/"
+    schedule: null
+    enabled: true
