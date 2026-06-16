@@ -14,14 +14,18 @@
     店舗詳細 URL は f"{url}/{shop_id}" で url から直接派生させる。
     チェーン一覧等の URL も base (= url のスキーム+ホスト) から派生させ、別ホストをハードコードしない。
 
-取得フロー (チェーンカタログ巡回型):
-    1. base/chain/list ・ base/ ・ base/chain/list/{ジャンル} を起点に /chain/top/{chainId} を収集
-    2. 各 /chain/top/{chainId} ページ (全支店をSSRで列挙) から /shop/menu/{id} の shop_id を収集
-    3. shop_id を重複排除し、robots.txt の Disallow に該当する ID は除外
-    4. 各 /shopDetail/{id} を取得して構造化情報を抽出・yield
+取得フロー (チェーンカタログ + エリア一覧巡回型 / CRAWL_CHAINS・CRAWL_AREAS で切替):
+    1. [チェーン] base/chain/list 系から /chain/top/{chainId} を収集 → 各支店一覧から shop_id
+    2. [エリア]   base/sitemap.xml.gz → address_detail サイトマップ →
+                  /search/delivery/{areaCode} (エリア別の配達可能店一覧、個別店含む) から shop_id
+    3. shop_id をソース横断でグローバル重複排除し、robots.txt Disallow 該当 ID は除外
+    4. 各 /shopDetail/{id} を取得して構造化情報を抽出・yield (見つけ次第ストリーミング)
 
-    ※ 出前館は住所を入力しないと個別 (非チェーン) 店が出ない「住所ゲート」方式のため、
-      住所なしで巡回できる公開カタログ = 実質チェーン店。個別店の網羅は別フロー (GraphQL) が必要。
+    ※ 出前館は住所を入力しないと個別 (非チェーン) 店が出ない「住所ゲート」方式だが、
+      公式サイトマップに /search/delivery/{area} のエリア一覧 URL が列挙されており、これを
+      辿ると個別店も SSR で取得できる (GraphQL 解析は不要)。
+    ※ エリアは丁目レベルで数が膨大なため、エリア間の店舗重複をグローバル排除する。試験運用は
+      AREA_LIMIT で件数を絞れる。
     ※ 旧実装の ID 総当たり (3M〜10M) は非現実的 (数ヶ月 + Akamai 遮断) かつチェーン店しか
       得られなかったため廃止した。
 
@@ -94,6 +98,13 @@ _CHAIN_GENRES = (
     "pizza", "sushi", "don", "curry", "chinese", "hamburger", "youshoku", "box",
 )
 
+# サイトマップ。エリア別配達一覧 (/search/delivery/{areaCode}) を列挙する起点。
+# 個別 (非チェーン) 店もエリア一覧には出るため、全店網羅にはこちらを使う。
+_SITEMAP_URL = "/sitemap.xml.gz"
+# 個別店を含むエリア一覧 sitemap の <loc> 名 (チェーン用 sitemap は除外する)
+_AREA_SITEMAP_KEYWORD = "address_detail"
+_AREA_PATH_PATTERN = re.compile(r"/search/delivery/(\d+)")
+
 # 404/エラーページ判定に使うタイトル文言
 _ERROR_TITLE_PATTERNS = [
     "ページが見つかりません", "お探しのページは", "店舗が見つかりません",
@@ -106,6 +117,16 @@ class DemaeCan8Scraper(DynamicCrawler):
 
     DELAY = 2.0
     CONTINUE_ON_ERROR = True
+
+    # 取得スコープ。
+    #   CRAWL_CHAINS: /chain/list 経由でチェーン店を巡回 (高速・確実)
+    #   CRAWL_AREAS : サイトマップの /search/delivery/{area} 経由で個別店含む全店を巡回
+    #                 (網羅的だがエリア数が膨大で長時間ジョブになる)
+    # 両方 True の場合はチェーン → エリアの順に巡回し shop_id をグローバル重複排除する。
+    CRAWL_CHAINS = True
+    CRAWL_AREAS = True
+    # エリア巡回するエリア数の上限 (None=無制限)。試験運用や地域限定取得に使う。
+    AREA_LIMIT: int | None = None
 
     # Akamai 回避用の launch 設定。bundled chromium は HTTP2/TLS 指紋で弾かれるため
     # 実 Google Chrome (channel="chrome") を優先し、無ければ chromium にフォールバックする。
@@ -354,11 +375,9 @@ class DemaeCan8Scraper(DynamicCrawler):
                     found.add(f"{base}/chain/top/{m.group(1)}")
         return sorted(found)
 
-    def _collect_shop_ids(self, chain_top_url: str) -> list[str]:
-        """/chain/top/{chainId} ページから支店の shop_id を順序保持で収集する。"""
-        soup = self.get_soup(chain_top_url, wait_until="domcontentloaded")
-        if soup is None:
-            return []
+    @staticmethod
+    def _extract_shop_ids(soup) -> list[str]:
+        """ページ内の /shop/menu/{id} ・ /shopDetail/{id} リンクから shop_id を順序保持で抽出。"""
         ids: list[str] = []
         seen: set[str] = set()
         for a in soup.select('a[href*="/shop/menu/"], a[href*="/shopDetail/"]'):
@@ -368,59 +387,144 @@ class DemaeCan8Scraper(DynamicCrawler):
                 ids.append(m.group(1))
         return ids
 
+    def _collect_shop_ids(self, list_url: str) -> list[str]:
+        """店舗一覧ページ (chain/top または search/delivery) から shop_id を収集する。"""
+        soup = self.get_soup(list_url, wait_until="domcontentloaded")
+        if soup is None:
+            return []
+        return self._extract_shop_ids(soup)
+
+    def _fetch_text_via_page(self, abs_url: str) -> str:
+        """ページ内 fetch で URL を取得しテキストを返す (gzip は DecompressionStream で解凍)。
+        Akamai は Playwright 独自スタックの直接 HTTP を弾くため、ブラウザ (Chrome) の
+        fetch を使う。呼び出し前に同一オリジンのページへ遷移済みである必要がある。
+        """
+        js = """
+        async (url) => {
+          const r = await fetch(url, {credentials:'include'});
+          const buf = await r.arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          if (bytes[0]===0x1f && bytes[1]===0x8b) {
+            const ds = new DecompressionStream('gzip');
+            const stream = new Response(buf).body.pipeThrough(ds);
+            return await new Response(stream).text();
+          }
+          return new TextDecoder('utf-8').decode(buf);
+        }
+        """
+        try:
+            return self.page.evaluate(js, abs_url) or ""
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning("sitemap 取得失敗: %s — %s", abs_url, exc)
+            return ""
+
+    def _iter_area_urls(self, base: str) -> Generator[str, None, None]:
+        """サイトマップから個別店を含むエリア一覧 URL (/search/delivery/{area}) を
+        重複排除しつつ列挙する。AREA_LIMIT 件で打ち切る。
+        """
+        index_xml = self._fetch_text_via_page(f"{base}{_SITEMAP_URL}")
+        children = [
+            loc for loc in re.findall(r"<loc>(.*?)</loc>", index_xml)
+            if _AREA_SITEMAP_KEYWORD in loc
+        ]
+        self.logger.info("エリア sitemap: %d 個", len(children))
+
+        seen_area: set[str] = set()
+        emitted = 0
+        for child in children:
+            xml = self._fetch_text_via_page(child)
+            if not xml:
+                continue
+            for loc in re.findall(r"<loc>(.*?)</loc>", xml):
+                m = _AREA_PATH_PATTERN.search(loc)
+                if not m:
+                    continue
+                area = m.group(1)  # ジャンル接尾辞を落としエリア単位で重複排除
+                if area in seen_area:
+                    continue
+                seen_area.add(area)
+                yield f"{base}/search/delivery/{area}"
+                emitted += 1
+                if self.AREA_LIMIT is not None and emitted >= self.AREA_LIMIT:
+                    self.logger.info("AREA_LIMIT (%d) 到達でエリア列挙を打ち切り", self.AREA_LIMIT)
+                    return
+        self.logger.info("エリア URL 列挙完了: %d 件 (distinct area)", emitted)
+
     # ------------------------------------------------------------------ parse
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        """チェーンカタログを巡回し、各支店の /shopDetail/{id} を取得して yield する。
+        """店舗一覧を巡回し、各店の /shopDetail/{id} を取得して yield する。
 
-        1. base/chain/list 系から /chain/top/{chainId} を収集
-        2. 各チェーンの支店 shop_id を収集・重複排除・robots Disallow 除外
-        3. /shopDetail/{id} を取得して構造化情報を yield
+        探索ソース (CRAWL_CHAINS / CRAWL_AREAS で切替):
+          - チェーンカタログ: /chain/list → /chain/top/{chainId} → 支店一覧
+          - エリア一覧: sitemap → /search/delivery/{area} (個別店含む全店)
+        収集した shop_id はソース横断でグローバル重複排除し、見つけ次第ストリーミング取得する。
         """
         base = self._base_url(url)
         disallowed = self._load_disallowed_menu_prefixes(base)
+        # 同一オリジンのページへ遷移してクリアランス確立 (sitemap の in-page fetch に必要)
+        self.get_soup(base, wait_until="domcontentloaded")
 
-        chain_top_urls = self._collect_chain_top_urls(base)
-        self.logger.info("発見したチェーン数: %d", len(chain_top_urls))
-        if not chain_top_urls:
-            self.logger.warning(
-                "チェーンが0件。サイト構造変更か Akamai 遮断の可能性 (base=%s)", base
-            )
+        self._seen_ids: set[str] = set()
+        self._count = 0
 
-        seen_ids: set[str] = set()
-        count = 0
-        for ci, chain_top_url in enumerate(chain_top_urls, 1):
-            shop_ids = self._collect_shop_ids(chain_top_url)
-            self.logger.info(
-                "[チェーン %d/%d] %s — 支店 %d 件",
-                ci, len(chain_top_urls), chain_top_url, len(shop_ids),
-            )
-            for shop_id in shop_ids:
-                if shop_id in seen_ids:
-                    continue
-                seen_ids.add(shop_id)
-                if disallowed and shop_id.startswith(disallowed):
-                    self.logger.debug("robots Disallow によりスキップ: %s", shop_id)
-                    continue
+        # 1. チェーンカタログ (高速・確実)
+        if self.CRAWL_CHAINS:
+            chain_top_urls = self._collect_chain_top_urls(base)
+            self.logger.info("発見したチェーン数: %d", len(chain_top_urls))
+            if not chain_top_urls:
+                self.logger.warning(
+                    "チェーンが0件。サイト構造変更か Akamai 遮断の可能性 (base=%s)", base
+                )
+            for ci, chain_top_url in enumerate(chain_top_urls, 1):
+                shop_ids = self._collect_shop_ids(chain_top_url)
+                self.logger.info(
+                    "[チェーン %d/%d] %s — 支店 %d 件",
+                    ci, len(chain_top_urls), chain_top_url, len(shop_ids),
+                )
+                yield from self._scrape_new_ids(shop_ids, url, disallowed)
 
-                shop_url = f"{url}/{shop_id}"
-                try:
-                    item = self._scrape_shop(shop_url)
-                except Exception as exc:  # noqa: BLE001
-                    self.logger.debug("例外スキップ: %s — %s", shop_url, exc)
-                    continue
+        # 2. エリア一覧 (個別店含む全店)
+        if self.CRAWL_AREAS:
+            for ai, area_url in enumerate(self._iter_area_urls(base), 1):
+                shop_ids = self._collect_shop_ids(area_url)
+                new_ids = [s for s in shop_ids if s not in self._seen_ids]
+                self.logger.info(
+                    "[エリア %d] %s — 店舗 %d 件 (新規 %d)",
+                    ai, area_url, len(shop_ids), len(new_ids),
+                )
+                yield from self._scrape_new_ids(shop_ids, url, disallowed)
 
-                if item and item.get(Schema.NAME):
-                    count += 1
-                    self.total_items = count
-                    self.logger.info(
-                        "✓ 取得 [累計%d件]: %s | %s | %s",
-                        count, item[Schema.NAME], item.get(Schema.PREF, ""), shop_url,
-                    )
-                    yield item
+        self.total_items = self._count
+        self.logger.info("=== 完了: 店舗 %d 件 ===", self._count)
 
-        self.total_items = count
-        self.logger.info("=== 完了: チェーン %d / 店舗 %d 件 ===", len(chain_top_urls), count)
+    def _scrape_new_ids(
+        self, shop_ids: list[str], url: str, disallowed: tuple[str, ...]
+    ) -> Generator[dict, None, None]:
+        """未取得の shop_id だけを /shopDetail から取得して yield する (グローバル重複排除)。"""
+        for shop_id in shop_ids:
+            if shop_id in self._seen_ids:
+                continue
+            self._seen_ids.add(shop_id)
+            if disallowed and shop_id.startswith(disallowed):
+                self.logger.debug("robots Disallow によりスキップ: %s", shop_id)
+                continue
+
+            shop_url = f"{url}/{shop_id}"
+            try:
+                item = self._scrape_shop(shop_url)
+            except Exception as exc:  # noqa: BLE001
+                self.logger.debug("例外スキップ: %s — %s", shop_url, exc)
+                continue
+
+            if item and item.get(Schema.NAME):
+                self._count += 1
+                self.total_items = self._count
+                self.logger.info(
+                    "✓ 取得 [累計%d件]: %s | %s | %s",
+                    self._count, item[Schema.NAME], item.get(Schema.PREF, ""), shop_url,
+                )
+                yield item
 
     # --------------------------------------------------------------- detail
 
