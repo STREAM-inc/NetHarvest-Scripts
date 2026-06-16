@@ -1,28 +1,34 @@
 """
 出前館 (demae-can) — フードデリバリーポータル 店舗スクレイパー
-(demae_can_8 / 起点 = /shopDetail ・ID 列挙型 — 一覧ページなし)
+(demae_can_8 / 起点 = /shopDetail ・チェーンカタログ巡回型)
 
 取得対象 (店舗詳細ページ /shopDetail/{id} を一次ソースに構造化情報のみ抽出):
     - 店舗名 / ジャンル / 都道府県 / 住所 / 郵便番号 / TEL /
       営業時間 / 定休日 / 支払い方法 / 取得URL
     - EXTRA: テイクアウト可否、配達形態
+    ※ 名称は JSON-LD (Restaurant.name) を最優先で抽出する。h1 には店舗カードの
+      価格・評価・送料・キャンペーン文言が混入するため一次ソースにしない。
 
 🔒 URL 一貫性 (SSOT = sites.yml の url):
     起点 url = https://demae-can.com/shopDetail  (= sites.yml の url / __main__ の execute 引数)。
-    店舗詳細 URL は f"{url}/{shop_id}" で url から直接派生させる。別 URL をハードコードしない。
+    店舗詳細 URL は f"{url}/{shop_id}" で url から直接派生させる。
+    チェーン一覧等の URL も base (= url のスキーム+ホスト) から派生させ、別ホストをハードコードしない。
 
-取得フロー (ID ブロック列挙型 — 一覧ページなし):
-    1. _START_SHOP_ID (3,000,000) から上方向にスキャン開始
-    2. 連続ミスが _BLOCK_MISS_LIMIT に達したらそのブロック終了
-    3. 1,000,000 戻して次ブロックをスキャン (3M→, 2M-3M, 1M-2M, 0-1M の順)
-    4. 取得成功時は INFO ログで店名・都道府県・URL を出力 (取得確認用)
-    ※ 実績 ID 例: 3110319 → 3M 帯を優先探索
-    ※ 一覧ページが存在しないため ID 直接アクセスで全件を網羅する。
+取得フロー (チェーンカタログ巡回型):
+    1. base/chain/list ・ base/ ・ base/chain/list/{ジャンル} を起点に /chain/top/{chainId} を収集
+    2. 各 /chain/top/{chainId} ページ (全支店をSSRで列挙) から /shop/menu/{id} の shop_id を収集
+    3. shop_id を重複排除し、robots.txt の Disallow に該当する ID は除外
+    4. 各 /shopDetail/{id} を取得して構造化情報を抽出・yield
+
+    ※ 出前館は住所を入力しないと個別 (非チェーン) 店が出ない「住所ゲート」方式のため、
+      住所なしで巡回できる公開カタログ = 実質チェーン店。個別店の網羅は別フロー (GraphQL) が必要。
+    ※ 旧実装の ID 総当たり (3M〜10M) は非現実的 (数ヶ月 + Akamai 遮断) かつチェーン店しか
+      得られなかったため廃止した。
 
 注意 (重要):
     - demae-can.com は Akamai WAF 配下。requests ベースは 403 全拒否 → Playwright 必須。
-    - 有効 ID が疎な分布の場合、全件収集に長時間を要する。_BLOCK_MISS_LIMIT を
-      調整することで早期終了のしきい値を変更できる。
+    - 利用規約 第12条(14) 営業妨害の懸念があるため DELAY を確保し高頻度アクセスを避ける。
+    - robots.txt の /shop/menu/{id} Disallow をランタイムで読み取り尊重する。
 
 実行方法:
     # ローカルテスト
@@ -37,6 +43,8 @@ import re
 import sys
 from pathlib import Path
 from typing import Generator
+
+from playwright.sync_api import sync_playwright
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -56,6 +64,16 @@ _PREF_PATTERN = re.compile(
 _POSTCODE_PATTERN = re.compile(r"\d{3}-?\d{4}")
 _TAKEOUT_PATTERN = re.compile(r"テイクアウト|お持ち帰り|お持帰り|持ち帰り")
 
+# h1 フォールバック時に「店舗カード等の UI テキスト混入」を弾くための語/パターン。
+# 例: "お店価格＋送料無料対象ピザーラ 盛岡店4.560分送料0円夏のプレミアム！"
+_NAME_JUNK_TOKENS = (
+    "送料", "クーポン", "ポイント", "無料対象", "お店価格", "最低注文",
+    "キャンペーン", "プレミアム", "今だけ", "％OFF", "%OFF", "円～", "円〜",
+)
+_NAME_JUNK_PATTERN = re.compile(r"\d\.\d|\d+\s*円|\d+\s*分")  # 評価4.5 / 送料0円 / 60分 等
+# エラー/404 ページで h1 や title に現れる文言
+_ERROR_NAME_VALUES = {"エラー", "Error", "404"}
+
 _PAYMENT_NAMES = {
     "visa": "VISA", "master": "Master", "jcb": "JCB", "amex": "AMEX",
     "diners": "Diners", "amazon": "Amazon Pay", "paypay": "PayPay",
@@ -67,16 +85,14 @@ _PAYMENT_NAMES = {
 _SECTION_HEADINGS = {
     "営業時間", "定休日", "住所", "ご利用できるお支払い方法", "お支払い方法",
     "配達員", "店舗からのコメント", "Information", "配達エリア", "店舗からのお知らせ",
+    "最低注文条件", "最低注文金額", "ジャンル", "電話番号",
 }
 
-# ブロック内で連続してこの件数だけ invalid だったらそのブロックを終了
-_BLOCK_MISS_LIMIT = 20_000
-# 探索開始 ID (実績 ID 3110319 が存在する 3M 帯を優先)
-_START_SHOP_ID = 3_000_000
-# ブロックサイズ (連続ミス上限到達後に戻す幅)
-_BLOCK_SIZE = 1_000_000
-# ID 列挙の絶対上限
-_MAX_SHOP_ID = 10_000_000
+# チェーン一覧のジャンル (base/chain/list/{genre})。/chain/list の動的発見が
+# 失敗した場合のフォールバック兼初期シード。
+_CHAIN_GENRES = (
+    "pizza", "sushi", "don", "curry", "chinese", "hamburger", "youshoku", "box",
+)
 
 # 404/エラーページ判定に使うタイトル文言
 _ERROR_TITLE_PATTERNS = [
@@ -86,15 +102,57 @@ _ERROR_TITLE_PATTERNS = [
 
 
 class DemaeCan8Scraper(DynamicCrawler):
-    """出前館 (demae-can) スクレイパー — /shopDetail 起点・ID 列挙型"""
+    """出前館 (demae-can) スクレイパー — /shopDetail 起点・チェーンカタログ巡回型"""
 
     DELAY = 2.0
     CONTINUE_ON_ERROR = True
+
+    # Akamai 回避用の launch 設定。bundled chromium は HTTP2/TLS 指紋で弾かれるため
+    # 実 Google Chrome (channel="chrome") を優先し、無ければ chromium にフォールバックする。
+    _LAUNCH_ARGS = ["--disable-blink-features=AutomationControlled", "--no-sandbox"]
+    _EXTRA_HEADERS = {
+        "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                  "image/avif,image/webp,*/*;q=0.8",
+    }
 
     EXTRA_COLUMNS = [
         "テイクアウト可",   # テキスト/JSON-LD 検出: 記載があれば "可"
         "配達形態",        # 「配達員」セクションの値 (例: 出前館スタッフ)
     ]
+
+    # ------------------------------------------------------------------ setup
+
+    def _setup(self):
+        """Playwright を起動する。demae-can は Akamai WAF 配下で bundled chromium の
+        HTTP2/TLS 指紋を拒否 (ERR_HTTP2_PROTOCOL_ERROR) するため、実 Google Chrome を
+        優先利用する。Chrome 不在環境では chromium にフォールバックする
+        (その場合 Akamai に弾かれて取得 0 件になりうる点に注意)。
+        """
+        self.playwright = sync_playwright().start()
+        try:
+            self.browser = self.playwright.chromium.launch(
+                headless=True, channel="chrome", args=self._LAUNCH_ARGS,
+            )
+            self.logger.info("ブラウザ起動: Google Chrome (channel=chrome)")
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(
+                "Chrome 起動失敗のため bundled chromium にフォールバック "
+                "(Akamai に弾かれる可能性あり): %s", exc,
+            )
+            self.browser = self.playwright.chromium.launch(
+                headless=True, args=self._LAUNCH_ARGS,
+            )
+        self.context = self.browser.new_context(
+            user_agent=self.USER_AGENT,
+            locale="ja-JP",
+            extra_http_headers=self._EXTRA_HEADERS,
+        )
+        # navigator.webdriver を隠蔽 (自動化検知の緩和)
+        self.context.add_init_script(
+            "Object.defineProperty(navigator,'webdriver',{get:()=>undefined})"
+        )
+        self.page = self.context.new_page()
 
     # ------------------------------------------------------------------ utils
 
@@ -182,6 +240,43 @@ class DemaeCan8Scraper(DynamicCrawler):
             n = m.group(1)
         return n.strip()
 
+    @staticmethod
+    def _restaurant_ld(jsonld_dicts: list[dict]) -> dict | None:
+        """JSON-LD から Restaurant (店舗) ブロックを返す。無ければ None。"""
+        for d in jsonld_dicts:
+            if d.get("@type") == "Restaurant" and isinstance(d.get("name"), str) and d["name"].strip():
+                return d
+        return None
+
+    @staticmethod
+    def _name_from_breadcrumb(jsonld_dicts: list[dict]) -> str:
+        """BreadcrumbList の末尾から店舗名を拾う。
+        末尾が「〜の店舗詳細」(店舗詳細ページ署名) の場合のみ採用し、その接尾辞を除去する。
+        非店舗ページ (chain/list 等) のパンくず末尾はこの署名を持たないため除外される。
+        """
+        for d in jsonld_dicts:
+            if d.get("@type") != "BreadcrumbList":
+                continue
+            items = d.get("itemListElement")
+            if not isinstance(items, list) or not items:
+                continue
+            last = items[-1]
+            nm = last.get("name") if isinstance(last, dict) else None
+            if isinstance(nm, str) and nm.strip().endswith("の店舗詳細"):
+                return re.sub(r"\s*の店舗詳細$", "", nm.strip())
+        return ""
+
+    @classmethod
+    def _looks_like_junk(cls, name: str) -> bool:
+        """店舗カード等の UI テキストを巻き込んだ名称かどうかを判定する。"""
+        if not name or name in _ERROR_NAME_VALUES:
+            return True
+        if any(tok in name for tok in _NAME_JUNK_TOKENS):
+            return True
+        if _NAME_JUNK_PATTERN.search(name):
+            return True
+        return len(name) > 60
+
     @classmethod
     def _detect_takeout(cls, soup, jsonld_dicts: list[dict], page_text: str) -> str:
         for d in jsonld_dicts:
@@ -203,88 +298,129 @@ class DemaeCan8Scraper(DynamicCrawler):
             return "可"
         return ""
 
+    # --------------------------------------------------------------- catalog
+
+    @staticmethod
+    def _base_url(url: str) -> str:
+        """url からスキーム+ホスト (例: https://demae-can.com) を取り出す。"""
+        m = re.match(r"(https?://[^/]+)", url)
+        return m.group(1) if m else url.rstrip("/")
+
+    def _load_disallowed_menu_prefixes(self, base: str) -> tuple[str, ...]:
+        """robots.txt を読み、/shop/menu/ ・ /shopDetail/ の Disallow を ID 接頭辞集合として返す。
+        取得失敗時は空 (= 除外なし) を返す。
+        """
+        soup = self.get_soup(f"{base}/robots.txt", wait_until="domcontentloaded")
+        if soup is None:
+            self.logger.warning("robots.txt 取得失敗 — Disallow 判定をスキップ")
+            return ()
+        text = soup.get_text("\n")
+        prefixes: set[str] = set()
+        for line in text.splitlines():
+            line = line.strip()
+            if not line.lower().startswith("disallow:"):
+                continue
+            path = line.split(":", 1)[1].strip()
+            m = re.search(r"/(?:shop/menu|shopDetail)/(\d+)", path)
+            if m:
+                prefixes.add(m.group(1))
+        self.logger.info("robots.txt Disallow 店舗ID 接頭辞: %d 件", len(prefixes))
+        return tuple(sorted(prefixes))
+
+    def _collect_chain_top_urls(self, base: str) -> list[str]:
+        """チェーン一覧系ページから /chain/top/{chainId} URL を収集する。"""
+        seeds = [f"{base}/chain/list", f"{base}/"]
+        seeds += [f"{base}/chain/list/{g}" for g in _CHAIN_GENRES]
+
+        found: set[str] = set()
+        visited: set[str] = set()
+        for seed in seeds:
+            if seed in visited:
+                continue
+            visited.add(seed)
+            soup = self.get_soup(seed, wait_until="domcontentloaded")
+            if soup is None:
+                continue
+            # ジャンル一覧ページを動的に発見してシードに追加
+            for a in soup.select('a[href*="/chain/list/"]'):
+                href = a.get("href") or ""
+                full = href if href.startswith("http") else f"{base}{href}"
+                if "/chain/list/" in full and full not in visited:
+                    seeds.append(full)
+            # チェーン詳細 (全支店を列挙するページ) を収集
+            for a in soup.select('a[href*="/chain/top/"]'):
+                m = re.search(r"/chain/top/(\d+)", a.get("href") or "")
+                if m:
+                    found.add(f"{base}/chain/top/{m.group(1)}")
+        return sorted(found)
+
+    def _collect_shop_ids(self, chain_top_url: str) -> list[str]:
+        """/chain/top/{chainId} ページから支店の shop_id を順序保持で収集する。"""
+        soup = self.get_soup(chain_top_url, wait_until="domcontentloaded")
+        if soup is None:
+            return []
+        ids: list[str] = []
+        seen: set[str] = set()
+        for a in soup.select('a[href*="/shop/menu/"], a[href*="/shopDetail/"]'):
+            m = re.search(r"/(?:shop/menu|shopDetail)/(\d+)", a.get("href") or "")
+            if m and m.group(1) not in seen:
+                seen.add(m.group(1))
+                ids.append(m.group(1))
+        return ids
+
     # ------------------------------------------------------------------ parse
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        """
-        起点 _START_SHOP_ID (3,000,000) から上方向にスキャンし、有効な店舗を即 yield。
-        連続ミスが _BLOCK_MISS_LIMIT に達したら _BLOCK_SIZE (1,000,000) 戻して次ブロックへ。
-        スキャン順: 3M→MAX, 2M→3M-1, 1M→2M-1, 1→1M-1 (重複なし)。
-        取得成功時は INFO ログで店名・都道府県・URL を出力して取得確認できるようにする。
-        """
-        count = 0
+        """チェーンカタログを巡回し、各支店の /shopDetail/{id} を取得して yield する。
 
-        # ブロック境界リスト: (block_start, block_end_exclusive) の降順
-        # 3M から上は上限 MAX まで、以降は 1M ずつ下げた範囲を重複なしでカバー
-        blocks: list[tuple[int, int]] = []
-        s = _START_SHOP_ID
-        blocks.append((s, _MAX_SHOP_ID + 1))
-        while s > 1:
-            s -= _BLOCK_SIZE
-            block_start = max(1, s)
-            block_end = s + _BLOCK_SIZE  # = 前ブロックの start (重複なし)
-            blocks.append((block_start, block_end))
+        1. base/chain/list 系から /chain/top/{chainId} を収集
+        2. 各チェーンの支店 shop_id を収集・重複排除・robots Disallow 除外
+        3. /shopDetail/{id} を取得して構造化情報を yield
+        """
+        base = self._base_url(url)
+        disallowed = self._load_disallowed_menu_prefixes(base)
 
-        for block_start, block_end in blocks:
-            self.logger.info(
-                "=== ブロック開始: ID %d 〜 %d ===", block_start, block_end - 1
+        chain_top_urls = self._collect_chain_top_urls(base)
+        self.logger.info("発見したチェーン数: %d", len(chain_top_urls))
+        if not chain_top_urls:
+            self.logger.warning(
+                "チェーンが0件。サイト構造変更か Akamai 遮断の可能性 (base=%s)", base
             )
-            consecutive_misses = 0
-            block_count = 0
 
-            for shop_id in range(block_start, block_end):
+        seen_ids: set[str] = set()
+        count = 0
+        for ci, chain_top_url in enumerate(chain_top_urls, 1):
+            shop_ids = self._collect_shop_ids(chain_top_url)
+            self.logger.info(
+                "[チェーン %d/%d] %s — 支店 %d 件",
+                ci, len(chain_top_urls), chain_top_url, len(shop_ids),
+            )
+            for shop_id in shop_ids:
+                if shop_id in seen_ids:
+                    continue
+                seen_ids.add(shop_id)
+                if disallowed and shop_id.startswith(disallowed):
+                    self.logger.debug("robots Disallow によりスキップ: %s", shop_id)
+                    continue
+
                 shop_url = f"{url}/{shop_id}"
                 try:
                     item = self._scrape_shop(shop_url)
                 except Exception as exc:  # noqa: BLE001
-                    self.logger.debug("例外スキップ: ID=%d — %s", shop_id, exc)
-                    consecutive_misses += 1
-                    if consecutive_misses % 1_000 == 0:
-                        self.logger.info(
-                            "連続ミス中: ID=%d, 連続=%d件 (ブロック取得=%d件 / 累計=%d件)",
-                            shop_id, consecutive_misses, block_count, count,
-                        )
-                    if consecutive_misses >= _BLOCK_MISS_LIMIT:
-                        self.logger.info(
-                            "連続 %d 件 invalid → ブロック終了 (ID: %d)",
-                            _BLOCK_MISS_LIMIT, shop_id,
-                        )
-                        break
+                    self.logger.debug("例外スキップ: %s — %s", shop_url, exc)
                     continue
 
                 if item and item.get(Schema.NAME):
-                    consecutive_misses = 0
                     count += 1
-                    block_count += 1
                     self.total_items = count
                     self.logger.info(
-                        "✓ 取得 [累計%d件 / ブロック%d件]: %s | %s | %s",
-                        count, block_count,
-                        item[Schema.NAME],
-                        item.get(Schema.PREF, ""),
-                        shop_url,
+                        "✓ 取得 [累計%d件]: %s | %s | %s",
+                        count, item[Schema.NAME], item.get(Schema.PREF, ""), shop_url,
                     )
                     yield item
-                else:
-                    consecutive_misses += 1
-                    if consecutive_misses % 1_000 == 0:
-                        self.logger.info(
-                            "連続ミス中: ID=%d, 連続=%d件 (ブロック取得=%d件 / 累計=%d件)",
-                            shop_id, consecutive_misses, block_count, count,
-                        )
-                    if consecutive_misses >= _BLOCK_MISS_LIMIT:
-                        self.logger.info(
-                            "連続 %d 件 invalid → ブロック終了 (ID: %d)",
-                            _BLOCK_MISS_LIMIT, shop_id,
-                        )
-                        break
-
-            self.logger.info(
-                "=== ブロック完了: ID %d 〜 %d, 取得 %d 件 (累計 %d 件) ===",
-                block_start, block_end - 1, block_count, count,
-            )
 
         self.total_items = count
+        self.logger.info("=== 完了: チェーン %d / 店舗 %d 件 ===", len(chain_top_urls), count)
 
     # --------------------------------------------------------------- detail
 
@@ -308,35 +444,55 @@ class DemaeCan8Scraper(DynamicCrawler):
         jsonld_dicts = list(self._iter_jsonld(soup))
         lines = self._lines(soup)
 
-        # --- 名称 ---
-        name = self._first_text(
-            soup, ["h1", '[class*="shopName" i]', '[class*="storeName" i]']
-        )
-        if not name and title_el:
-            name = title_text
-        name = self._clean_name(name)
+        # --- 名称 (JSON-LD Restaurant.name を最優先) ---
+        # 店舗カードの価格・評価・送料・キャンペーン文言が h1/見出しに混入するため、
+        # 構造化データ (JSON-LD / パンくず) を一次ソースにし、h1 は最終手段かつ
+        # junk 判定で弾く。これにより名称ゴミと 404「エラー」行の混入を防ぐ。
+        restaurant_ld = self._restaurant_ld(jsonld_dicts)
+        name = restaurant_ld["name"].strip() if restaurant_ld else ""
         if not name:
-            for d in jsonld_dicts:
-                if isinstance(d.get("name"), str) and d["name"].strip():
-                    name = d["name"].strip()
-                    break
+            name = self._name_from_breadcrumb(jsonld_dicts)
         if not name:
-            return None  # 店名なし = 有効な店舗ページではない
+            # h1 フォールバックは「〜の店舗詳細」という詳細ページ署名がある場合のみ採用。
+            # これがないと chain/list 等の非店舗ページの h1 を誤って拾う。
+            raw = self._first_text(soup, ["h1"])
+            if raw.endswith("の店舗詳細"):
+                cleaned = self._clean_name(raw)
+                if not self._looks_like_junk(cleaned):
+                    name = cleaned
+        if not name:
+            return None  # 構造化された店名なし = 有効な店舗ページではない (404/エラー含む)
 
-        # --- ジャンル ---
-        cuisine = self._extract_genre(soup, self._first_text(soup, ["h1"]) or name)
+        # --- ジャンル (JSON-LD servesCuisine 優先) ---
+        cuisine = ""
+        if restaurant_ld and isinstance(restaurant_ld.get("servesCuisine"), str):
+            cuisine = restaurant_ld["servesCuisine"].strip()
+        if not cuisine:
+            cuisine = self._extract_genre(soup, self._first_text(soup, ["h1"]) or name)
 
         # --- 各セクション (見出しベース抽出) ---
         hours = self._section_value(lines, "営業時間")
         holiday = self._section_value(lines, "定休日")
-        address = self._section_value(lines, "住所")
         delivery_form = self._section_value(lines, "配達員")
 
+        # --- 住所 (JSON-LD Restaurant.address を最優先) ---
+        address = ""
+        if restaurant_ld:
+            addr = restaurant_ld.get("address")
+            if isinstance(addr, str):
+                address = addr.strip()
+            elif isinstance(addr, dict):
+                address = "".join(
+                    (addr.get(k) or "").strip()
+                    for k in ("addressRegion", "addressLocality", "streetAddress")
+                )
+        if not address:
+            address = self._section_value(lines, "住所")
         if not address:
             address = self._first_text(
                 soup, ['[class*="address" i]', '[itemprop="address"]']
             )
-        # JSON-LD フォールバック
+        # JSON-LD フォールバック (Restaurant 以外のブロック)
         if not address:
             for d in jsonld_dicts:
                 addr = d.get("address")
