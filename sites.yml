@@ -2202,7 +2202,7 @@ sites:
     name: "出前館"
     module: "food.demae_can_8"
     url: "https://demae-can.com/shopDetail"
-    schedule: null
+    schedule: "0 1 1 * *"
     enabled: true
 
   - site_id: jadma
