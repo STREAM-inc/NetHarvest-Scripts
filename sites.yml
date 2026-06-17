@@ -2260,3 +2260,10 @@ sites:
     url: "https://www5.techno-aids.or.jp/shop/map.php"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: ii_ie2
+    name: "いい家ネット"
+    module: "construction.ii_ie2"
+    url: "https://www.ii-ie2.net/koumuten"
+    schedule: null
+    enabled: true
