@@ -2267,3 +2267,10 @@ sites:
     url: "https://www.ii-ie2.net/koumuten"
     schedule: null
     enabled: true
+
+  - site_id: p_portal
+    name: "調達ポータル"
+    module: "government.p_portal"
+    url: "https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103"
+    schedule: "0 9 1 * *"
+    enabled: true
