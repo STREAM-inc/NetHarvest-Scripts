@@ -2239,3 +2239,31 @@ sites:
     url: "https://ja.nc-net.or.jp/?cntry=999"
     schedule: "0 18 1 * *"
     enabled: true
+
+  - site_id: zenshukyo
+    name: "全日本宗教用具協同組合(仏具)"
+    module: "government.zenshukyo"
+    url: "https://www.zenshukyo.or.jp/memberlist/"
+    schedule: "0 9 18 * *"
+    enabled: true
+
+  - site_id: softbank
+    name: "ソフトバンクショップ"
+    module: "agency_franchise.softbank"
+    url: "https://www.softbank.jp/shop/search/"
+    schedule: null
+    enabled: true
+
+  - site_id: www5
+    name: "認定補聴器専門店認定システム"
+    module: "medical.www5"
+    url: "https://www5.techno-aids.or.jp/shop/map.php"
+    schedule: "0 9 1 * *"
+    enabled: true
+
+  - site_id: ii_ie2
+    name: "いい家ネット"
+    module: "construction.ii_ie2"
+    url: "https://www.ii-ie2.net/koumuten"
+    schedule: null
+    enabled: true
