@@ -2253,3 +2253,10 @@ sites:
     url: "https://www.softbank.jp/shop/search/"
     schedule: null
     enabled: true
+
+  - site_id: www5
+    name: "認定補聴器専門店認定システム"
+    module: "medical.www5"
+    url: "https://www5.techno-aids.or.jp/shop/map.php"
+    schedule: "0 9 1 * *"
+    enabled: true
