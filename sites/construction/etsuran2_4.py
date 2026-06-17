@@ -87,7 +87,7 @@ import threading
 import unicodedata
 from pathlib import Path
 from typing import Dict, Generator, List, Optional, Set, Tuple
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse, parse_qs
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
@@ -425,11 +425,10 @@ def parse_industry_table_numbers(soup: BeautifulSoup) -> Dict[str, str]:
     res = {abbr: "" for abbr in ABBR_COLUMNS}
 
     def num_to_label(s: str) -> str:
+        # 1=一般建設業, 2=特定建設業 — 数値コードのまま保持（文字列変換なし）
         s = re.sub(r"\s+", "", s)
-        if s == "1":
-            return "一般"
-        if s == "2":
-            return "特定"
+        if s in ("1", "2"):
+            return s
         return ""
 
     cand_tables = []
@@ -473,16 +472,78 @@ def parse_industry_table_numbers(soup: BeautifulSoup) -> Dict[str, str]:
     return res
 
 
-def parse_overview(html: str) -> Dict[str, str]:
-    soup = BeautifulSoup(html, "html.parser")
+def parse_offices_table(soup: BeautifulSoup) -> List[Dict[str, str]]:
+    """営業所・事業所テーブルをパースして各行の辞書リストを返す。
+
+    Returns list of dicts with keys:
+      営業所名, 営業所_郵便番号, 営業所_所在地, 営業所_電話番号
+    """
+    offices: List[Dict[str, str]] = []
+    for tbl in soup.find_all("table"):
+        rows = tbl.find_all("tr")
+        if len(rows) < 2:
+            continue
+        header_cells: Optional[List[str]] = None
+        header_idx = -1
+        for i, tr in enumerate(rows):
+            cells = tr.find_all(["th", "td"])
+            texts = [norm(c.get_text(" ")) for c in cells]
+            if any(re.search(r"営業所名|事業所名", t) for t in texts):
+                joined = " ".join(texts)
+                if re.search(r"所在地|住所|電話|郵便", joined):
+                    header_cells = texts
+                    header_idx = i
+                    break
+        if header_cells is None:
+            continue
+        for tr in rows[header_idx + 1:]:
+            cells = tr.find_all(["th", "td"])
+            if not cells:
+                continue
+            values = [norm(c.get_text(" ")) for c in cells]
+            if not any(v for v in values):
+                continue
+            if len(values) < len(header_cells):
+                values += [""] * (len(header_cells) - len(values))
+            office: Dict[str, str] = {}
+            for j, key in enumerate(header_cells):
+                if j >= len(values):
+                    break
+                val = values[j]
+                if re.search(r"営業所名|事業所名", key):
+                    office["営業所名"] = val
+                elif re.search(r"郵便", key):
+                    office["営業所_郵便番号"] = re.sub(r"[〒\s]", "", val)
+                elif re.search(r"所在地|住所", key):
+                    office["営業所_所在地"] = val
+                elif re.search(r"電話|ＴＥＬ|TEL", key):
+                    office["営業所_電話番号"] = val
+            for k in ["営業所名", "営業所_郵便番号", "営業所_所在地", "営業所_電話番号"]:
+                office.setdefault(k, "")
+            if office.get("営業所名"):
+                offices.append(office)
+        if offices:
+            return offices
+    return offices
+
+
+def parse_company_overview_soup(soup: BeautifulSoup) -> Dict[str, str]:
+    """業者概要タブの情報をパースして返す。
+
+    本社の所在地・電話は 本社_* キーで格納する。
+    Schema.ADDR / Schema.TEL / Schema.POST_CODE / Schema.PREF は
+    呼び出し側 (parse_detail_rows) が営業所情報で設定する。
+    """
     row: Dict[str, str] = {}
 
     td = find_value_cell_by_label(soup, r"^許可番号$")
     row["許可番号"] = norm(td.get_text(" ")) if td else ""
+    row["許可区分凡例"] = "1:一般建設業 2:特定建設業"
 
     td = find_value_cell_by_label(soup, r"(商号又は名称|名称)")
     kana, name = split_phonetic_cell(td)
     row[Schema.NAME] = name
+    row["商号"] = name  # 名寄せ用: 商号単体
     row[Schema.NAME_KANA] = kana
 
     td = find_value_cell_by_label(soup, r"代表者")
@@ -492,15 +553,16 @@ def parse_overview(html: str) -> Dict[str, str]:
     td = find_value_cell_by_label(soup, r"(所在地|住所)")
     raw_addr = norm(td.get_text(" ")) if td else ""
     mzip = re.search(r"(?:〒\s*)?(\d{3}-\d{4})", raw_addr)
-    row[Schema.POST_CODE] = mzip.group(1) if mzip else ""
+    hq_post = mzip.group(1) if mzip else ""
     addr_wo_zip = re.sub(r"(?:〒\s*)?\d{3}-\d{4}", "", raw_addr).strip()
-    row[Schema.ADDR] = re.sub(r"\s+", " ", addr_wo_zip)
-    m_pref = PREF_PAT.search(row[Schema.ADDR])
-    row[Schema.PREF] = m_pref.group(1) if m_pref else ""
+    hq_addr = re.sub(r"\s+", " ", addr_wo_zip)
+    m_pref = PREF_PAT.search(hq_addr)
+    row["本社_郵便番号"] = hq_post
+    row["本社_所在地"] = hq_addr
+    row["本社_都道府県"] = m_pref.group(1) if m_pref else ""
 
     td = find_value_cell_by_label(soup, r"(電話番号|TEL)")
-    # TEL の全角→半角正規化は Pipeline 側が自動処理するため生値を渡す
-    row[Schema.TEL] = norm(td.get_text(" ")) if td else ""
+    row["本社_電話番号"] = norm(td.get_text(" ")) if td else ""
 
     td = find_value_cell_by_label(soup, r"(法人・個人区分|法人・個人の別|法人・個人)")
     row["法人・個人区分"] = norm(td.get_text(" ")) if td else ""
@@ -517,10 +579,50 @@ def parse_overview(html: str) -> Dict[str, str]:
     row.update(parse_industry_table_numbers(soup))
     row.update(parse_insurance(soup))
 
-    # 「許可を受けた建設業の種類」セクションの先頭(土)区分。略号 土 と同値。
-    row["許可を受けた建設業の種類(土)"] = row.get("土", "")
-
     return row
+
+
+def parse_detail_rows(html: str, detail_url: str) -> List[Dict[str, str]]:
+    """詳細HTMLをパースして営業所単位の行リストを返す。
+
+    各行には業者概要タブの情報が付与される。
+    営業所テーブルが取得できない場合は本社情報で 1 行を出力（フォールバック）。
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    company = parse_company_overview_soup(soup)
+    offices = parse_offices_table(soup)
+
+    company_name = company.get(Schema.NAME, "")
+    hq_post = company.get("本社_郵便番号", "")
+    hq_addr = company.get("本社_所在地", "")
+    hq_pref = company.get("本社_都道府県", "")
+    hq_tel = company.get("本社_電話番号", "")
+
+    def make_row(office_name: str, o_post: str, o_addr: str, o_tel: str) -> Dict[str, str]:
+        r = dict(company)
+        r["営業所名"] = office_name
+        r["商号_営業所"] = f"{company_name}　{office_name}".strip() if office_name else company_name
+        m = PREF_PAT.search(o_addr)
+        r[Schema.POST_CODE] = o_post
+        r[Schema.ADDR] = o_addr
+        r[Schema.PREF] = m.group(1) if m else hq_pref
+        r[Schema.TEL] = o_tel
+        r[Schema.URL] = detail_url
+        return r
+
+    if offices:
+        return [
+            make_row(
+                o.get("営業所名", ""),
+                o.get("営業所_郵便番号", ""),
+                o.get("営業所_所在地", ""),
+                o.get("営業所_電話番号", ""),
+            )
+            for o in offices
+        ]
+
+    # フォールバック: 営業所テーブルなし → 本社情報で 1 行
+    return [make_row("", hq_post, hq_addr, hq_tel)]
 
 
 # ====================== チェックポイント / 進捗 ======================
@@ -590,12 +692,19 @@ class Etsuran24Scraper(StaticCrawler):
 
     EXTRA_COLUMNS = [
         "許可番号",
+        "許可区分凡例",      # 1:一般建設業 2:特定建設業
+        "商号",              # 名寄せ用: 商号単体
+        "商号_営業所",       # 名寄せ用: 商号＋営業所名
+        "営業所名",
+        "本社_郵便番号",
+        "本社_所在地",
+        "本社_都道府県",
+        "本社_電話番号",
         "法人・個人区分",
         "建設業以外の兼業の有無",
         "保険加入状況(健康)",
         "保険加入状況(年金)",
         "保険加入状況(雇用)",
-        "許可を受けた建設業の種類(土)",
     ] + ABBR_COLUMNS + [
         "許可の有効期間",
     ]
@@ -609,15 +718,9 @@ class Etsuran24Scraper(StaticCrawler):
             "Accept-Language": "ja,en;q=0.9",
         })
 
-        # 取得済み許可番号の重複防止セット（チェックポイントから復元され、再開をまたいで
-        # 一意性を保証する durable な集合）。所在地分割では 1 業者が複数都道府県に営業所を
-        # 持つと複数回ヒットするため、許可番号で 1 業者 1 行に集約する。
-        self._seen_licenses: Set[str] = set()
-
-        # ShowDetail の license_no(=ID) で「取得前」に重複を弾くための in-memory 集合。
-        # ID は 大臣=00xxxxxx / 知事=<県コード>xxxxxx で全国一意なので、同一業者が別の
-        # 都道府県検索で再出現しても詳細を二度取得せずに済む（無駄な GET を削減）。
-        # ※ 再開時は seed しない（許可番号側の集約で正しさは担保される。これは効率化のみ）。
+        # ShowDetail の license_no(=ID) で取得前重複を弾く in-memory 集合。
+        # 同一業者が複数都道府県検索にヒットしても詳細 GET を 1 度で済ませる。
+        # 再開時はチェックポイント行の URL から sv_licenseNo を取り出して seed する。
         self._seen_ids: Set[str] = set()
 
         checkpoint_rows = get_checkpoint_rows()
@@ -625,9 +728,14 @@ class Etsuran24Scraper(StaticCrawler):
         if self._already_done > 0:
             self.logger.info("[RESUME] チェックポイント %d 件を引継ぎ", self._already_done)
             for row in checkpoint_rows:
-                key = row.get("許可番号") or ""
-                if key:
-                    self._seen_licenses.add(key)
+                url = row.get(Schema.URL, "")
+                if url:
+                    try:
+                        did = parse_qs(urlparse(url).query).get("sv_licenseNo", [""])[0]
+                        if did:
+                            self._seen_ids.add(did)
+                    except Exception:
+                        pass
                 self.pipeline.process_item(dict(row))
 
     def _search_prefecture(self, ken: str) -> Optional[str]:
@@ -670,10 +778,8 @@ class Etsuran24Scraper(StaticCrawler):
         return None
 
     def _process_ids(self, detail_ids: List[str], epoch: int) -> List[dict]:
-        """detail_ids を並列取得・パースし、未取得の行リストを返す（yield は呼び出し側）。"""
-        # 既取得の許可番号に対応する ID は事前に除外できないが（ID と許可番号は別物のため）、
-        # パース後に許可番号で重複判定する。
-        rows: List[dict] = []
+        """detail_ids を並列取得・パースし、営業所行リストを返す（yield は呼び出し側）。"""
+        all_rows: List[dict] = []
         # 取得前重複除去: 既出の ID（別都道府県で取得済みの多店舗業者など）は GET しない。
         fresh_ids = []
         for did in detail_ids:
@@ -682,7 +788,7 @@ class Etsuran24Scraper(StaticCrawler):
             self._seen_ids.add(did)
             fresh_ids.append(did)
         if not fresh_ids:
-            return rows
+            return all_rows
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
             fut2id = {ex.submit(fetch_detail_html, did, epoch): did for did in fresh_ids}
             for fut in as_completed(fut2id):
@@ -695,20 +801,16 @@ class Etsuran24Scraper(StaticCrawler):
                     self.logger.warning("[detail] 取得失敗 id=%s", did)
                     continue
                 try:
-                    row = parse_overview(html)
+                    detail_url = f"{DETAIL_URL}?{urlencode({'sv_licenseNo': did})}"
+                    rows = parse_detail_rows(html, detail_url)
                 except Exception as e:
                     self.logger.warning("[detail] パース失敗 id=%s: %s", did, e)
                     continue
-                if not any(row.get(k) for k in (Schema.NAME, "許可番号", Schema.ADDR)):
+                if not rows or not any(r.get(Schema.NAME) or r.get("許可番号") for r in rows):
                     self.logger.warning("[detail] 空行スキップ id=%s", did)
                     continue
-                lic = row.get("許可番号") or did
-                if lic in self._seen_licenses:
-                    continue
-                self._seen_licenses.add(lic)
-                row[Schema.URL] = f"{DETAIL_URL}?{urlencode({'sv_licenseNo': did})}"
-                rows.append(row)
-        return rows
+                all_rows.extend(rows)
+        return all_rows
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         # セッション(JSESSIONID)確立。これが無いと検索 POST が弾かれる。
@@ -755,14 +857,14 @@ class Etsuran24Scraper(StaticCrawler):
 
                 if page % 20 == 0 or page == page_count:
                     self.logger.info(
-                        "[PROGRESS] ken=%s page=%d/%d 累計seen=%d",
-                        ken, page, page_count, len(self._seen_licenses),
+                        "[PROGRESS] ken=%s page=%d/%d 累計fetched_ids=%d",
+                        ken, page, page_count, len(self._seen_ids),
                     )
 
         # 全都道府県を完走したのでチェックポイントを掃除する。
         CHECKPOINT_CSV.unlink(missing_ok=True)
         PROGRESS_TXT.unlink(missing_ok=True)
-        self.logger.info("[DONE] 完了・チェックポイント削除 (取得 %d 件)", len(self._seen_licenses))
+        self.logger.info("[DONE] 完了・チェックポイント削除 (取得詳細=%d件)", len(self._seen_ids))
 
 
 # ====================== ローカル実行用エントリーポイント ======================
