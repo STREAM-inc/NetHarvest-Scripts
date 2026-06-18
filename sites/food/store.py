@@ -55,23 +55,34 @@ class StoreScraper(StaticCrawler):
     EXTRA_COLUMNS = ["駐車場", "緯度", "経度"]
 
     def parse(self, url: str):
-        # ⚠️ ?start=N の N は「レコードのオフセット」ではなく「ページ番号 (0 始まり)」。
-        #    1 ページ 20 件 / 全国約 2,422 件 = 約 122 ページ (start=0..121)。
-        #    以前は start += 20 としていたため start=0,20,40,...,120 の 7 ページ
-        #    (= 140 件) しか辿れず途中で打ち切られていた。1 ページずつ進める。
-        page = 0
+        # ── ページング方式 ──────────────────────────────────────────────
+        # 初期ページ (= url) に最初の 20 件が描画される。以降は「もっと見る」
+        # ボタンが叩く AJAX フラグメント
+        #     {url}?page=more&start=N   (N = 1, 2, 3, ...)
+        # を順に取得する。1 ページ 20 件・全国約 2,422 件 ⇒ N は 1〜122 まで
+        # (start=122 が最後の端数ページ)。範囲を超えると 403/空 が返る。
+        #
+        # ⚠️ 重要: page=more が無いと start は無視され常に同じ一覧が返る。
+        #    旧コードは `?start=N` (page=more 無し) を投げていたため実質
+        #    ページングが効かず、約 140 件で打ち切られていた。
+        # ────────────────────────────────────────────────────────────────
+        page = 0          # 0 = 初期ページ / 1.. = もっと見る (page=more&start=page)
         total_set = False
-        seen = set()  # 全ページ横断で重複 URL を排除 (末尾超過時のクランプ対策も兼ねる)
+        seen = set()      # 全ページ横断で重複 detail URL を排除
 
         while True:
-            page_url = f"{url}?start={page}" if page > 0 else url
+            if page == 0:
+                page_url = url
+            else:
+                sep = "&" if "?" in url else "?"
+                page_url = f"{url}{sep}page=more&start={page}"
+
             soup = self.get_soup(page_url)
             if soup is None:
                 break
 
             if not total_set:
-                src = str(soup)
-                m = re.search(r"(\d{3,5})件の店舗", src)
+                m = re.search(r"(\d{3,5})件の店舗", str(soup))
                 if m:
                     self.total_items = int(m.group(1))
                 total_set = True
@@ -93,7 +104,7 @@ class StoreScraper(StaticCrawler):
                 if record:
                     yield record
 
-            # このページが全て既出だった = 末尾を超えて同じページがクランプ返却された
+            # 新規が 0 件 = 末尾を超えて同じ一覧がクランプ返却された → 終了
             if new_in_page == 0:
                 break
 
