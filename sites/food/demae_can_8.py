@@ -394,35 +394,60 @@ class DemaeCan8Scraper(DynamicCrawler):
             return []
         return self._extract_shop_ids(soup)
 
-    def _fetch_text_via_page(self, abs_url: str) -> str:
+    _FETCH_JS = """
+    async (url) => {
+      const r = await fetch(url, {credentials:'include'});
+      const buf = await r.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      if (bytes[0]===0x1f && bytes[1]===0x8b) {
+        const ds = new DecompressionStream('gzip');
+        const stream = new Response(buf).body.pipeThrough(ds);
+        return await new Response(stream).text();
+      }
+      return new TextDecoder('utf-8').decode(buf);
+    }
+    """
+
+    def _ensure_stable_page(self, base: str) -> None:
+        """in-page fetch の実行コンテキストが壊れないよう、非SPAの安定ページ
+        (robots.txt) へ遷移しておく。SPA ページ上だとクライアント遷移で
+        page.evaluate の実行コンテキストが破棄される ("Execution context was destroyed")。
+        """
+        self.get_soup(f"{base}/robots.txt", wait_until="domcontentloaded")
+
+    def _fetch_text_via_page(self, abs_url: str, base: str, retries: int = 3) -> str:
         """ページ内 fetch で URL を取得しテキストを返す (gzip は DecompressionStream で解凍)。
         Akamai は Playwright 独自スタックの直接 HTTP を弾くため、ブラウザ (Chrome) の
-        fetch を使う。呼び出し前に同一オリジンのページへ遷移済みである必要がある。
+        fetch を使う。実行コンテキスト破棄 (SPA 遷移) 時は安定ページへ戻して再試行する。
         """
-        js = """
-        async (url) => {
-          const r = await fetch(url, {credentials:'include'});
-          const buf = await r.arrayBuffer();
-          const bytes = new Uint8Array(buf);
-          if (bytes[0]===0x1f && bytes[1]===0x8b) {
-            const ds = new DecompressionStream('gzip');
-            const stream = new Response(buf).body.pipeThrough(ds);
-            return await new Response(stream).text();
-          }
-          return new TextDecoder('utf-8').decode(buf);
-        }
-        """
-        try:
-            return self.page.evaluate(js, abs_url) or ""
-        except Exception as exc:  # noqa: BLE001
-            self.logger.warning("sitemap 取得失敗: %s — %s", abs_url, exc)
-            return ""
+        for attempt in range(1, retries + 1):
+            try:
+                return self.page.evaluate(self._FETCH_JS, abs_url) or ""
+            except Exception as exc:  # noqa: BLE001
+                msg = str(exc)
+                transient = (
+                    "context was destroyed" in msg
+                    or "Execution context" in msg
+                    or "navigation" in msg
+                )
+                if attempt < retries and transient:
+                    self.logger.info(
+                        "sitemap 取得リトライ %d/%d (安定ページへ復帰): %s",
+                        attempt, retries, abs_url,
+                    )
+                    self._ensure_stable_page(base)
+                    continue
+                self.logger.warning("sitemap 取得失敗: %s — %s", abs_url, exc)
+                return ""
+        return ""
 
     def _iter_area_urls(self, base: str) -> Generator[str, None, None]:
         """サイトマップから個別店を含むエリア一覧 URL (/search/delivery/{area}) を
         重複排除しつつ列挙する。AREA_LIMIT 件で打ち切る。
         """
-        index_xml = self._fetch_text_via_page(f"{base}{_SITEMAP_URL}")
+        # 安定ページに遷移してから in-page fetch (SPA 遷移によるコンテキスト破棄を回避)
+        self._ensure_stable_page(base)
+        index_xml = self._fetch_text_via_page(f"{base}{_SITEMAP_URL}", base)
         children = [
             loc for loc in re.findall(r"<loc>(.*?)</loc>", index_xml)
             if _AREA_SITEMAP_KEYWORD in loc
@@ -432,7 +457,7 @@ class DemaeCan8Scraper(DynamicCrawler):
         seen_area: set[str] = set()
         emitted = 0
         for child in children:
-            xml = self._fetch_text_via_page(child)
+            xml = self._fetch_text_via_page(child, base)
             if not xml:
                 continue
             for loc in re.findall(r"<loc>(.*?)</loc>", xml):
