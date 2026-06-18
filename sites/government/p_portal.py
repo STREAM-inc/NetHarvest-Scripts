@@ -8,17 +8,24 @@ URL: https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103
     - 調達ポータルに登録された事業者の基本情報・統一資格情報・落札実績件数
 
 取得フロー:
-    1. OAB0101 (事業者情報検索フォーム) へアクセス
-    2. 検索ボタン押下 → OAB0100 (POSTハンドラ) → OAB0103 (検索結果一覧) へリダイレクト
-    3. OAB0103?page=N&size=50 をページネーション (最大500件 / 10ページ)
+    1. OAB0101 (事業者情報検索フォーム) へアクセスしフォームフィールドを動的検出
+    2. 都道府県コード 01〜47 でフィルタを設定して検索送信 → OAB0103 へリダイレクト
+    3. OAB0103?page=N&size=50 をページネーション (最大500件 / 10ページ / 都道府県)
     4. 各行の法人番号を OAB0108 へ page.request.post() → 詳細ページを取得
     5. 基本情報・統一資格情報・落札実績件数を抽出して yield
+
+大量取得戦略:
+    - 1回の検索で最大500件のサーバー制限を回避するため検索条件を段階的に分割する。
+    - 第1レベル: 都道府県コード 01〜47 で分割 (最大 47 × 500 = 23,500 件)
+    - 第2レベル: 各都道府県が500件上限に達した場合、かな頭文字でさらに分割
+                (47 × ~73 かな × 500 = ~1.7M 件)
+    - 法人番号による重複排除を実施。
 
 設計メモ:
     - OAB0103/OAB0108 は直打ちアクセス不可 (JSESSIONID + CSRFトークン必須)。
       OAB0101 のフォーム送信で確立したセッションを維持したまま page.request.post() で
       OAB0108 を呼び出すため、1件ごとに画面遷移しない。
-    - 検索結果の上限はサーバー仕様で500件。全件取得には検索条件の分割が必要。
+    - フォームの都道府県フィールド名・名称フィールド名は起動時に動的に検出する。
     - 統一資格情報・落札実績情報が存在しない事業者は対応フィールドを空文字で返す。
     - HTML の th「商品号又は名称」の実体は商号・名称 (Schema.NAME に対応)。
     - 代表者役職・代表者氏名が「－」の事業者は空文字に正規化する。
@@ -55,6 +62,16 @@ _PREF_PATTERN = re.compile(
 
 _QUAL_CATEGORIES = ["物品の製造", "物品の販売", "役務の提供等", "物品の買い受け"]
 
+# 都道府県コード 01〜47 (検索第1レベル分割)
+_PREF_CODES = [f"{i:02d}" for i in range(1, 48)]
+
+# かな頭文字 (検索第2レベル分割: 都道府県検索が500件上限に達した場合)
+_KANA_PREFIXES = list(
+    "アイウエオカキクケコサシスセソタチツテトナニヌネノ"
+    "ハヒフヘホマミムメモヤユヨラリルレロワヲン"
+    "ガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポ"
+)
+
 
 def _clean(s: str) -> str:
     """空白正規化 + 「－」(全角ハイフン) を空文字に変換。"""
@@ -78,35 +95,82 @@ class PPortalScraper(DynamicCrawler):
         "落札実績件数",  # 落札実績の総件数 (整数文字列)
     ]
 
-    def parse(self, url: str) -> Generator[dict, None, None]:
-        search_url = urljoin(url, "OAB0101")
-        detail_url = urljoin(url, "OAB0108?")
-        size = 50
+    def _inspect_form(self) -> dict[str, str | None]:
+        """OAB0101 のフォームフィールド名を動的に検出する。"""
+        return self.page.evaluate("""
+            () => {
+                const result = {pref: null, name: null};
+                for (const sel of document.querySelectorAll('select')) {
+                    const vals = Array.from(sel.options).map(o => o.value);
+                    if (vals.some(v => /^0[1-9]$/.test(v)) && vals.length >= 10) {
+                        result.pref = sel.name;
+                        break;
+                    }
+                }
+                for (const inp of document.querySelectorAll('input[type="text"], input:not([type])')) {
+                    const ctx = (inp.name + ' ' + inp.id).toLowerCase();
+                    if (/nm|name|corp|kaisha|shogo|meisho/.test(ctx)) {
+                        result.name = inp.name;
+                        break;
+                    }
+                }
+                return result;
+            }
+        """)
 
-        # Step 1: OAB0101 フォームを開いて検索送信 → OAB0103 へリダイレクト
+    def _do_search(
+        self,
+        search_url: str,
+        pref_field: str | None,
+        pref_code: str | None,
+        name_field: str | None,
+        name_prefix: str | None,
+    ) -> tuple[BeautifulSoup, int]:
+        """フォームを設定して検索を実行し、結果ページの soup と件数を返す。"""
         self.get_soup(search_url)
+
+        if pref_field and pref_code:
+            try:
+                self.page.select_option(f'select[name="{pref_field}"]', pref_code)
+            except Exception as e:
+                self.logger.debug("都道府県選択失敗 %s: %s", pref_code, e)
+
+        if name_field and name_prefix:
+            try:
+                self.page.fill(f'input[name="{name_field}"]', name_prefix)
+            except Exception as e:
+                self.logger.debug("名称入力失敗 %s: %s", name_prefix, e)
+
         self.page.click('input[name="OAB0102"]')
         self.page.wait_for_load_state("domcontentloaded")
         self.page.wait_for_timeout(2000)
 
-        # Step 2: 1ページ目の内容を取得して件数確定
         soup = BeautifulSoup(self.page.content(), "html.parser")
-        count_text = soup.get_text()
-        m = re.search(r"(\d+)件見つかりました", count_text)
-        total = int(m.group(1)) if m else 500
-        self.total_items = total
-        self.logger.info("総件数: %d 件", total)
+        m = re.search(r"(\d+)件見つかりました", soup.get_text())
+        total = int(m.group(1)) if m else 0
+        return soup, total
 
-        # Step 3: ページネーション
+    def _paginate_and_yield(
+        self,
+        url: str,
+        first_soup: BeautifulSoup,
+        total: int,
+        size: int,
+        detail_url: str,
+        seen: set[str],
+    ) -> Generator[dict, None, None]:
+        """検索結果ページをページネーションして詳細をyieldする。"""
         page_num = 0
+        limit = min(total, 500)
 
         while True:
-            if page_num > 0:
+            if page_num == 0:
+                soup = first_soup
+            else:
                 soup = self.get_soup(f"{url}?page={page_num}&size={size}")
                 if soup is None:
                     break
 
-            # CSRF トークンを現ページから取得
             csrf_input = soup.find("input", {"name": "_csrf"})
             csrf = csrf_input["value"] if csrf_input else ""
 
@@ -122,6 +186,10 @@ class PPortalScraper(DynamicCrawler):
                     continue
 
                 corp_no = m_corp.group(1)
+                if corp_no in seen:
+                    continue
+                seen.add(corp_no)
+
                 art_qual_id = m_art.group(1) if m_art else ""
 
                 try:
@@ -149,11 +217,74 @@ class PPortalScraper(DynamicCrawler):
 
                 except Exception as e:
                     self.logger.warning("Error scraping corp %s: %s", corp_no, e)
-                    continue
 
             page_num += 1
-            if page_num * size >= total:
+            if page_num * size >= limit:
                 break
+
+    def parse(self, url: str) -> Generator[dict, None, None]:
+        search_url = urljoin(url, "OAB0101")
+        detail_url = urljoin(url, "OAB0108?")
+        size = 50
+        seen: set[str] = set()
+
+        # フォームフィールドを動的に検出
+        self.get_soup(search_url)
+        fields = self._inspect_form()
+        pref_field: str | None = fields.get("pref")
+        name_field: str | None = fields.get("name")
+        self.logger.info("検出フィールド: 都道府県=%s, 名称=%s", pref_field, name_field)
+
+        if pref_field:
+            # 第1レベル: 都道府県コード 01〜47 で分割
+            for pref_code in _PREF_CODES:
+                soup, total = self._do_search(
+                    search_url, pref_field, pref_code, None, None
+                )
+                if total == 0:
+                    continue
+                self.logger.info("都道府県%s: %d件", pref_code, total)
+
+                if total < 500 or not name_field:
+                    yield from self._paginate_and_yield(
+                        url, soup, total, size, detail_url, seen
+                    )
+                else:
+                    # 第2レベル: 500件上限 → かな頭文字で分割
+                    self.logger.info("都道府県%s: 500件上限 → かな分割", pref_code)
+                    for kana in _KANA_PREFIXES:
+                        k_soup, k_total = self._do_search(
+                            search_url, pref_field, pref_code, name_field, kana
+                        )
+                        if k_total == 0:
+                            continue
+                        yield from self._paginate_and_yield(
+                            url, k_soup, k_total, size, detail_url, seen
+                        )
+
+        elif name_field:
+            # 都道府県フィールド未検出 → かな頭文字のみで分割
+            for kana in _KANA_PREFIXES:
+                k_soup, k_total = self._do_search(
+                    search_url, None, None, name_field, kana
+                )
+                if k_total == 0:
+                    continue
+                self.logger.info("かな %s: %d件", kana, k_total)
+                yield from self._paginate_and_yield(
+                    url, k_soup, k_total, size, detail_url, seen
+                )
+
+        else:
+            # フィールド未検出 → シングル検索にフォールバック
+            self.logger.warning("フォームフィールド未検出 → シングル検索フォールバック")
+            soup, total = self._do_search(search_url, None, None, None, None)
+            if total > 0:
+                yield from self._paginate_and_yield(
+                    url, soup, total, size, detail_url, seen
+                )
+
+        self.total_items = len(seen)
 
     def _scrape_detail(self, soup: BeautifulSoup, source_url: str) -> dict | None:
         tables = soup.find_all("table")
