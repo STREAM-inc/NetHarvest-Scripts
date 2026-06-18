@@ -55,34 +55,19 @@ class StoreScraper(StaticCrawler):
     EXTRA_COLUMNS = ["駐車場", "緯度", "経度"]
 
     def parse(self, url: str):
-        # ── ページング方式 ──────────────────────────────────────────────
-        # 初期ページ (= url) に最初の 20 件が描画される。以降は「もっと見る」
-        # ボタンが叩く AJAX フラグメント
-        #     {url}?page=more&start=N   (N = 1, 2, 3, ...)
-        # を順に取得する。1 ページ 20 件・全国約 2,422 件 ⇒ N は 1〜122 まで
-        # (start=122 が最後の端数ページ)。範囲を超えると 403/空 が返る。
-        #
-        # ⚠️ 重要: page=more が無いと start は無視され常に同じ一覧が返る。
-        #    旧コードは `?start=N` (page=more 無し) を投げていたため実質
-        #    ページングが効かず、約 140 件で打ち切られていた。
-        # ────────────────────────────────────────────────────────────────
-        page = 0          # 0 = 初期ページ / 1.. = もっと見る (page=more&start=page)
+        page_size = 1
+        start = 0
         total_set = False
-        seen = set()      # 全ページ横断で重複 detail URL を排除
 
         while True:
-            if page == 0:
-                page_url = url
-            else:
-                sep = "&" if "?" in url else "?"
-                page_url = f"{url}{sep}page=more&start={page}"
-
+            page_url = f"{url}?start={start}" if start > 0 else url
             soup = self.get_soup(page_url)
             if soup is None:
                 break
 
             if not total_set:
-                m = re.search(r"(\d{3,5})件の店舗", str(soup))
+                src = str(soup)
+                m = re.search(r"(\d{3,5})件の店舗", src)
                 if m:
                     self.total_items = int(m.group(1))
                 total_set = True
@@ -91,24 +76,19 @@ class StoreScraper(StaticCrawler):
             if not links:
                 break
 
-            new_in_page = 0
+            seen = set()
             for link in links:
                 href = link.get("href", "")
                 detail_url = urllib.parse.urljoin(url, href)
                 if detail_url in seen:
                     continue
                 seen.add(detail_url)
-                new_in_page += 1
                 parking = "あり" if link.find("img", alt="駐車場あり") else ""
                 record = self._scrape_detail(detail_url, parking)
                 if record:
                     yield record
 
-            # 新規が 0 件 = 末尾を超えて同じ一覧がクランプ返却された → 終了
-            if new_in_page == 0:
-                break
-
-            page += 1
+            start += page_size
 
     def _scrape_detail(self, url: str, parking: str = "") -> dict | None:
         try:

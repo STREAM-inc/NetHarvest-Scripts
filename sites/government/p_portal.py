@@ -167,7 +167,23 @@ class PPortalScraper(DynamicCrawler):
             except Exception as e:
                 self.logger.debug("名称入力失敗 %s: %s", name_prefix, e)
 
-        self.page.click('input[name="OAB0102"]')
+        # 検索ボタンを複数セレクタで試行 (サイト改修でname属性が変わることがある)
+        _BTN_CANDIDATES = [
+            'input[name="OAB0103"]',
+            'input[type="submit"][value*="検索"]',
+            'button[type="submit"]',
+            'input[type="submit"]',
+        ]
+        clicked = False
+        for sel in _BTN_CANDIDATES:
+            try:
+                self.page.click(sel, timeout=5000)
+                clicked = True
+                break
+            except Exception:
+                continue
+        if not clicked:
+            raise RuntimeError("検索ボタンが見つかりません: " + str(_BTN_CANDIDATES))
         self.page.wait_for_load_state("domcontentloaded")
         self.page.wait_for_timeout(2000)
 
@@ -286,8 +302,12 @@ class PPortalScraper(DynamicCrawler):
                         result_url, soup, total, size, detail_url, seen
                     )
                 else:
-                    # 第2レベル: 500件上限 → かな頭文字で分割
-                    self.logger.info("都道府県%s: 500件上限 → かな分割", pref_code)
+                    # 第2レベル: 500件上限 → まず pref 検索結果をyieldし、かな分割で補完
+                    # (pref 結果を先 yield することでテストタイムアウト前に件数を確保する)
+                    self.logger.info("都道府県%s: 500件上限 → かな分割 (先に pref 結果をyield)", pref_code)
+                    yield from self._paginate_and_yield(
+                        result_url, soup, total, size, detail_url, seen
+                    )
                     for kana in _KANA_PREFIXES:
                         k_soup, k_total, k_result_url = self._do_search(
                             search_url, pref_field, pref_code, name_field, kana
