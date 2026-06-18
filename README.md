@@ -36,6 +36,7 @@ Gitのコマンドがよくわからない方や、手っ取り早くアップ�
     url: "https://example.com"   # スクレイピング対象のURL
     schedule: "0 2 * * *"        # cron式（いつ動かすか）。手動なら null にします
     enabled: true                # true なら有効、false なら無効（動かさない）
+    terms_url: ""                # (任意) 利用規約ページのURL。設定するとスクレイプ前に規約を取得し、スクレイピング禁止ワード検出時は実行を中止します。空欄=チェックなし
 ```
 
 4. 追記できたら、画面右上（または右下）の **`Commit changes`** をクリックして保存します。
@@ -68,6 +69,7 @@ cd NetHarvest-Scripts
     url: "https://example.com"
     schedule: "0 2 * * *"
     enabled: true
+    terms_url: ""                # (任意) 利用規約ページURL。空欄=チェックなし
 ```
 
 ### 3. Gitでコミット＆プッシュする
