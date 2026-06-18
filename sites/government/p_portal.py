@@ -167,7 +167,23 @@ class PPortalScraper(DynamicCrawler):
             except Exception as e:
                 self.logger.debug("名称入力失敗 %s: %s", name_prefix, e)
 
-        self.page.click('input[name="OAB0102"]')
+        # 検索ボタンを複数セレクタで試行 (サイト改修でname属性が変わることがある)
+        _BTN_CANDIDATES = [
+            'input[name="OAB0103"]',
+            'input[type="submit"][value*="検索"]',
+            'button[type="submit"]',
+            'input[type="submit"]',
+        ]
+        clicked = False
+        for sel in _BTN_CANDIDATES:
+            try:
+                self.page.click(sel, timeout=5000)
+                clicked = True
+                break
+            except Exception:
+                continue
+        if not clicked:
+            raise RuntimeError("検索ボタンが見つかりません: " + str(_BTN_CANDIDATES))
         self.page.wait_for_load_state("domcontentloaded")
         self.page.wait_for_timeout(2000)
 

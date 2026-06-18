@@ -2529,7 +2529,7 @@ sites:
     terms_url: ""
 
   - site_id: p_portal
-    name: "調達ポータル"
+    name: "調達ポータル【法人】"
     module: "government.p_portal"
     url: "https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103"
     schedule: "0 9 1 * *"
