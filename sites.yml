@@ -57,13 +57,6 @@ sites:
     schedule: "0 1 1-7 * SUN"
     enabled: true
 
-  - site_id: seitainavi
-    name: "整体ナビ"
-    module: "medical.seitainavi"
-    url: "https://seitainavi.jp/seitai_sekkotsu"
-    schedule: "0 1 8-14 * SAT"
-    enabled: true
-
   - site_id: imitsu_sales_agent
     name: "PRONIアイミツ_営業代行"
     module: "service.imitsu"
@@ -132,13 +125,6 @@ sites:
     module: "auto.goonet"
     url: "https://www.goo-net.com/sitemap_index.xml.gz"
     schedule: "20 1 8-14 * SAT"
-    enabled: true
-
-  - site_id: goonet_pit
-    name: "グーネットピット"
-    module: "auto.goonet_pit"
-    url: "https://www.goo-net.com/pit/sitemap_index.xml"
-    schedule: "20 1 8-14 * SUN"
     enabled: true
 
   - site_id: ii_ie
@@ -813,13 +799,6 @@ sites:
     schedule: "0 6 22-28 * SAT"
     enabled: true
 
-  - site_id: zehitomo
-    name: "ゼヒトモ"
-    module: "portal.zehitomo"
-    url: "https://www.zehitomo.com/"
-    schedule: "20 7 1-7 * SAT"
-    enabled: true
-
   - site_id: concierge
     name: "ダイエットコンシェルジュ"
     module: "service.concierge"
@@ -972,13 +951,6 @@ sites:
     module: "corporate.rejob"
     url: "https://rejob.co.jp/"
     schedule: "20 4 8-14 * SAT"
-    enabled: true
-
-  - site_id: froma_navi
-    name: "フロム・エー"
-    module: "jobs.froma_navi"
-    url: "https://www.froma.com/prefectures/"
-    schedule: "20 4 8-14 * SUN"
     enabled: true
 
   - site_id: domonet
@@ -1224,13 +1196,6 @@ sites:
     module: "vinty"
     url: "https://www.vinty.jp/search"
     schedule: "20 5 22-28 * SUN"
-    enabled: true
-
-  - site_id: job_medley
-    name: "ジョブメドレー"
-    module: "jobs.job_medley"
-    url: "https://job-medley.com/"
-    schedule: "0 4 * * SUN"
     enabled: true
 
   - site_id: guppy
@@ -1834,13 +1799,6 @@ sites:
     schedule: "0 0 1 * *"
     enabled: true
 
-  - site_id: ma_shienkikan
-    name: "ma_shienkikan"
-    module: "portal.ma_shienkikan"
-    url: "https://ma-shienkikan.go.jp/search?sort=corporate_name_kana"
-    schedule: "0 0 1 * *"
-    enabled: true
-
   - site_id: nagano_shakou
     name: "nagano_shakou"
     module: "portal.nagano_shakou"
@@ -1960,13 +1918,6 @@ sites:
     schedule: "0 3 1 * *"
     enabled: true
 
-  - site_id: kitaishihon
-    name: "キタイシホン"
-    module: "corporate.kitaishihon"
-    url: "https://kitaishihon.com/"
-    schedule: null
-    enabled: true
-
   - site_id: tattoo_studio
     name: "タトゥースタジオナビ"
     module: "service.tattoo_studio"
@@ -2062,13 +2013,6 @@ sites:
     name: "web幹事"
     module: "corporate.web_2"
     url: "https://web-kanji.com/search"
-    schedule: null
-    enabled: true
-
-  - site_id: web_3
-    name: "優良web"
-    module: "corporate.web_3"
-    url: "https://yuryoweb.com/"
     schedule: null
     enabled: true
 
