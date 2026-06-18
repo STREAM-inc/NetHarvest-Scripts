@@ -2551,3 +2551,10 @@ sites:
     schedule: "0 2 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: p_portal_4
+    name: "調達ポータル【個人】"
+    module: "government.p_portal_4"
+    url: "https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103"
+    schedule: null
+    enabled: true
