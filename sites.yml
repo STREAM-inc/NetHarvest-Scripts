@@ -2281,3 +2281,10 @@ sites:
     url: "https://mitsuraku.jp/"
     schedule: null
     enabled: true
+
+  - site_id: store
+    name: "ほっともっと"
+    module: "food.store"
+    url: "https://store.hottomotto.com/b/hottomotto/attr/"
+    schedule: "0 2 1 * *"
+    enabled: true
