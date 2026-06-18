@@ -286,8 +286,12 @@ class PPortalScraper(DynamicCrawler):
                         result_url, soup, total, size, detail_url, seen
                     )
                 else:
-                    # 第2レベル: 500件上限 → かな頭文字で分割
-                    self.logger.info("都道府県%s: 500件上限 → かな分割", pref_code)
+                    # 第2レベル: 500件上限 → まず pref 検索結果をyieldし、かな分割で補完
+                    # (pref 結果を先 yield することでテストタイムアウト前に件数を確保する)
+                    self.logger.info("都道府県%s: 500件上限 → かな分割 (先に pref 結果をyield)", pref_code)
+                    yield from self._paginate_and_yield(
+                        result_url, soup, total, size, detail_url, seen
+                    )
                     for kana in _KANA_PREFIXES:
                         k_soup, k_total, k_result_url = self._do_search(
                             search_url, pref_field, pref_code, name_field, kana
