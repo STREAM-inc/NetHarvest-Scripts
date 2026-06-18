@@ -2274,3 +2274,10 @@ sites:
     url: "https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: epark
+    name: "EPARKリラク＆エステ"
+    module: "beauty.epark"
+    url: "https://mitsuraku.jp/"
+    schedule: null
+    enabled: true
