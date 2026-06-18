@@ -55,12 +55,16 @@ class StoreScraper(StaticCrawler):
     EXTRA_COLUMNS = ["駐車場", "緯度", "経度"]
 
     def parse(self, url: str):
-        page_size = 20
-        start = 0
+        # ⚠️ ?start=N の N は「レコードのオフセット」ではなく「ページ番号 (0 始まり)」。
+        #    1 ページ 20 件 / 全国約 2,422 件 = 約 122 ページ (start=0..121)。
+        #    以前は start += 20 としていたため start=0,20,40,...,120 の 7 ページ
+        #    (= 140 件) しか辿れず途中で打ち切られていた。1 ページずつ進める。
+        page = 0
         total_set = False
+        seen = set()  # 全ページ横断で重複 URL を排除 (末尾超過時のクランプ対策も兼ねる)
 
         while True:
-            page_url = f"{url}?start={start}" if start > 0 else url
+            page_url = f"{url}?start={page}" if page > 0 else url
             soup = self.get_soup(page_url)
             if soup is None:
                 break
@@ -76,19 +80,24 @@ class StoreScraper(StaticCrawler):
             if not links:
                 break
 
-            seen = set()
+            new_in_page = 0
             for link in links:
                 href = link.get("href", "")
                 detail_url = urllib.parse.urljoin(url, href)
                 if detail_url in seen:
                     continue
                 seen.add(detail_url)
+                new_in_page += 1
                 parking = "あり" if link.find("img", alt="駐車場あり") else ""
                 record = self._scrape_detail(detail_url, parking)
                 if record:
                     yield record
 
-            start += page_size
+            # このページが全て既出だった = 末尾を超えて同じページがクランプ返却された
+            if new_in_page == 0:
+                break
+
+            page += 1
 
     def _scrape_detail(self, url: str, parking: str = "") -> dict | None:
         try:
