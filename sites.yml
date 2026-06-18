@@ -11,6 +11,8 @@
 #   url      : 対象 URL
 #   schedule : cron 式 (null = 手動実行のみ)
 #   enabled  : false にすると deploy.py がスキップ (Deployment 未登録 = 実行されない)
+#   terms_url: 利用規約ページの URL (任意)。設定時はスクレイプ開始前に規約を取得し、
+#              スクレイピング禁止ワード (スクレイピング/クロール/ボット等) を含む場合は中止する (空欄=チェックなし)
 # =============================================================================
 
 sites:
@@ -21,6 +23,7 @@ sites:
     url: "https://www.inuki-honpo.jp/rent/?s_prf_cd%5B%5D=13&s_inuki_type%5B%5D=1&s_inuki_category%5B%5D=26&s_city_cd%5B%5D=13101&s_city_cd%5B%5D=13102&s_city_cd%5B%5D=13103&s_city_cd%5B%5D=13104&s_city_cd%5B%5D=13109&s_city_cd%5B%5D=13110&s_city_cd%5B%5D=13112&s_city_cd%5B%5D=13113&s_city_cd%5B%5D=13114&s_city_cd%5B%5D=13115&s_city_cd%5B%5D=13116&s_city_cd%5B%5D=13203&s_walk=&s_tsubo_max=&s_kakaku_m=&s_freeword="
     schedule: "30 9 * * *"
     enabled: true
+    terms_url: ""
 
   - site_id: beautyworld_japan_tokyo
     name: "Beautyworld Japan Tokyo"
@@ -28,6 +31,7 @@ sites:
     url: "https://beautyworld-japan.jp.messefrankfurt.com/tokyo/ja/exhibitor-search.html"
     schedule: "0 1 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: furugi_meguru
     name: "古着屋巡りマップガイド MEGURU"
@@ -35,6 +39,7 @@ sites:
     url: "https://furugi-meguru.com/"
     schedule: "0 1 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: eaidem
     name: "イーアイデム"
@@ -42,6 +47,7 @@ sites:
     url: "https://www.e-aidem.com/aps/list.htm?region_id=06&district_id=31"
     schedule: "0 1 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: yorushoku
     name: "夜職倶楽部" 
@@ -49,6 +55,7 @@ sites:
     url: "https://yorushoku.jp/job-list/"
     schedule: "0 3 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: shinq_compass
     name: "鍼灸コンパス"
@@ -56,6 +63,7 @@ sites:
     url: "https://www.shinq-compass.jp/area/list/?page=1"
     schedule: "0 1 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: imitsu_sales_agent
     name: "PRONIアイミツ_営業代行"
@@ -63,6 +71,7 @@ sites:
     url: "https://imitsu.jp/ct-sales-agent/search/"
     schedule: "0 1 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: biz_sales_outsourcing
     name: "比較ビズ_営業代行"
@@ -70,6 +79,7 @@ sites:
     url: "https://www.biz.ne.jp/list/sales-outsourcing/"
     schedule: "0 1 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: reshop-navi
     name: "リショップナビ"
@@ -77,6 +87,7 @@ sites:
     url: "https://rehome-navi.com/shops"
     schedule: "0 1 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: shisha-suitai
     name: "シーシャスイタイ"
@@ -84,6 +95,7 @@ sites:
     url: "https://shisha-suitai.com/sitemap.xml"
     schedule: "0 1 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: refonavi
     name: "リフォーム評価ナビ"
@@ -91,6 +103,7 @@ sites:
     url: "https://www.refonavi.or.jp"
     schedule: "0 1 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: nihon_ryoko_kyokai
     name: "日本旅館協会"
@@ -98,6 +111,7 @@ sites:
     url: "https://www.tour.ne.jp/ext/yadonihon/j_hotel/list/?refpage=form"
     schedule: "0 2 * * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: hairlog
     name: "HAIRLOG"
@@ -105,6 +119,7 @@ sites:
     url: "https://hairlog.jp/sitemap.xml"
     schedule: "20 1 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: rakuten_beauty
     name: "楽天ビューティ"
@@ -112,6 +127,7 @@ sites:
     url: "https://beauty.rakuten.co.jp/sitemap.xml"
     schedule: "20 1 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: minimo
     name: "ミニモ"
@@ -119,6 +135,7 @@ sites:
     url: "https://minimodel.jp/"
     schedule: "50 1 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: goonet
     name: "グーネット"
@@ -126,6 +143,7 @@ sites:
     url: "https://www.goo-net.com/sitemap_index.xml.gz"
     schedule: "20 1 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: ii_ie
     name: "いい部屋ネット"
@@ -133,6 +151,7 @@ sites:
     url: "https://www.ii-ie2.net/sitemap.xml"
     schedule: "20 1 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: ielove
     name: "いえらぶ"
@@ -140,6 +159,7 @@ sites:
     url: "https://www.ielove.co.jp/sitemap/sitemap-company.xml"
     schedule: "20 1 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: ju_ren
     name: "充レン"
@@ -147,6 +167,7 @@ sites:
     url: "https://ju-ren.jp/location/stands/"
     schedule: "20 1 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: franchise_web_repo
     name: "フランチャイズWEBリポート"
@@ -154,6 +175,7 @@ sites:
     url: "https://web-repo.jp/sitemap.xml"
     schedule: "20 1 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: yourmystar
     name: "ユアマイスター"
@@ -161,6 +183,7 @@ sites:
     url: "https://yourmystar.jp/sitemap.xml"
     schedule: "40 1 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: meetsmore
     name: "ミツモア"
@@ -168,6 +191,7 @@ sites:
     url: "https://meetsmore.com/services"
     schedule: "40 1 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: bilax_net
     name: "びらくネット"
@@ -175,6 +199,7 @@ sites:
     url: "https://bilax.net/sitemap.xml"
     schedule: "40 1 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: dokenchiku
     name: "ドケンチク"
@@ -182,6 +207,7 @@ sites:
     url: "https://dokenchiku.com/company/1"
     schedule: "40 1 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: koujishi
     name: "工事士.com"
@@ -189,6 +215,7 @@ sites:
     url: "https://koujishi.com/list/denkikoujishi-first/"
     schedule: "40 1 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: dairitenfc
     name: "代理店FC"
@@ -196,6 +223,7 @@ sites:
     url: "https://dairitenfc.com"
     schedule: "40 1 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: hakkosha
     name: "白光舎"
@@ -203,6 +231,7 @@ sites:
     url: "https://www.hakkosha.com/shop/"
     schedule: "40 1 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: hitosara
     name: "ヒトサラ"
@@ -210,6 +239,7 @@ sites:
     url: "https://hitosara.com/sitemap_index.xml"
     schedule: "40 1 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: doctor_map
     name: "ドクターマップ"
@@ -217,6 +247,7 @@ sites:
     url: "https://www.doctor-map.info/sitemap.xml"
     schedule: "0 2 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: torabayu
     name: "とらばーゆ"
@@ -224,6 +255,7 @@ sites:
     url: "https://toranet.jp/prefectures/"
     schedule: "0 2 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: million_job
     name: "ミリオンジョブ"
@@ -231,6 +263,7 @@ sites:
     url: "https://www.million-job.com"
     schedule: "0 2 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: refjob
     name: "リフラクジョブ"
@@ -238,6 +271,7 @@ sites:
     url: "https://refjob.jp"
     schedule: "0 2 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: tainyu_chocolat
     name: "体入ショコラ"
@@ -245,6 +279,7 @@ sites:
     url: "https://chocolat.work/sitemap_index.xml"
     schedule: "10 18 * * TUE"
     enabled: true
+    terms_url: ""
 
   - site_id: tainyu_macaron
     name: "体入マカロン"
@@ -252,6 +287,7 @@ sites:
     url: "https://picsastock.com/sitemap.xml"
     schedule: "0 2 * * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: tadaoka_shoko
     name: "忠岡町商工会"
@@ -259,6 +295,7 @@ sites:
     url: "https://www.tadaoka.or.jp/kaiin.html"
     schedule: "0 2 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: bepro
     name: "美プロ"
@@ -266,6 +303,7 @@ sites:
     url: "https://www.kenkou-job.com"
     schedule: "0 2 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: yakukyari
     name: "薬キャリ（法人）"
@@ -273,6 +311,7 @@ sites:
     url: "https://pcareer.m3.com/shokubanavi/companies"
     schedule: "20 2 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: yakukyari_office
     name: "薬キャリ（事業所）"
@@ -280,6 +319,7 @@ sites:
     url: "https://pcareer.m3.com/shokubanavi/offices"
     schedule: "20 2 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: kaiten_heiten
     name: "開店閉店ドットコム"
@@ -287,6 +327,7 @@ sites:
     url: "https://kaiten-heiten-24.com"
     schedule: "20 2 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: inshokuten_job
     name: "求人飲食店ドットコム"
@@ -294,6 +335,7 @@ sites:
     url: "https://job.inshokuten.com/sitemapindex.xml"
     schedule: "20 2 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: paypaygourmet
     name: "PayPayグルメ"
@@ -301,6 +343,7 @@ sites:
     url: "https://paypaygourmet.yahoo.co.jp/"
     schedule: "0 1 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: suumo
     name: "SUUMO不動産会社"
@@ -308,6 +351,7 @@ sites:
     url: "https://suumo.jp/kaisha/"
     schedule: "20 2 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: suumo_buy
     name: "SUUMO新築・中古物件"
@@ -315,6 +359,7 @@ sites:
     url: "https://suumo.jp/ms/shinchiku/"
     schedule: "20 2 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: suumo_guide
     name: "SUUMO不動産会社ガイド"
@@ -322,6 +367,7 @@ sites:
     url: "https://suumo.jp/jj/guide/"
     schedule: "20 2 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: yameshi_shokokai
     name: "八女市商工会"
@@ -329,6 +375,7 @@ sites:
     url: "https://www.yameshi-shokokai.jp/member/"
     schedule: "20 2 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: ogori_shokokai
     name: "小郡市商工会"
@@ -336,6 +383,7 @@ sites:
     url: "https://ogori-shoukoukai.com/companycat/"
     schedule: "40 2 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: kawachinagano_shokokai
     name: "河内長野市商工会"
@@ -343,6 +391,7 @@ sites:
     url: "http://www.ksci.or.jp/web.html"
     schedule: "40 2 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: ai_med
     name: "アイメッド"
@@ -350,6 +399,7 @@ sites:
     url: "https://ai-med.jp/hospitals"
     schedule: "40 2 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: challenge_plus
     name: "チャレンジプラス"
@@ -357,6 +407,7 @@ sites:
     url: "https://www.challenge-plus.jp/list/"
     schedule: "40 2 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: entre_net
     name: "アントレ"
@@ -364,6 +415,7 @@ sites:
     url: "https://entrenet.jp/dokuritsu/?cbn=top_src_fw"
     schedule: "40 2 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: gappori
     name: "ガッポリ"
@@ -371,6 +423,7 @@ sites:
     url: "https://gappori.jp/a_search/w_/"
     schedule: "40 2 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: hanacupid
     name: "花キューピット"
@@ -378,6 +431,7 @@ sites:
     url: "https://www.hanacupid.or.jp/stores/"
     schedule: "40 2 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: dan_work
     name: "男ワーク"
@@ -385,6 +439,7 @@ sites:
     url: "https://www.dan-work.com"
     schedule: "40 2 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: hamanight
     name: "ハマんナイト"
@@ -392,6 +447,7 @@ sites:
     url: "http://www.hamanight.com"
     schedule: "0 3 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: tainew_otoko
     name: "メンズ体入"
@@ -399,6 +455,7 @@ sites:
     url: "https://tainew-otoko.com/shoplist/search/?salary_type=0_1&word="
     schedule: "0 3 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: epark_dental
     name: "EPARK歯科"
@@ -406,6 +463,7 @@ sites:
     url: "https://haisha-yoyaku.jp/bun2sdental/list/"
     schedule: "0 3 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: jobcon_driver
     name: "ジョブコンプラスD"
@@ -413,6 +471,7 @@ sites:
     url: "https://job-con.jp/driver/search"
     schedule: "0 3 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: jobcon_security
     name: "ジョブコンプラスS"
@@ -420,6 +479,7 @@ sites:
     url: "https://job-con.jp/security/search"
     schedule: "0 3 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: job_chocolat
     name: "ジョブショコラ"
@@ -427,6 +487,7 @@ sites:
     url: "https://job-chocolat.jp/"
     schedule: "0 3 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: doraever
     name: "ドラEVER"
@@ -434,6 +495,7 @@ sites:
     url: "https://doraever.jp/job-lists/1"
     schedule: "0 3 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: jwarm
     name: "ジェイウォーム"
@@ -441,6 +503,7 @@ sites:
     url: "https://www.jwarm.net/uni_items.php?pg=1&ig=i"
     schedule: "0 3 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: kyujin_journal_net
     name: "求人ジャーナルネット"
@@ -448,6 +511,7 @@ sites:
     url: "https://www.job-j.net"
     schedule: "20 3 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: baitoru
     name: "バイトル"
@@ -455,6 +519,7 @@ sites:
     url: "https://baitoru.com/search/list/"
     schedule: "10 18 * * TUE"
     enabled: true
+    terms_url: ""
 
   - site_id: townwork
     name: "タウンワーク"
@@ -462,6 +527,7 @@ sites:
     url: "https://townwork.net/"
     schedule: "20 3 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: rikunabi_next_syataku
     name: "リクナビNEXT社宅"
@@ -469,6 +535,7 @@ sites:
     url: "https://next.rikunabi.com/job_search/kw/%E7%A4%BE%E5%AE%85/"
     schedule: "20 3 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: rikunabi_next_syayosha
     name: "リクナビNEXT社用車"
@@ -476,6 +543,7 @@ sites:
     url: "https://next.rikunabi.com/job_search/kw/%E7%A4%BE%E7%94%A8%E8%BB%8A%E5%88%B6%E5%BA%A6/"
     schedule: "20 3 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: caloo
     name: "Caloo病院検索"
@@ -483,6 +551,7 @@ sites:
     url: "https://caloo.jp/hospitals/search/01/all"
     schedule: "20 3 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: gaten_job
     name: "ガテン系仕事ナビ"
@@ -490,6 +559,7 @@ sites:
     url: "https://gaten-job.com/sitemap.xml"
     schedule: "20 3 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: jobpost
     name: "ジョブポスト"
@@ -497,6 +567,7 @@ sites:
     url: "https://jobpost.jp/search/g:1/"
     schedule: "20 3 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: trck_job
     name: "トラッカーズジョブ"
@@ -504,6 +575,7 @@ sites:
     url: "https://job.trck.jp/sitemap.xml"
     schedule: "40 3 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: barberin
     name: "バーバリン"
@@ -511,6 +583,7 @@ sites:
     url: "https://barberin.jp/"
     schedule: "40 3 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: fc_kamei
     name: "フランチャイズ加盟募集"
@@ -518,6 +591,7 @@ sites:
     url: "https://fc-kamei.net"
     schedule: "40 3 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: benrishi_navi
     name: "弁理士ナビ"
@@ -525,6 +599,7 @@ sites:
     url: "https://www.benrishi-navi.com"
     schedule: "40 3 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: prtimes
     name: "PRTIMES"
@@ -532,6 +607,7 @@ sites:
     url: "https://prtimes.jp/technology/"
     schedule: "40 3 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: kessan_kokoku
     name: "決算公告（catr.jp）"
@@ -539,6 +615,7 @@ sites:
     url: "https://catr.jp/cities/0"
     schedule: "40 3 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: host_para
     name: "ホスパラ"
@@ -546,6 +623,7 @@ sites:
     url: "https://host-paradise.jp/"
     schedule: "40 3 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: mynavi_tenshoku
     name: "マイナビ転職"
@@ -553,6 +631,7 @@ sites:
     url: "https://tenshoku.mynavi.jp/list/pg1/"
     schedule: "40 3 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: en_tenshoku
     name: "エン転職"
@@ -560,6 +639,7 @@ sites:
     url: "https://employment.en-japan.com/k_tokyo/"
     schedule: "0 4 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: kyujin_box_tokutei
     name: "求人ボックス（特定技能の仕事）"
@@ -567,6 +647,7 @@ sites:
     url: "https://xn--pckua2a7gp15o89zb.com/%E7%89%B9%E5%AE%9A%E6%8A%80%E8%83%BD%E3%81%AE%E4%BB%95%E4%BA%8B"
     schedule: "0 4 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: kkhashi
     name: "カケハシ"
@@ -574,6 +655,7 @@ sites:
     url: "https://www.kkhashi.com/matters?ref=%E5%85%A8%E3%81%A6%E3%81%AE%E6%A1%88%E4%BB%B6%E3%81%8B%E3%82%89%E6%8E%A2%E3%81%99"
     schedule: "0 4 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: bahn_rep
     name: "バーン代理店"
@@ -581,6 +663,7 @@ sites:
     url: "https://bahn-rep.com/category/allarea/page/1"
     schedule: "0 7 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: kyujinbox
     name: "求人ボックス（携帯販売・通信系）"
@@ -588,6 +671,7 @@ sites:
     url: "https://xn--pckua2a7gp15o89zb.com/"
     schedule: "0 4 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: b_seeds
     name: "Bシーズ"
@@ -595,6 +679,7 @@ sites:
     url: "https://b-seeds.com/news/"
     schedule: "0 4 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: mlit_kensetsu
     name: "国交省建設業者検索_建設業"
@@ -602,6 +687,7 @@ sites:
     url: "https://etsuran2.mlit.go.jp/TAKKEN/kensetuKensaku.do?outPutKbn=1"
     schedule: "0 4 8-14 * SAT"
     enabled: true    
+    terms_url: ""
 
   - site_id: mlit_takken
     name: "建設業者・宅建業者等企業情報検索システム【賃貸住宅管理業者】"
@@ -609,6 +695,7 @@ sites:
     url: "https://etsuran2.mlit.go.jp/TAKKEN/takkenKensaku.do"
     schedule: "0 4 8-14 * SAT"
     enabled: true   
+    terms_url: ""
 
   - site_id: aupay
     name: "aupay"
@@ -616,6 +703,7 @@ sites:
     url: "https://aupay.auone.jp/"
     schedule: "0 6 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: tabelog
     name: "食べログ"
@@ -623,6 +711,7 @@ sites:
     url: "https://tabelog.com/"
     schedule: "0 6 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: foodslabo
     name: "foodslabo"
@@ -630,6 +719,7 @@ sites:
     url: "https://foods-labo.com/"
     schedule: "0 6 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: ivry
     name: "ivry"
@@ -637,6 +727,7 @@ sites:
     url: "https://ivry.jp/"
     schedule: "0 7 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: kocchake
     name: "kocchake"
@@ -644,6 +735,7 @@ sites:
     url: "https://kocchake.com/"
     schedule: "40 6 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: rakuten_beauty_2
     name: "rakuten_beauty"
@@ -651,6 +743,7 @@ sites:
     url: "https://beauty.rakuten.co.jp/"
     schedule: "0 6 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: savor_japan
     name: "savor_japan"
@@ -658,6 +751,7 @@ sites:
     url: "https://savorjapan.com/"
     schedule: "20 6 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: emily_job
     name: "体入エミリー"
@@ -665,6 +759,7 @@ sites:
     url: "https://emily-job.jp/"
     schedule: "0 6 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: suumo_2
     name: "suumo【不動産会社ガイド】"
@@ -672,6 +767,7 @@ sites:
     url: "https://suumo.jp/fudousankaisha/"
     schedule: "40 6 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: agri_navi
     name: "あぐりナビ"
@@ -679,6 +775,7 @@ sites:
     url: "https://www.agri-navi.com/"
     schedule: "20 6 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: o_kuruma
     name: "おくるまドットコム"
@@ -686,6 +783,7 @@ sites:
     url: "https://www.o-kuruma.com/"
     schedule: "20 6 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: curama
     name: "くらしのマーケット"
@@ -693,6 +791,7 @@ sites:
     url: "https://curama.jp/"
     schedule: "0 7 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: gnavi
     name: "ぐるなび"
@@ -700,6 +799,7 @@ sites:
     url: "https://www.gnavi.co.jp/"
     schedule: "20 6 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: mypl
     name: "まいぷれ"
@@ -707,6 +807,7 @@ sites:
     url: "https://mypl.net/"
     schedule: "0 7 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: moe_navi
     name: "もえなび"
@@ -714,6 +815,7 @@ sites:
     url: "https://www.moe-navi.jp/"
     schedule: "40 6 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: ai_med_2
     name: "アイメッド"
@@ -721,6 +823,7 @@ sites:
     url: "https://ai-med.jp/"
     schedule: "20 7 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: asoview
     name: "アソビュー"
@@ -728,6 +831,7 @@ sites:
     url: "https://www.asoview.com/base/"
     schedule: "40 6 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: up_stage
     name: "アップステージ"
@@ -735,6 +839,7 @@ sites:
     url: "https://www.up-stage.info/"
     schedule: "40 6 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: baito
     name: "アルバイトナイツ"
@@ -742,6 +847,7 @@ sites:
     url: "https://baito.nights.fun/"
     schedule: "40 6 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: mono
     name: "イプロス"
@@ -749,6 +855,7 @@ sites:
     url: "https://mono.ipros.com/"
     schedule: "20 7 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: carcon
     name: "カーコンビニ俱楽部"
@@ -756,6 +863,7 @@ sites:
     url: "https://www.carcon.co.jp/"
     schedule: "40 7 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: carsensor
     name: "カーセンサー"
@@ -763,6 +871,7 @@ sites:
     url: "https://www.carsensor.net/"
     schedule: "20 6 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: cabaito
     name: "キャバイト求人"
@@ -770,6 +879,7 @@ sites:
     url: "https://www.cabaito.jp/"
     schedule: "20 6 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: genbars
     name: "ゲンバーズ"
@@ -777,6 +887,7 @@ sites:
     url: "https://genbars.jp/"
     schedule: "0 7 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: webjobpark
     name: "ジョブこねっと"
@@ -784,6 +895,7 @@ sites:
     url: "https://webjobpark.kyoto.jp/"
     schedule: "0 7 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: job_chocolat_2
     name: "ジョブショコラ"
@@ -791,6 +903,7 @@ sites:
     url: "https://job-chocolat.jp/"
     schedule: "20 7 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: navi
     name: "ジョブナビ愛知"
@@ -798,6 +911,7 @@ sites:
     url: "https://www.navi.j-kin.com/"
     schedule: "0 6 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: concierge
     name: "ダイエットコンシェルジュ"
@@ -805,6 +919,7 @@ sites:
     url: "https://concierge.diet/"
     schedule: "0 6 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: moppy_baito
     name: "ディスカバイト"
@@ -812,6 +927,7 @@ sites:
     url: "https://moppy-baito.com/"
     schedule: "40 7 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: trimtrim_salons
     name: "トリムトリム【サロン】"
@@ -819,6 +935,7 @@ sites:
     url: "https://trimtrim.jp/salons"
     schedule: "20 6 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: trimtrim_hotels
     name: "トリムトリム【ホテル】"
@@ -826,6 +943,7 @@ sites:
     url: "https://trimtrim.jp/hotels"
     schedule: "20 6 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: nuri_kae
     name: "ヌリカエ"
@@ -833,6 +951,7 @@ sites:
     url: "https://www.nuri-kae.jp/"
     schedule: "40 6 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: hellowork
     name: "ハローワーク"
@@ -840,6 +959,7 @@ sites:
     url: "https://www.hellowork.mhlw.go.jp/"
     schedule: "0 6 * * SUN"  # 失敗することがあるらしいので、一旦週一実行に変更
     enabled: true
+    terms_url: ""
 
   - site_id: hellowork_shinnkikyuujin
     name: "ハローワーク（新規求人）"
@@ -847,6 +967,7 @@ sites:
     url: "https://www.hellowork.mhlw.go.jp/"
     schedule: "0 1 2-31/3 * *"  # 3日おき 午前1時 (全件クロールの2時間前)
     enabled: true
+    terms_url: ""
 
   - site_id: baitona_joshi
     name: "バイトな女子"
@@ -854,6 +975,7 @@ sites:
     url: "https://baitona-joshi.jp/"
     schedule: "40 6 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: com
     name: "バーバーナビ.com"
@@ -861,6 +983,7 @@ sites:
     url: "https://barbernavi.com/"
     schedule: "0 7 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: doda
     name: "doda"
@@ -868,6 +991,7 @@ sites:
     url: "https://doda.jp/DodaFront/View/JobSearchList.action"
     schedule: "20 4 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: mynavi2027
     name: "マイナビ2027"
@@ -875,6 +999,7 @@ sites:
     url: "https://job.mynavi.jp/2027/"
     schedule: "20 4 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: baitoru_next
     name: "バイトルNEXT"
@@ -882,6 +1007,7 @@ sites:
     url: "https://www.baitoru.com/tohoku/jlist/shain/"
     schedule: "40 4 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: biz_all
     name: "比較ビズ（全業種）"
@@ -889,6 +1015,7 @@ sites:
     url: "https://www.biz.ne.jp/"
     schedule: "0 5 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: activityjapan
     name: "アクティビティジャパン"
@@ -896,6 +1023,7 @@ sites:
     url: "https://activityjapan.com/publish/feature"
     schedule: "0 5 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: qlife
     name: "QLife"
@@ -903,6 +1031,7 @@ sites:
     url: "https://www.qlife.co.jp/"
     schedule: "20 5 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: kurashinomarket
     name: "くらしのマーケット（カテゴリ）"
@@ -910,6 +1039,7 @@ sites:
     url: "https://curama.jp/category/"
     schedule: "20 5 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: kaago
     name: "Kaago"
@@ -917,6 +1047,7 @@ sites:
     url: "https://kaago.com/"
     schedule: "40 5 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: lixil_reformshop
     name: "LIXILリフォームショップ"
@@ -924,6 +1055,7 @@ sites:
     url: "https://www.lixil-reformshop.jp/"
     schedule: "40 5 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: ozmall_hairsalon
     name: "オズモール（ヘアサロン）"
@@ -931,6 +1063,7 @@ sites:
     url: "https://www.ozmall.co.jp/hairsalon"
     schedule: "0 6 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: pola
     name: "POLA"
@@ -938,6 +1071,7 @@ sites:
     url: "https://www.pola.co.jp/"
     schedule: "0 6 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: cookbiz
     name: "クックビズ"
@@ -945,6 +1079,7 @@ sites:
     url: "https://cookbiz.co.jp/companies"
     schedule: "0 4 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: rejob
     name: "Rejob"
@@ -952,6 +1087,7 @@ sites:
     url: "https://rejob.co.jp/"
     schedule: "20 4 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: domonet
     name: "ドモネット"
@@ -959,6 +1095,7 @@ sites:
     url: "https://domonet.jp/"
     schedule: "40 4 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: anny
     name: "Anny"
@@ -966,6 +1103,7 @@ sites:
     url: "https://oiwai.anny.gift/search?numPpl=2"
     schedule: "40 4 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: cafe397
     name: "Cafe397"
@@ -973,6 +1111,7 @@ sites:
     url: "https://397.cafe/search.php?mode=&page=1"
     schedule: "0 5 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: japan_food_guide
     name: "Japan Food Guide"
@@ -980,6 +1119,7 @@ sites:
     url: "https://japan-food.guide/"
     schedule: "0 5 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: ozmall_restaurant
     name: "オズモール（レストラン）"
@@ -987,6 +1127,7 @@ sites:
     url: "https://www.ozmall.co.jp/restaurant/list/"
     schedule: "20 5 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: beautypark
     name: "Beauty Park"
@@ -994,6 +1135,7 @@ sites:
     url: "https://www.beauty-park.jp/"
     schedule: "20 5 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: hospita
     name: "HOSPITA"
@@ -1001,6 +1143,7 @@ sites:
     url: "https://www.hospita.jp/list/hospital/"
     schedule: "40 5 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: caferun
     name: "カフェるん"
@@ -1008,6 +1151,7 @@ sites:
     url: "https://caferun.jp/"
     schedule: "40 5 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: dartslive
     name: "DARTSLIVE"
@@ -1015,6 +1159,7 @@ sites:
     url: "https://search.dartslive.com/jp/shops/"
     schedule: "0 6 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: fitmap
     name: "Fit Map"
@@ -1022,6 +1167,7 @@ sites:
     url: "https://fitmap.jp/"
     schedule: "0 4 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: imitsu_pr
     name: "PRONIアイミツ_PR"
@@ -1029,6 +1175,7 @@ sites:
     url: "https://imitsu.jp/ct-pr/search/"
     schedule: "0 4 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: pepperlikes
     name: "PepperLikes"
@@ -1036,6 +1183,7 @@ sites:
     url: "https://www.pepperlikes.com/"
     schedule: "20 4 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: manabi_senmon
     name: "マナビ（専門）"
@@ -1043,6 +1191,7 @@ sites:
     url: "https://manabi.benesse.ne.jp/senmon"
     schedule: "20 4 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: biztel
     name: "BIZTEL"
@@ -1050,6 +1199,7 @@ sites:
     url: "https://biztel.jp/"
     schedule: "40 4 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: domo
     name: "Domo"
@@ -1057,6 +1207,7 @@ sites:
     url: "https://www.domo.com/jp/customers"
     schedule: "40 4 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: hnavi
     name: "発注ナビ"
@@ -1064,6 +1215,7 @@ sites:
     url: "https://hnavi.co.jp/corporation/"
     schedule: "0 5 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: j_lic
     name: "J-LIC"
@@ -1071,6 +1223,7 @@ sites:
     url: "https://j-lic.com/"
     schedule: "0 5 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: kepple
     name: "KEPPLE"
@@ -1078,6 +1231,7 @@ sites:
     url: "https://kepple.co.jp/articles/page/1"
     schedule: "0 4 * * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: kyozon
     name: "kyozon"
@@ -1085,6 +1239,7 @@ sites:
     url: "https://kyozon.net/service-list/"
     schedule: "20 5 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: pitta_lab
     name: "ピッタラボ"
@@ -1092,6 +1247,7 @@ sites:
     url: "https://pitta-lab.com/"
     schedule: "20 5 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: nihon_souko_kyokai
     name: "日本倉庫協会"
@@ -1099,6 +1255,7 @@ sites:
     url: "https://www.nissokyo.or.jp/member_list/"
     schedule: "0 6 * * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: nihon_reizousouko_kyokai
     name: "日本冷蔵倉庫協会"
@@ -1106,6 +1263,7 @@ sites:
     url: "https://www.jarw.or.jp/find/memberlist/"
     schedule: "0 8 * * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: j_reit
     name: "J-REIT"
@@ -1113,6 +1271,7 @@ sites:
     url: "https://j-reit.jp/brand/"
     schedule: "0 2 * * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: dairitenhonpo
     name: "代理店募集本舗"
@@ -1120,6 +1279,7 @@ sites:
     url: "https://dairitenboshu.com/search/"
     schedule: "40 5 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: panasonic_cycle
     name: "Panasonic Cycle"
@@ -1127,6 +1287,7 @@ sites:
     url: "https://cycle.panasonic.com/"
     schedule: "40 5 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: sumitec_kanto
     name: "住まいテック関東"
@@ -1134,6 +1295,7 @@ sites:
     url: "https://sumitec-kanto.com/contractor"
     schedule: "0 4 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: hiroshima_hitec
     name: "広島市ハイテクプラザ"
@@ -1141,6 +1303,7 @@ sites:
     url: "https://www.hitec.city.hiroshima.jp/"
     schedule: "0 4 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: sanpai_kun
     name: "さんぱいくん"
@@ -1148,6 +1311,7 @@ sites:
     url: "https://www2.sanpainet.or.jp/zyohou"
     schedule: "20 4 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: alzo
     name: "アルゾ"
@@ -1155,6 +1319,7 @@ sites:
     url: "https://www.alzoweb.jp/search"
     schedule: "20 4 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: anokono_ehime
     name: "あの子のエヒメ"
@@ -1162,6 +1327,7 @@ sites:
     url: "https://ano-kono.ehime.jp/search"
     schedule: "40 4 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: bejob_navi
     name: "BEJOBナビ"
@@ -1169,6 +1335,7 @@ sites:
     url: "https://www.bejob-navi.jp/"
     schedule: "40 4 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: ishikawa_jobnavi
     name: "石川ジョブナビ"
@@ -1176,6 +1343,7 @@ sites:
     url: "https://jobnavi-i.jp/"
     schedule: "0 5 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: jinzai_hellowork_syokugyo_syoukai
     name: "人材サービス総合【職業紹介】"
@@ -1183,6 +1351,7 @@ sites:
     url: "https://jinzai.hellowork.mhlw.go.jp/JinzaiWeb"
     schedule: "0 5 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: kyujin_box_ginoujissyuu
     name: "求人ボックス（技能実習の仕事）"
@@ -1190,6 +1359,7 @@ sites:
     url: "https://xn--pckua2a7gp15o89zb.com/%E6%8A%80%E8%83%BD%E5%AE%9F%E7%BF%92%E3%81%AE%E4%BB%95%E4%BA%8B"
     schedule: "20 5 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: vinty
     name: "VINTY"
@@ -1197,6 +1367,7 @@ sites:
     url: "https://www.vinty.jp/search"
     schedule: "20 5 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: guppy
     name: "GUPPY"
@@ -1204,6 +1375,7 @@ sites:
     url: "https://www.guppy.jp/"
     schedule: "0 6 * * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: hikariweb_search
     name: "ひかりWeb NTT東日本特約店・販売委託店"
@@ -1211,6 +1383,7 @@ sites:
     url: "https://hikariweb.ntt-east.co.jp/general/search/list.php?keyword=1"
     schedule: "20 5 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: hikariweb_cancell
     name: "ひかりWeb NTT東日本解約特約店・販売委託店"
@@ -1218,6 +1391,7 @@ sites:
     url: "https://hikariweb.ntt-east.co.jp/general/cancell/list.php?keyword=1"
     schedule: "20 5 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: nightstyle
     name: "ナイトスタイル"
@@ -1225,6 +1399,7 @@ sites:
     url: "https://nightstyle.jp"
     schedule: "40 7 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: baitoru_nightwork
     name: "バイトル（ナイトワーク系）"
@@ -1232,6 +1407,7 @@ sites:
     url: "https://www.baitoru.com/lp/jobcategory/"
     schedule: "30 4 * * MON"
     enabled: true
+    terms_url: ""
 
   - site_id: epark_hotel
     name: "EPARKホテル・宿泊"
@@ -1239,6 +1415,7 @@ sites:
     url: "https://epark.jp/hotel-stay/list/"
     schedule: "0 7 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: dummy
     name: "ダミー"
@@ -1246,6 +1423,7 @@ sites:
     url: "https://example.com"
     schedule: "20 7 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: hosytoru
     name: "ホストル"
@@ -1253,6 +1431,7 @@ sites:
     url: "https://hostle.jp"
     schedule: "40 5 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: ntt_west_hanbaiten
     name: "NTT西日本特約店・販売委託店一覧"
@@ -1260,6 +1439,7 @@ sites:
     url: "https://www2.hanbaiten.cpe.isp.ntt-west.co.jp/lists"
     schedule: "0 3 1-7 * MON"
     enabled: true
+    terms_url: ""
 
   - site_id: jinzai_service
     name: "人材サービス総合サイト（職業紹介事業）"
@@ -1267,6 +1447,7 @@ sites:
     url: "https://jinzai.hellowork.mhlw.go.jp/JinzaiWeb/GICB101010.do?action=initDisp&screenId=GICB101010"
     schedule: "0 8 * * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: casmoo
     name: "ウィリスト"
@@ -1274,6 +1455,7 @@ sites:
     url: "https://casmoo.jp/"
     schedule: "0 1 * * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: bizresearch
     name: "ビズリサーチ"
@@ -1281,6 +1463,7 @@ sites:
     url: "https://bizresearch.net/"
     schedule: "0 3 * * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: tokyo_bm_recruit
     name: "ビルメン"
@@ -1288,6 +1471,7 @@ sites:
     url: "https://www.tokyo-bm-recruit.jp/"
     schedule: "0 5 * * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: housing_bazar
     name: "ハウジングバザール"
@@ -1295,6 +1479,7 @@ sites:
     url: "https://www.housingbazar.jp/vendors/search.php?p[]="
     schedule: "0 7 * * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: girlsbaito
     name: "ガールズバイト"
@@ -1302,6 +1487,7 @@ sites:
     url: "https://girlsbaito.jp/kanto"
     schedule: "30 3 15-21 * 6"
     enabled: true
+    terms_url: ""
 
   - site_id: gb-walker
     name: "ガールズバーウォーカー"
@@ -1309,6 +1495,7 @@ sites:
     url: "https://www.gb-walker.jp/"
     schedule: "30 5 15-21 * 6"
     enabled: true
+    terms_url: ""
 
   - site_id: lounge-tapioka
     name: "ラウンジタピオカガールズバー"
@@ -1316,6 +1503,7 @@ sites:
     url: "https://lounge-tapioca.com/"
     schedule: "30 4 15-21 * 6"
     enabled: true
+    terms_url: ""
 
   - site_id: hoskyu
     name: "ホスト求人ドットコム"
@@ -1323,6 +1511,7 @@ sites:
     url: "https://www.hoskyu.com/"
     schedule: "30 1 15-21 * 6"
     enabled: true
+    terms_url: ""
 
   - site_id: iiyeah_tateru
     name: "iiYEAH!を建てる"
@@ -1330,12 +1519,14 @@ sites:
     url: "https://iiyeah-tateru.jp/shops"
     schedule: "0 9 * * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: philippine_pub
     name: "フィリピンパブどっと混む"
     module: "nightlife.philippine_pub"
     url: "https://philippine-pub.com/"
     schedule: "30 4 8-14 * SUN"
+    terms_url: ""
 
   - site_id: girlsmeee
     name: "体入ガールズミー"
@@ -1343,6 +1534,7 @@ sites:
     url: "https://girlsmeee.com"
     schedule: "30 5 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: snack_navi
     name: "スナックナビ"
@@ -1350,6 +1542,7 @@ sites:
     url: "https://snacknavi.com/girl_top.php?page=1"
     schedule: "30 6 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: pachi_town
     name: "DMMぱちタウン"
@@ -1357,6 +1550,7 @@ sites:
     url: "https://p-town.dmm.com/shops/tokyo"
     schedule: "0 11 * * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: arubaito_ex
     name: "アルバイトEX"
@@ -1364,6 +1558,7 @@ sites:
     url: "https://arubaito-ex.jp/search?form_type=header_search"
     schedule: "30 4 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: gaten_info
     name: "ガテン職"
@@ -1371,6 +1566,7 @@ sites:
     url: "https://gaten.info/"
     schedule: "0 3 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: shokuba_mhlw_import
     name: "しょくばらぼ公式CSV差分"
@@ -1378,6 +1574,7 @@ sites:
     url: "https://shokuba.mhlw.go.jp/shokuba/utilize/download010?lang=JA"
     schedule: "0 11 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: tattoo_navi
     name: "タットゥースタジオナビ"
@@ -1385,6 +1582,7 @@ sites:
     url: "https://tattoo-navi.jp/studio/"
     schedule: "0 3 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: onsen_kyokai
     name: "日本温泉協会"
@@ -1392,6 +1590,7 @@ sites:
     url: "https://www.spa.or.jp/search_p/"
     schedule: "0 1 * * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: cabacrown
     name: "キャバクラウン"
@@ -1399,6 +1598,7 @@ sites:
     url: "https://cabacrown.net/kw/all/all/"
     schedule: "0 2 18 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: tsukulink
     name: "ツクリンク"
@@ -1406,6 +1606,7 @@ sites:
     url: "https://tsukulink.net"
     schedule: "0 2 19 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: naisuta
     name: "ナイスタ"
@@ -1413,6 +1614,7 @@ sites:
     url: "https://naisuta.com/search/honnyu/"
     schedule: "0 2 19 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: nights_fun
     name: "ナイツネット"
@@ -1420,6 +1622,7 @@ sites:
     url: "https://www.nights.fun/04-sitemap-shop-list.xml"
     schedule: "30 4 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: caba2
     name: "キャバキャバ"
@@ -1427,6 +1630,7 @@ sites:
     url: "https://www.caba2.net/bar_sitemap.xml"
     schedule: "30 4 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: yorunabi
     name: "ヨルナビ"
@@ -1434,6 +1638,7 @@ sites:
     url: "https://yorumachi.jp/sitemap.xml"
     schedule: "30 5 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: pokepara_tainew
     name: "ポケパラ体入"
@@ -1441,6 +1646,7 @@ sites:
     url: "https://www.pokepara-tainew.jp/"
     schedule: "0 2 21 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: eiga_theater
     name: "映画.com 映画館情報"
@@ -1448,6 +1654,7 @@ sites:
     url: "https://eiga.com/theater/"
     schedule: "0 5 * * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: fitness_search
     name: "フィットネスサーチ"
@@ -1455,6 +1662,7 @@ sites:
     url: "https://www.fitness-search.net/"
     schedule: "0 9 * * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: sckanto
     name: "日本スイミングクラブ協会関東支部"
@@ -1462,6 +1670,7 @@ sites:
     url: "https://sckanto.net/"
     schedule: "0 3 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: rakuten_travel
     name: "楽天トラベル 宿泊施設一覧"
@@ -1469,6 +1678,7 @@ sites:
     url: "https://travel.rakuten.co.jp/group/TIKU/"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: jalan
     name: "じゃらんnet 宿泊施設"
@@ -1476,6 +1686,7 @@ sites:
     url: "https://www.jalan.net/yado.html"
     schedule: "0 3 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: type_2
     name: "女の転職type"
@@ -1483,6 +1694,7 @@ sites:
     url: "https://woman-type.jp/"
     schedule: "0 19 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: hoteltree_2
     name: "ホテルツリー"
@@ -1490,6 +1702,7 @@ sites:
     url: "https://hoteltree.jp"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: g_channel
     name: "G-CHANNEL"
@@ -1497,6 +1710,7 @@ sites:
     url: "https://www.g-channel.jp/"
     schedule: "0 20 9 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: daikumachi_2
     name: "水戸市大工町地区繁華街なび"
@@ -1504,6 +1718,7 @@ sites:
     url: "https://daikumachi.jp"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: takasaki_night_privity_fun
     name: "TAKASAKI NIGHT PRIVITY FUN"
@@ -1511,6 +1726,7 @@ sites:
     url: "https://www.takasaki-fun.jp/"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: cute_p
     name: "求とぴ"
@@ -1518,6 +1734,7 @@ sites:
     url: "https://cute-p.info/"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: hostgram
     name: "ホスタグラム"
@@ -1525,6 +1742,7 @@ sites:
     url: "https://hostgram.jp/"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: meccel_night
     name: "めっけるナイト（栃木版）"
@@ -1532,6 +1750,7 @@ sites:
     url: "https://meccel.net/"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: kaigo_kensaku
     name: "介護サービス情報公表システム"
@@ -1539,6 +1758,7 @@ sites:
     url: "https://www.kaigokensaku.mhlw.go.jp"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: green_japan
     name: "green_japan"
@@ -1546,6 +1766,7 @@ sites:
     url: "https://www.green-japan.com"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: ipros
     name: "ipros"
@@ -1553,6 +1774,7 @@ sites:
     url: "https://mono.ipros.com"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: jarw
     name: "jarw"
@@ -1560,6 +1782,7 @@ sites:
     url: "https://www.jarw.or.jp"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: jdcc
     name: "jdcc"
@@ -1567,6 +1790,7 @@ sites:
     url: "https://www.jdcc.or.jp"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: jta_jigyou
     name: "jta_jigyou"
@@ -1574,6 +1798,7 @@ sites:
     url: "https://jta.or.jp/association/link/jigyou.html"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: nissokyo
     name: "nissokyo"
@@ -1581,6 +1806,7 @@ sites:
     url: "https://www.nissokyo.or.jp"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: nittenkyo
     name: "nittenkyo"
@@ -1588,6 +1814,7 @@ sites:
     url: "https://jexadb.nittenkyo.ne.jp/json/jexa_memb.tsv"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: web_kanji
     name: "web_kanji"
@@ -1595,6 +1822,7 @@ sites:
     url: "https://web-kanji.com"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: lister_work
     name: "lister_work"
@@ -1602,6 +1830,7 @@ sites:
     url: "https://www.lister.work"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: japan_golf_ngk
     name: "japan_golf_ngk"
@@ -1609,6 +1838,7 @@ sites:
     url: "https://www.golf-ngk.or.jp/course/"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: jinzai_hellowork
     name: "jinzai_hellowork"
@@ -1616,6 +1846,7 @@ sites:
     url: "https://jinzai.hellowork.mhlw.go.jp/JinzaiWeb/GICB101010.do?action=initDisp&screenId=GICB101010"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: getswork
     name: "getswork"
@@ -1623,6 +1854,7 @@ sites:
     url: "https://www.getswork.com/"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: GirlsBaito_scrape
     name: "GirlsBaito_scrape"
@@ -1630,6 +1862,7 @@ sites:
     url: "https://girlsbaito.jp/archive?search_mode=detail&page=1"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: HostKyuzinDotcom_scrape
     name: "HostKyuzinDotcom_scrape"
@@ -1637,6 +1870,7 @@ sites:
     url: "https://www.hoskyu.com/"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: oremichi
     name: "oremichi"
@@ -1644,6 +1878,7 @@ sites:
     url: "https://www.oremichi.com/sitemap/sitemap.shop.xml"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: town_life_reform
     name: "town_life_reform"
@@ -1651,6 +1886,7 @@ sites:
     url: "https://www.town-life.jp/reform/"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: works
     name: "works"
@@ -1658,6 +1894,7 @@ sites:
     url: "https://04510.jp"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: iko_yo
     name: "iko_yo"
@@ -1665,6 +1902,7 @@ sites:
     url: "https://iko-yo.net/facilities?genre_cluster=1"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: estelove_work
     name: "estelove_work"
@@ -1672,6 +1910,7 @@ sites:
     url: "https://job.eslove.jp"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: mens_job
     name: "mens_job"
@@ -1679,6 +1918,7 @@ sites:
     url: "https://mens-job.jp"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: nightly
     name: "nightly"
@@ -1686,6 +1926,7 @@ sites:
     url: "https://nightly.jp/job/"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: pachitown
     name: "pachitown"
@@ -1693,6 +1934,7 @@ sites:
     url: "https://p-town.dmm.com"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: queen_work
     name: "queen_work"
@@ -1700,6 +1942,7 @@ sites:
     url: "https://queenwork.jp"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: qzin
     name: "qzin"
@@ -1707,6 +1950,7 @@ sites:
     url: "https://qzin.jp/"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: tainyu_route
     name: "tainyu_route"
@@ -1714,6 +1958,7 @@ sites:
     url: "https://icondolllounge.jp/lists"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: yashoku_gorakubu
     name: "yashoku_gorakubu"
@@ -1721,6 +1966,7 @@ sites:
     url: "https://yorushoku.jp/job-list/"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: yorumachi
     name: "yorumachi"
@@ -1728,6 +1974,7 @@ sites:
     url: "https://yorumachi.jp/"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: beauty_park
     name: "beauty_park"
@@ -1735,6 +1982,7 @@ sites:
     url: "https://www.beauty-park.jp/sitemap.xml"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: bijipuri
     name: "bijipuri"
@@ -1742,6 +1990,7 @@ sites:
     url: "https://visipri.com/area_detail/index_exhibition_hall.php"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: con_cafe
     name: "con_cafe"
@@ -1749,6 +1998,7 @@ sites:
     url: "https://con-cafe.jp"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: fukui_shakou
     name: "fukui_shakou"
@@ -1756,6 +2006,7 @@ sites:
     url: "https://fukui-syakou.com/guide"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: gal_colle_net
     name: "gal_colle_net"
@@ -1763,6 +2014,7 @@ sites:
     url: "https://gal-colle.net"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: girlsbar_station
     name: "girlsbar_station"
@@ -1770,6 +2022,7 @@ sites:
     url: "https://girlsbar-station.com"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: imitsu
     name: "imitsu"
@@ -1777,6 +2030,7 @@ sites:
     url: "https://imitsu.jp/ct-sales-agent/search/"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: jalan_rentacar
     name: "jalan_rentacar"
@@ -1784,6 +2038,7 @@ sites:
     url: "https://www.jalan.net"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: jpon
     name: "jpon"
@@ -1791,6 +2046,7 @@ sites:
     url: "https://jpon.xyz/2012/index.html"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: kagoshima_shakou
     name: "kagoshima_shakou"
@@ -1798,6 +2054,7 @@ sites:
     url: "https://www.kagoshima-pub.or.jp/category/kagoshima/"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: nagano_shakou
     name: "nagano_shakou"
@@ -1805,6 +2062,7 @@ sites:
     url: "https://naganosyakouinshyoku.com/shoppost-cat/naganoshi"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: niigata_shakou
     name: "niigata_shakou"
@@ -1812,6 +2070,7 @@ sites:
     url: "https://niigataken-shakou.com/search?keyword="
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: okinawa_shakou
     name: "okinawa_shakou"
@@ -1819,6 +2078,7 @@ sites:
     url: "https://okinawasyako.ti-da.net/"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: reshop_navi
     name: "reshop_navi"
@@ -1826,6 +2086,7 @@ sites:
     url: "https://rehome-navi.com/shops"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: savorjapan
     name: "savorjapan"
@@ -1833,6 +2094,7 @@ sites:
     url: "https://savorjapan.com"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: shizuoka_shakou
     name: "shizuoka_shakou"
@@ -1840,6 +2102,7 @@ sites:
     url: "https://shizuoka-shakou.com/shop"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: toyama_shakou
     name: "toyama_shakou"
@@ -1847,6 +2110,7 @@ sites:
     url: "http://toyama-syakou.com/shop/"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: tsukulink_naisou
     name: "tsukulink_naisou"
@@ -1854,6 +2118,7 @@ sites:
     url: "https://tsukulink.net"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: aupay_japan
     name: "aupay_japan"
@@ -1861,6 +2126,7 @@ sites:
     url: "https://api.aupay.wallet.auone.jp/store-search"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: aupay_store
     name: "aupay_store"
@@ -1868,6 +2134,7 @@ sites:
     url: "https://aupay.wallet.auone.jp/store/"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: pps_net
     name: "pps_net"
@@ -1875,6 +2142,7 @@ sites:
     url: "https://pps-net.org/agency"
     schedule: "0 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: xn_pckua2a7gp15o89zb
     name: "求人ボックス【外国人工場夜勤】"
@@ -1882,6 +2150,7 @@ sites:
     url: "https://xn--pckua2a7gp15o89zb.com"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: sunmarie
     name: "サンマリエ"
@@ -1889,6 +2158,7 @@ sites:
     url: "https://www.sunmarie.co.jp/store/"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: sunmarie_2
     name: "サンマリエ"
@@ -1897,12 +2167,14 @@ sites:
     schedule: null
     enabled: true
     
+    terms_url: ""
   - site_id: ibj_members
     name: "IBJメンバーズ（結婚相談所）"
     module: "service.ibj_members"
     url: "https://www.loungemembers.com/lounge"
     schedule: "0 4 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: jpnumber_power_agents
     name: "新電力代理店候補 JPNumber"
@@ -1910,6 +2182,7 @@ sites:
     url: "https://www.jpnumber.com/"
     schedule: "20 0 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: milto
     name: "milto（ミルト）"
@@ -1917,6 +2190,7 @@ sites:
     url: "https://mil-to.com/"
     schedule: "0 3 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: tattoo_studio
     name: "タトゥースタジオナビ"
@@ -1924,6 +2198,7 @@ sites:
     url: "https://tattoo-navi.jp/studio/"
     schedule: "0 3 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: jbn
     name: "JBN"
@@ -1931,6 +2206,7 @@ sites:
     url: "https://www.jbn-support.jp/about/search/"
     schedule: "0 19 26 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: cabanori
     name: "キャバノリ"
@@ -1938,6 +2214,7 @@ sites:
     url: "https://cabanori.com/top"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: ibj_2
     name: "IBJ"
@@ -1945,6 +2222,7 @@ sites:
     url: "https://www.ibjapan.com/"
     schedule: "0 19 28 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: torecamap
     name: "トレカの地図"
@@ -1952,6 +2230,7 @@ sites:
     url: "https://torecamap.co.jp/"
     schedule: "0 21 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: kimonoya
     name: "着物屋さんナビ"
@@ -1959,6 +2238,7 @@ sites:
     url: "https://www.kimonoya.org/aboutme.html"
     schedule: "0 21 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: hatarakuzo
     name: "働くぞドットコム"
@@ -1966,6 +2246,7 @@ sites:
     url: "https://www.hatarakuzo.com/"
     schedule: "0 17 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: snakaranavi
     name: "スナカラ"
@@ -1973,6 +2254,7 @@ sites:
     url: "https://www.snakaranavi.net/"
     schedule: "0 19 2 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: techplaza
     name: "東大阪市技術交流プラザ"
@@ -1980,6 +2262,7 @@ sites:
     url: "https://www.techplaza.city.higashiosaka.osaka.jp/"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: tsukulink_2
     name: "ツクリンクリスト"
@@ -1987,6 +2270,7 @@ sites:
     url: "https://tsukulink.net/"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: night
     name: "神奈川夜遊びNight"
@@ -1994,6 +2278,7 @@ sites:
     url: "https://www.kanagawa-yoasobi.com/data.php?c=search&page=1"
     schedule: "0 9 15 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: enecho
     name: "登録小売電気事業者"
@@ -2001,6 +2286,7 @@ sites:
     url: "https://www.enecho.meti.go.jp/category/electricity_and_gas/electric/summary/retailers_list/index.html"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: cabanori_3
     name: "ハマのり"
@@ -2008,6 +2294,7 @@ sites:
     url: "https://cabanori.com"
     schedule: "0 9 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: web_2
     name: "web幹事"
@@ -2015,6 +2302,7 @@ sites:
     url: "https://web-kanji.com/search"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: cookdoor_2
     name: "クックドア"
@@ -2022,6 +2310,7 @@ sites:
     url: "https://www.cookdoor.jp/"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: etsuran2_4
     name: "建設業者・宅建業者等企業情報検索システム【建設業者】"
@@ -2029,6 +2318,7 @@ sites:
     url: "https://etsuran2.mlit.go.jp/TAKKEN/kensetuKensaku.do?outPutKbn=1"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: tabiiro
     name: "旅色(宿)"
@@ -2036,6 +2326,7 @@ sites:
     url: "https://tabiiro.jp/yado/"
     schedule: "0 22 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: wam
     name: "障害福祉サービス情報検索"
@@ -2043,6 +2334,7 @@ sites:
     url: "https://www.wam.go.jp/sfkohyoout/COP000100E0000.do"
     schedule: "0 19 7 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: kenken
     name: "KenKen!"
@@ -2050,6 +2342,7 @@ sites:
     url: "https://www.kenchikukenken.co.jp/"
     schedule: "0 18 7 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: clearing
     name: "登録貸金業者情報検索"
@@ -2057,6 +2350,7 @@ sites:
     url: "https://clearing.fsa.go.jp/kashikin/index.php"
     schedule: "0 18 6 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: search
     name: "金融商品取引業者等一覧"
@@ -2064,6 +2358,7 @@ sites:
     url: "https://search.fsa.go.jp/"
     schedule: "0 19 6 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: etsuran2_5
     name: "建設業者・宅建業者等企業情報検索システム【マンション管理業者】"
@@ -2071,6 +2366,7 @@ sites:
     url: "https://etsuran2.mlit.go.jp/TAKKEN/mansionKensaku.do"
     schedule: "0 5 13 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: keaj
     name: "在日中国朝鮮族経営者協会"
@@ -2078,6 +2374,7 @@ sites:
     url: "https://keaj.org/members/"
     schedule: "0 9 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: caretaxi_net
     name: "介護タクシー案内所"
@@ -2085,6 +2382,7 @@ sites:
     url: "https://caretaxi-net.com/"
     schedule: "0 14 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: jcata
     name: "在日華人旅行業協会公式"
@@ -2092,6 +2390,7 @@ sites:
     url: "https://www.jcata.net/"
     schedule: "0 9 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: dancesagasu
     name: "ダンサガ"
@@ -2099,6 +2398,7 @@ sites:
     url: "https://dancesagasu.net/"
     schedule: "0 9 18 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: npo
     name: "内閣府NPO法人情報ポータルサイト"
@@ -2106,6 +2406,7 @@ sites:
     url: "https://www.npo-homepage.go.jp/npoportal/"
     schedule: "0 9 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: kyujin
     name: "ほっとサーチ"
@@ -2113,6 +2414,7 @@ sites:
     url: "https://kyujin.hotsearch.jp/"
     schedule: "0 9 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: cabasite
     name: "cabasite"
@@ -2120,6 +2422,7 @@ sites:
     url: "https://cabasite.com/"
     schedule: "0 9 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: iryou
     name: "医療情報ネット（ナビイ）"
@@ -2127,6 +2430,7 @@ sites:
     url: "https://www.iryou.teikyouseido.mhlw.go.jp/znk-web/juminkanja/S2300/initialize"
     schedule: "0 9 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: arukita
     name: "アルキタ"
@@ -2134,6 +2438,7 @@ sites:
     url: "https://www.arukita.com/job_list"
     schedule: "0 20 10 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: kaigoshoku
     name: "マイナビ介護職"
@@ -2141,6 +2446,7 @@ sites:
     url: "https://kaigoshoku.mynavi.jp/"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: demae_can_8
     name: "出前館"
@@ -2148,6 +2454,7 @@ sites:
     url: "https://demae-can.com/shopDetail"
     schedule: "0 1 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: jadma
     name: "JADMA 正会員一覧"
@@ -2155,6 +2462,7 @@ sites:
     url: "https://jadma.or.jp/membercompany/fmember"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: re
     name: "Re就活"
@@ -2162,6 +2470,7 @@ sites:
     url: "https://re-katsu.jp/career/"
     schedule: "0 1 * * 6"
     enabled: true
+    terms_url: ""
 
   - site_id: it
     name: "ITトレンド"
@@ -2169,6 +2478,7 @@ sites:
     url: "https://it-trend.jp/"
     schedule: "0 23 16 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: boxil
     name: "BOXIL"
@@ -2176,6 +2486,7 @@ sites:
     url: "https://boxil.jp/"
     schedule: "0 20 30 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: emidas_2
     name: "エミダス(emidas)"
@@ -2183,6 +2494,7 @@ sites:
     url: "https://ja.nc-net.or.jp/?cntry=999"
     schedule: "0 18 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: zenshukyo
     name: "全日本宗教用具協同組合(仏具)"
@@ -2190,6 +2502,7 @@ sites:
     url: "https://www.zenshukyo.or.jp/memberlist/"
     schedule: "0 9 18 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: softbank
     name: "ソフトバンクショップ"
@@ -2197,6 +2510,7 @@ sites:
     url: "https://www.softbank.jp/shop/search/"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: www5
     name: "認定補聴器専門店認定システム"
@@ -2204,6 +2518,7 @@ sites:
     url: "https://www5.techno-aids.or.jp/shop/map.php"
     schedule: "0 9 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: ii_ie2
     name: "いい家ネット"
@@ -2211,6 +2526,7 @@ sites:
     url: "https://www.ii-ie2.net/koumuten"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: p_portal
     name: "調達ポータル"
@@ -2218,6 +2534,7 @@ sites:
     url: "https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103"
     schedule: "0 9 1 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: epark
     name: "EPARKリラク＆エステ"
@@ -2225,6 +2542,7 @@ sites:
     url: "https://mitsuraku.jp/"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: store
     name: "ほっともっと"
@@ -2232,3 +2550,4 @@ sites:
     url: "https://store.hottomotto.com/b/hottomotto/attr/"
     schedule: "0 2 1 * *"
     enabled: true
+    terms_url: ""
