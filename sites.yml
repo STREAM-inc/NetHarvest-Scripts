@@ -2579,3 +2579,10 @@ sites:
     url: "https://flets-w.com/collabo/list/index.php"
     schedule: null
     enabled: true
+
+  - site_id: houjin_bangou
+    name: "国税庁　法人番号公表サイト"
+    module: "government.houjin_bangou"
+    url: "https://www.houjin-bangou.nta.go.jp/"
+    schedule: null
+    enabled: true
