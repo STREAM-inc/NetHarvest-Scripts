@@ -2572,3 +2572,10 @@ sites:
     url: "https://flets.com/collabo/list/"
     schedule: null
     enabled: true
+
+  - site_id: ntt_2
+    name: "NTT西日本 光コラボレーションモデル 事業者一覧"
+    module: "agency_franchise.ntt_2"
+    url: "https://flets-w.com/collabo/list/index.php"
+    schedule: null
+    enabled: true
