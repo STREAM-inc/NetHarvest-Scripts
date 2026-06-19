@@ -6,8 +6,9 @@ EPARKリラク＆エステ (mitsuraku.jp) — リラクゼーション・マッ�
 
 取得フロー:
     1. ルートページ (https://mitsuraku.jp/) から都道府県リンクを抽出
-    2. 各都道府県ページを ?page=N でページネーション
-    3. 各サロンの詳細ページから構造化データを取得・即yield
+    2. 各都道府県ページからエリア(市区町村)リンクを抽出
+    3. 各エリアページを ?page=N でページネーション
+    4. 各リストページ20件の詳細ページを ThreadPoolExecutor で並行取得・即yield
 
 実行方法:
     # ローカルテスト
@@ -19,7 +20,15 @@ EPARKリラク＆エステ (mitsuraku.jp) — リラクゼーション・マッ�
 
 import re
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from urllib.parse import urljoin
+
+import bs4
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -32,85 +41,194 @@ _PREF_PATTERN = re.compile(
     r"^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
 )
 
-# スラグが都道府県ページのものかどうかの判定用除外リスト
 _NON_PREF_SLUGS = {
     "area", "railway", "genre", "inquiry", "esthe", "fitness", "search",
     "salon", "sitemap", "column", "salonRequest", "news", "login", "mypage",
     "corporate", "special", "massage", "term", "publish", "guide", "agreement",
     "faq", "policy", "company", "images", "css", "js", "ajax", "reserve",
-    "coupon", "review", "access", "blog", "menu", "photo",
+    "coupon", "review", "access", "blog", "menu", "photo", "shop",
 }
+
+# 都道府県URL: https://mitsuraku.jp/{pref_slug}/
+_PREF_URL_RE = re.compile(r"https://mitsuraku\.jp/([a-z][a-z0-9-]*)/?$")
+# エリアURL: https://mitsuraku.jp/{pref_slug}/{area_slug}/
+_AREA_URL_RE = re.compile(r"https://mitsuraku\.jp/[a-z][a-z0-9-]*/([a-z][a-z0-9-]*)/?$")
+
+# 詳細ページ並行取得のスレッド数
+_N_WORKERS = 10
+
+# スレッドごとの requests.Session (thread-safe)
+_thread_local = threading.local()
+
+
+def _get_thread_session() -> requests.Session:
+    """各ワーカースレッドに固有のセッションを返す"""
+    if not hasattr(_thread_local, "session"):
+        sess = requests.Session()
+        retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
+        sess.mount("https://", HTTPAdapter(max_retries=retries))
+        sess.headers.update({
+            "User-Agent": StaticCrawler.USER_AGENT,
+        })
+        _thread_local.session = sess
+    return _thread_local.session
 
 
 class EparkScraper(StaticCrawler):
     """EPARKリラク＆エステ スクレイパー"""
 
-    DELAY = 1.5
+    # DELAY=0: 詳細ページは ThreadPoolExecutor で並行取得するため
+    # フレームワーク側の per-item sleep を排除し、スループットを最大化する
+    DELAY = 0.0
     EXTRA_COLUMNS = ["メニュー"]
 
     def parse(self, url: str):
         root_soup = self.get_soup(url)
 
-        # 都道府県リンクをルートページから動的に抽出
+        # Step 1: 都道府県リンクをルートページから抽出
         pref_urls = []
-        seen = set()
+        seen_pref = set()
         for a in root_soup.select("a[href]"):
-            href = a["href"]
-            m = re.match(r"https://mitsuraku\.jp/([a-z]+)/?$", href)
-            if m and m.group(1) not in _NON_PREF_SLUGS and href not in seen:
-                pref_urls.append(href.rstrip("/") + "/")
-                seen.add(href)
+            href = a.get("href", "")
+            if not href:
+                continue
+            full = urljoin(url, href)
+            m = _PREF_URL_RE.match(full)
+            if m and m.group(1) not in _NON_PREF_SLUGS:
+                normalized = full.rstrip("/") + "/"
+                if normalized not in seen_pref:
+                    pref_urls.append(normalized)
+                    seen_pref.add(normalized)
+
+        self.logger.info(f"都道府県数: {len(pref_urls)}")
 
         for pref_url in pref_urls:
-            page = 1
-            while True:
-                page_url = f"{pref_url}?page={page}" if page > 1 else pref_url
-                soup = self.get_soup(page_url)
-                panels = soup.select("div.panel.result-panel.js-salon-panel")
-                if not panels:
-                    break
+            pref_soup = self.get_soup(pref_url)
+            if pref_soup is None:
+                continue
 
-                for panel in panels:
-                    try:
-                        name_a = panel.select_one("h2.search_shopname a.js-salon-link")
-                        if not name_a:
-                            continue
-                        detail_url = name_a.get("href", "")
-                        if not detail_url:
-                            continue
+            # Step 2: 都道府県ページからエリア(市区町村)リンクを抽出
+            area_urls = []
+            seen_area = set()
+            for a in pref_soup.select("a[href]"):
+                href = a.get("href", "")
+                if not href:
+                    continue
+                full = urljoin(pref_url, href)
+                m = _AREA_URL_RE.match(full)
+                if m and m.group(1) not in _NON_PREF_SLUGS:
+                    normalized = full.rstrip("/") + "/"
+                    if normalized not in seen_area:
+                        area_urls.append(normalized)
+                        seen_area.add(normalized)
 
-                        # 一覧ページから取れる情報
-                        name_el = name_a.select_one("span[itemprop='name']")
-                        name = name_el.get_text(strip=True) if name_el else ""
+            self.logger.info(f"  {pref_url}: エリア数 {len(area_urls)}")
 
-                        kana_el = panel.select_one("small[itemprop='alternateName']")
-                        kana = kana_el.get_text(strip=True) if kana_el else ""
+            if area_urls:
+                for area_url in area_urls:
+                    yield from self._scrape_list(area_url)
+            else:
+                yield from self._scrape_list(pref_url)
 
-                        cat_els = panel.select("span.list-category")
-                        cat_site = " / ".join(el.get_text(strip=True) for el in cat_els)
+    def _scrape_list(self, list_url: str):
+        """リスト(一覧)ページをページネーションし、各ページの詳細を並行取得してyield"""
+        seen_detail: set[str] = set()
+        page = 1
+        while True:
+            page_url = f"{list_url}?page={page}" if page > 1 else list_url
+            soup = self.get_soup(page_url)
+            if soup is None:
+                break
+            panels = soup.select("div.panel.result-panel.js-salon-panel")
+            if not panels:
+                break
 
-                        # 詳細ページを取得して即yield
-                        item = self._scrape_detail(detail_url)
-                        if item is None:
-                            item = {}
+            # パネルから基本情報と詳細URLを抽出
+            batch: list[tuple[dict, str]] = []
+            for panel in panels:
+                basic, detail_url = self._extract_panel_basic(panel)
+                if not detail_url or detail_url in seen_detail:
+                    continue
+                seen_detail.add(detail_url)
+                batch.append((basic, detail_url))
 
-                        item[Schema.NAME] = name or item.get(Schema.NAME, "")
-                        item[Schema.NAME_KANA] = kana
-                        item[Schema.CAT_SITE] = cat_site
-                        item[Schema.URL] = detail_url
-
+            # 詳細ページを並行取得してyield
+            if batch:
+                detail_urls = [d for _, d in batch]
+                details = self._fetch_details_concurrent(detail_urls)
+                for (basic, _), detail in zip(batch, details):
+                    item = {**(detail or {})}
+                    for k, v in basic.items():
+                        if v:
+                            item[k] = v
+                    if item.get(Schema.NAME):
                         yield item
 
-                    except Exception as e:
-                        self.logger.warning(f"パネル取得エラー: {e}")
-                        continue
+            page += 1
 
-                page += 1
+    def _extract_panel_basic(self, panel) -> tuple[dict, str]:
+        """パネル要素からリストページ取得可能な基本情報と詳細URLを返す"""
+        name_a = panel.select_one("h2.search_shopname a.js-salon-link")
+        if not name_a:
+            return {}, ""
+        detail_url = name_a.get("href", "")
+        if not detail_url:
+            return {}, ""
 
-    def _scrape_detail(self, url: str) -> dict | None:
+        name_el = name_a.select_one("span[itemprop='name']")
+        name = name_el.get_text(strip=True) if name_el else ""
+
+        kana_el = panel.select_one("small[itemprop='alternateName']")
+        kana = kana_el.get_text(strip=True) if kana_el else ""
+
+        cat_els = panel.select("span.list-category")
+        cat_site = " / ".join(el.get_text(strip=True) for el in cat_els)
+
+        hours_el = panel.select_one("div[itemprop='openingHours']")
+        hours_panel = hours_el.get_text(strip=True) if hours_el else ""
+
+        basic: dict = {
+            Schema.NAME: name,
+            Schema.NAME_KANA: kana,
+            Schema.CAT_SITE: cat_site,
+            Schema.URL: detail_url,
+        }
+        if hours_panel:
+            basic[Schema.TIME] = hours_panel
+
+        return basic, detail_url
+
+    def _fetch_details_concurrent(self, urls: list[str]) -> list[dict | None]:
+        """複数の詳細URLを ThreadPoolExecutor で並行取得する"""
+        results: list[dict | None] = [None] * len(urls)
+        with ThreadPoolExecutor(max_workers=_N_WORKERS) as ex:
+            fut2idx = {ex.submit(self._fetch_detail_threaded, u): i for i, u in enumerate(urls)}
+            for fut in as_completed(fut2idx):
+                idx = fut2idx[fut]
+                try:
+                    results[idx] = fut.result()
+                except Exception as e:
+                    self.logger.warning(f"詳細取得エラー (並行): {e}")
+        return results
+
+    def _fetch_detail_threaded(self, url: str) -> dict | None:
+        """スレッド内から詳細ページを取得して構造化データを返す"""
         try:
-            soup = self.get_soup(url)
+            sess = _get_thread_session()
+            resp = sess.get(url, timeout=self.TIMEOUT)
+            resp.raise_for_status()
+            content_type = resp.headers.get("Content-Type", "")
+            if "charset=" not in content_type.lower():
+                resp.encoding = resp.apparent_encoding
+            soup = bs4.BeautifulSoup(resp.text, "html.parser")
+            return self._parse_detail_soup(soup, url)
+        except Exception as e:
+            self.logger.warning(f"詳細取得エラー ({url}): {e}")
+            return None
 
+    def _parse_detail_soup(self, soup, url: str = "") -> dict | None:
+        """詳細ページのBeautifulSoupから構造化データを抽出する"""
+        try:
             # TEL: data-phone-number 属性
             tel_el = soup.select_one("p.js-shop-phone-number[data-phone-number]")
             tel = tel_el["data-phone-number"] if tel_el else ""
@@ -125,7 +243,6 @@ class EparkScraper(StaticCrawler):
             street = street_el.get_text(strip=True).lstrip("\xa0").strip() if street_el else ""
             addr = f"{locality} {street}".strip() if street else locality
 
-            # PREF を住所から確認・補完
             if not pref and addr:
                 m = _PREF_PATTERN.match(addr)
                 if m:
@@ -135,8 +252,6 @@ class EparkScraper(StaticCrawler):
                 addr = addr[len(pref):].strip()
 
             # 営業時間・定休日・支払い方法・HP (panel-list)
-            # HTML の <li> は閉じタグ省略のためネスト構造が混在する。
-            # col-xs-4/col-sm-3 がヘッダー、col-xs-8/col-sm-9 が値を保持する。
             hours = ""
             holiday = ""
             pay = ""
@@ -146,7 +261,6 @@ class EparkScraper(StaticCrawler):
                 value_el = ul.select_one("li.col-xs-8, li.col-sm-9")
                 if not header_el or not value_el:
                     continue
-                # ヘッダー直接テキスト (子要素のテキストを除く)
                 header = "".join(
                     t.strip() for t in header_el.find_all(string=True, recursive=False)
                 ).strip()
@@ -163,7 +277,7 @@ class EparkScraper(StaticCrawler):
                     a_el = value_el.select_one("a[href]")
                     hp = a_el["href"] if a_el else value_el.get_text(strip=True)
 
-            # メニュー: 詳細ページのメニューセクションからコース名と料金を取得
+            # メニュー
             menu_items = []
             for row in soup.select("div.menu-list__item, li.menu-list__item, tr.js-menu-row"):
                 name_el = row.select_one(".menu-list__name, .menu__name, td.menu-name")
@@ -172,7 +286,6 @@ class EparkScraper(StaticCrawler):
                 item_price = price_el.get_text(strip=True) if price_el else ""
                 if item_name:
                     menu_items.append(f"{item_name} {item_price}".strip())
-            # フォールバック: 汎用メニューテーブル
             if not menu_items:
                 for section in soup.select("section.menu, div.menu-wrap, div#menu"):
                     for row in section.select("tr, li"):
@@ -196,7 +309,7 @@ class EparkScraper(StaticCrawler):
                 "メニュー": menu,
             }
         except Exception as e:
-            self.logger.warning(f"詳細取得エラー ({url}): {e}")
+            self.logger.warning(f"詳細パースエラー ({url}): {e}")
             return None
 
 
