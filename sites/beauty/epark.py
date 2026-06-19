@@ -109,17 +109,22 @@ class EparkScraper(StaticCrawler):
 
         total = len(_GENRE_PREFIXES) * len(_ALL_PREFS)
         idx = 0
+        grand_total = 0  # 全URL通算のyield件数 (どこで止まるか可視化用)
         for genre_prefix in _GENRE_PREFIXES:
             for pref in _ALL_PREFS:
                 idx += 1
                 list_url = f"{base}/{genre_prefix}{pref}/"
                 self.logger.info(f"[{idx}/{total}] {list_url}")
                 # 1県の失敗で全141URLの巡回を止めないよう、県単位で例外を握りつぶす
+                pref_count = 0
                 try:
-                    yield from self._scrape_list(list_url, seen_detail=seen_detail)
+                    for item in self._scrape_list(list_url, seen_detail=seen_detail):
+                        pref_count += 1
+                        grand_total += 1
+                        yield item
                 except Exception as e:
                     self.logger.warning(f"一覧巡回エラー (継続) {list_url}: {e}")
-                    continue
+                self.logger.info(f"[{idx}/{total}] 完了 {pref}: {pref_count}件 (通算 {grand_total}件)")
 
     def _find_panels(self, soup) -> list:
         """
