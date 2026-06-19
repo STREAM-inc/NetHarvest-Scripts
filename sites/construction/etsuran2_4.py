@@ -509,8 +509,15 @@ def parse_offices_table(soup: BeautifulSoup) -> List[Dict[str, str]]:
     """
     offices: List[Dict[str, str]] = []
 
-    NAME_PAT = re.compile(r"営業所名|事業所名|支店名")
+    # 「営業所等の名称」「名称」等を広くキャッチ。「番号」「No.」は除外。
+    NAME_PAT = re.compile(r"営業所|事業所|支店|名\s*称")
+    NUM_PAT = re.compile(r"^(?:No\.?|番\s*号)$")
     ADDR_PAT = re.compile(r"所\s*在\s*地|住\s*所|電\s*話|郵\s*便|TEL")
+
+    def _is_name_key(key: str) -> bool:
+        if NUM_PAT.match(key):
+            return False
+        return bool(NAME_PAT.search(key)) and not bool(ADDR_PAT.search(key))
 
     for tbl in soup.find_all("table"):
         rows = tbl.find_all("tr")
@@ -523,7 +530,7 @@ def parse_offices_table(soup: BeautifulSoup) -> List[Dict[str, str]]:
             texts = [norm(c.get_text(" ")) for c in cells]
             if not texts:
                 continue
-            if any(NAME_PAT.search(t) for t in texts):
+            if any(_is_name_key(t) for t in texts):
                 joined = " ".join(texts)
                 # 同行に住所/電話/郵便列も含む（標準的な営業所テーブル）
                 if ADDR_PAT.search(joined):
@@ -551,8 +558,8 @@ def parse_offices_table(soup: BeautifulSoup) -> List[Dict[str, str]]:
                 if j >= len(values):
                     break
                 val = values[j]
-                if NAME_PAT.search(key):
-                    office["営業所名"] = val
+                if _is_name_key(key):
+                    office.setdefault("営業所名", val)
                 elif re.search(r"郵\s*便", key):
                     office["営業所_郵便番号"] = re.sub(r"[〒\s]", "", val)
                 elif re.search(r"所\s*在\s*地|住\s*所", key):
@@ -626,20 +633,18 @@ def parse_company_overview_soup(soup: BeautifulSoup) -> Dict[str, str]:
 def parse_detail_rows(html: str, office_html: Optional[str], detail_url: str) -> List[Dict[str, str]]:
     """詳細HTMLをパースして営業所単位の行リストを返す。
 
-    office_html: 営業所タブ HTML（ksEigyosho.do）。None の場合は概要 HTML から試みる。
+    office_html: 営業所タブ HTML（ksEigyosho.do）。None または空テーブルの場合は本社情報で 1 行。
     各行には業者概要タブの情報が付与される。
     営業所テーブルが取得できない場合は本社情報で 1 行を出力（フォールバック）。
     """
     soup = BeautifulSoup(html, "html.parser")
     company = parse_company_overview_soup(soup)
 
-    # 営業所タブ HTML を優先してパース、なければ概要 HTML から試みる
+    # 営業所タブ HTML（ksEigyosho.do）をパース。概要 HTML は営業所リストを持たないため参照しない。
     offices: List[Dict[str, str]] = []
     if office_html:
         office_soup = BeautifulSoup(office_html, "html.parser")
         offices = parse_offices_table(office_soup)
-    if not offices:
-        offices = parse_offices_table(soup)
 
     company_name = company.get(Schema.NAME, "")
     hq_post = company.get("本社_郵便番号", "")
