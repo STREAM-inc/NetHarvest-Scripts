@@ -107,6 +107,7 @@ from src.const.schema import Schema
 SEARCH_INIT_URL = "https://etsuran2.mlit.go.jp/TAKKEN/kensetuKensaku.do?outPutKbn=1"
 SEARCH_URL = "https://etsuran2.mlit.go.jp/TAKKEN/kensetuKensaku.do"
 DETAIL_URL = "https://etsuran2.mlit.go.jp/TAKKEN/ksGaiyo.do"
+OFFICE_URL = "https://etsuran2.mlit.go.jp/TAKKEN/ksEigyosho.do"
 BASE_URL = SEARCH_INIT_URL  # execute() に渡すエントリ URL
 
 # 504 対策の要: 所在地(都道府県コード)で検索を 47 分割する。
@@ -351,6 +352,34 @@ def fetch_detail_html(license_no: str, epoch: int) -> Optional[str]:
     return None
 
 
+def fetch_office_html(license_no: str, epoch: int) -> Optional[str]:
+    """営業所タブ HTML（ksEigyosho.do）を requests GET で取得する。"""
+    session = get_thread_session(epoch)
+    for attempt in range(GATEWAY_RETRY):
+        try:
+            GLOBAL_LIMITER.acquire()
+            r = session.get(OFFICE_URL, params={"sv_licenseNo": license_no}, timeout=HTTP_TIMEOUT)
+            r.encoding = "shift_jis"
+            if r.status_code in (429, 500, 502, 503, 504) or is_gateway_timeout_page(r.text):
+                time.sleep(GATEWAY_BACKOFF_SEC * (2 ** attempt))
+                continue
+            if r.ok and r.text:
+                return r.text
+            return None
+        except Exception:
+            time.sleep(GATEWAY_BACKOFF_SEC * (2 ** attempt))
+    return None
+
+
+def fetch_all_tabs(license_no: str, epoch: int) -> Tuple[Optional[str], Optional[str]]:
+    """概要HTMLと営業所タブHTMLを取得して (detail_html, office_html) で返す。"""
+    detail_html = fetch_detail_html(license_no, epoch)
+    if not detail_html:
+        return None, None
+    office_html = fetch_office_html(license_no, epoch)
+    return detail_html, office_html
+
+
 # ====================== HTMLパース ======================
 # 許可を受けた建設業の種類（28業種を表す略号）。値は 一般/特定/空。
 ABBR_COLUMNS = [
@@ -479,6 +508,10 @@ def parse_offices_table(soup: BeautifulSoup) -> List[Dict[str, str]]:
       営業所名, 営業所_郵便番号, 営業所_所在地, 営業所_電話番号
     """
     offices: List[Dict[str, str]] = []
+
+    NAME_PAT = re.compile(r"営業所名|事業所名|支店名")
+    ADDR_PAT = re.compile(r"所\s*在\s*地|住\s*所|電\s*話|郵\s*便|TEL")
+
     for tbl in soup.find_all("table"):
         rows = tbl.find_all("tr")
         if len(rows) < 2:
@@ -488,9 +521,17 @@ def parse_offices_table(soup: BeautifulSoup) -> List[Dict[str, str]]:
         for i, tr in enumerate(rows):
             cells = tr.find_all(["th", "td"])
             texts = [norm(c.get_text(" ")) for c in cells]
-            if any(re.search(r"営業所名|事業所名", t) for t in texts):
+            if not texts:
+                continue
+            if any(NAME_PAT.search(t) for t in texts):
                 joined = " ".join(texts)
-                if re.search(r"所在地|住所|電話|郵便", joined):
+                # 同行に住所/電話/郵便列も含む（標準的な営業所テーブル）
+                if ADDR_PAT.search(joined):
+                    header_cells = texts
+                    header_idx = i
+                    break
+                # 同行に住所系がなくても2列以上あれば採用（ksEigyosho.do 等の専用ページ）
+                elif len(texts) >= 2:
                     header_cells = texts
                     header_idx = i
                     break
@@ -510,13 +551,13 @@ def parse_offices_table(soup: BeautifulSoup) -> List[Dict[str, str]]:
                 if j >= len(values):
                     break
                 val = values[j]
-                if re.search(r"営業所名|事業所名", key):
+                if NAME_PAT.search(key):
                     office["営業所名"] = val
-                elif re.search(r"郵便", key):
+                elif re.search(r"郵\s*便", key):
                     office["営業所_郵便番号"] = re.sub(r"[〒\s]", "", val)
-                elif re.search(r"所在地|住所", key):
+                elif re.search(r"所\s*在\s*地|住\s*所", key):
                     office["営業所_所在地"] = val
-                elif re.search(r"電話|ＴＥＬ|TEL", key):
+                elif re.search(r"電\s*話|TEL", key):
                     office["営業所_電話番号"] = val
             for k in ["営業所名", "営業所_郵便番号", "営業所_所在地", "営業所_電話番号"]:
                 office.setdefault(k, "")
@@ -582,15 +623,23 @@ def parse_company_overview_soup(soup: BeautifulSoup) -> Dict[str, str]:
     return row
 
 
-def parse_detail_rows(html: str, detail_url: str) -> List[Dict[str, str]]:
+def parse_detail_rows(html: str, office_html: Optional[str], detail_url: str) -> List[Dict[str, str]]:
     """詳細HTMLをパースして営業所単位の行リストを返す。
 
+    office_html: 営業所タブ HTML（ksEigyosho.do）。None の場合は概要 HTML から試みる。
     各行には業者概要タブの情報が付与される。
     営業所テーブルが取得できない場合は本社情報で 1 行を出力（フォールバック）。
     """
     soup = BeautifulSoup(html, "html.parser")
     company = parse_company_overview_soup(soup)
-    offices = parse_offices_table(soup)
+
+    # 営業所タブ HTML を優先してパース、なければ概要 HTML から試みる
+    offices: List[Dict[str, str]] = []
+    if office_html:
+        office_soup = BeautifulSoup(office_html, "html.parser")
+        offices = parse_offices_table(office_soup)
+    if not offices:
+        offices = parse_offices_table(soup)
 
     company_name = company.get(Schema.NAME, "")
     hq_post = company.get("本社_郵便番号", "")
@@ -790,19 +839,19 @@ class Etsuran24Scraper(StaticCrawler):
         if not fresh_ids:
             return all_rows
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
-            fut2id = {ex.submit(fetch_detail_html, did, epoch): did for did in fresh_ids}
+            fut2id = {ex.submit(fetch_all_tabs, did, epoch): did for did in fresh_ids}
             for fut in as_completed(fut2id):
                 did = fut2id[fut]
                 try:
-                    html = fut.result()
+                    detail_html, office_html = fut.result()
                 except Exception:
-                    html = None
-                if not (html and looks_like_detail(html)):
+                    detail_html, office_html = None, None
+                if not (detail_html and looks_like_detail(detail_html)):
                     self.logger.warning("[detail] 取得失敗 id=%s", did)
                     continue
                 try:
                     detail_url = f"{DETAIL_URL}?{urlencode({'sv_licenseNo': did})}"
-                    rows = parse_detail_rows(html, detail_url)
+                    rows = parse_detail_rows(detail_html, office_html, detail_url)
                 except Exception as e:
                     self.logger.warning("[detail] パース失敗 id=%s: %s", did, e)
                     continue
