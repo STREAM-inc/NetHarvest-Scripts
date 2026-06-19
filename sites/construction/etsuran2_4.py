@@ -107,7 +107,9 @@ from src.const.schema import Schema
 SEARCH_INIT_URL = "https://etsuran2.mlit.go.jp/TAKKEN/kensetuKensaku.do?outPutKbn=1"
 SEARCH_URL = "https://etsuran2.mlit.go.jp/TAKKEN/kensetuKensaku.do"
 DETAIL_URL = "https://etsuran2.mlit.go.jp/TAKKEN/ksGaiyo.do"
-OFFICE_URL = "https://etsuran2.mlit.go.jp/TAKKEN/ksEigyosho.do"
+# 営業所タブは ksEigyo.do への POST で遷移する（概要フォーム ksGaiyoModel の
+# hidden 値 + CMD=init を送る）。単純な GET では取得できずエラー応答になる。
+OFFICE_URL = "https://etsuran2.mlit.go.jp/TAKKEN/ksEigyo.do"
 BASE_URL = SEARCH_INIT_URL  # execute() に渡すエントリ URL
 
 # 504 対策の要: 所在地(都道府県コード)で検索を 47 分割する。
@@ -352,19 +354,38 @@ def fetch_detail_html(license_no: str, epoch: int) -> Optional[str]:
     return None
 
 
-def fetch_office_html(license_no: str, epoch: int) -> Optional[str]:
-    """営業所タブ HTML（ksEigyosho.do）を requests GET で取得する。"""
+def fetch_office_html(license_no: str, epoch: int, detail_html: str) -> Optional[str]:
+    """営業所タブ HTML を ksEigyo.do への POST で取得する。
+
+    概要HTML(detail_html)内の form#ksGaiyoModel の hidden 値（sv_licenseNo 等の
+    セッション復元パラメータを含む）をそのまま送り、CMD=init で営業所タブへ遷移する。
+    GET 単独では取得できない（短いエラー応答になる）ため POST 必須。
+    """
     session = get_thread_session(epoch)
+
+    # 概要フォームの hidden 値を採取してそのまま投げ返す。
+    soup = BeautifulSoup(detail_html, "html.parser")
+    form = soup.find("form", id="ksGaiyoModel") or soup.find("form")
+    data: Dict[str, str] = {}
+    if form:
+        for inp in form.find_all("input"):
+            name = inp.get("name")
+            if name:
+                data[name] = inp.get("value", "") or ""
+    data["CMD"] = "init"
+    data.setdefault("sv_licenseNo", license_no)
+
     for attempt in range(GATEWAY_RETRY):
         try:
             GLOBAL_LIMITER.acquire()
-            r = session.get(OFFICE_URL, params={"sv_licenseNo": license_no}, timeout=HTTP_TIMEOUT)
+            r = session.post(OFFICE_URL, data=data, timeout=HTTP_TIMEOUT)
             r.encoding = "shift_jis"
             if r.status_code in (429, 500, 502, 503, 504) or is_gateway_timeout_page(r.text):
                 time.sleep(GATEWAY_BACKOFF_SEC * (2 ** attempt))
                 continue
-            if r.ok and r.text:
+            if r.ok and r.text and ("re_office" in r.text or "営業所" in r.text):
                 return r.text
+            # 営業所が無い業者等は営業所テーブルを含まない応答になり得る → None
             return None
         except Exception:
             time.sleep(GATEWAY_BACKOFF_SEC * (2 ** attempt))
@@ -376,7 +397,8 @@ def fetch_all_tabs(license_no: str, epoch: int) -> Tuple[Optional[str], Optional
     detail_html = fetch_detail_html(license_no, epoch)
     if not detail_html:
         return None, None
-    office_html = fetch_office_html(license_no, epoch)
+    # 営業所タブは概要フォームの hidden を再送する必要があるため detail_html を渡す。
+    office_html = fetch_office_html(license_no, epoch, detail_html)
     return detail_html, office_html
 
 
@@ -501,74 +523,62 @@ def parse_industry_table_numbers(soup: BeautifulSoup) -> Dict[str, str]:
     return res
 
 
-def parse_offices_table(soup: BeautifulSoup) -> List[Dict[str, str]]:
-    """営業所・事業所タブをパースし、各営業所を辞書で返す。
+_TEL_RE = re.compile(r"\d{1,4}-\d{1,4}-\d{2,4}")
+_POST_RE = re.compile(r"\d{3}-\d{4}")
 
-    返す各 dict のキー: 営業所名 / 郵便番号 / 所在地 / 電話番号 / 代表者名
-    ヘッダ行の見出し語で列位置を判定し、対応列が無い項目は空文字にする。
+
+def parse_offices_table(soup: BeautifulSoup) -> List[Dict[str, str]]:
+    """営業所タブ（table.re_office）をパースし、各営業所を辞書で返す。
+
+    実構造（国交省 ksEigyo.do の応答）:
+      table.re_office の各営業所行は「直下の <td> が4個」:
+        [0] No. （行番号）
+        [1] 名称・電話番号  … 入れ子 table.re_office2 に 名称行 / 電話行
+        [2] 住所            … 〒郵便番号 + 都道府県以降（<br> 区切り）
+        [3] 許可業種        … 会社単位と同様の業種テーブル（本パーサでは未使用）
+      ※「主たる営業所」(=本店) もこのテーブルに 1 行として含まれる。
+
+    返す各 dict のキー: 営業所名 / 郵便番号 / 所在地 / 都道府県 / 電話番号
     """
     offices: List[Dict[str, str]] = []
 
-    NAME_H = re.compile(r"営業所|事業所|支店|名\s*称")
-    POST_H = re.compile(r"郵\s*便")
-    ADDR_H = re.compile(r"所\s*在\s*地|住\s*所")
-    TEL_H  = re.compile(r"電\s*話|TEL")
-    REP_H  = re.compile(r"代\s*表\s*者")
-    NUM_ONLY = re.compile(r"^\d+$")
+    tbl = soup.find("table", class_="re_office")
+    if tbl is None:
+        return offices
 
-    for tbl in soup.find_all("table"):
-        rows = tbl.find_all("tr")
-        if len(rows) < 2:
+    for tr in tbl.find_all("tr"):
+        # 入れ子テーブルの行を除外するため「直下の <td>」だけを見る。
+        tds = tr.find_all("td", recursive=False)
+        if len(tds) != 4 or not norm(tds[0].get_text()).isdigit():
             continue
 
-        col: Dict[str, int] = {}
-        header_row_idx: Optional[int] = None
-        for i, tr in enumerate(rows):
-            cells = tr.find_all(["th", "td"])
-            if not cells:
-                continue
-            texts = [norm(c.get_text(" ")) for c in cells]
-            tmp: Dict[str, int] = {}
-            for j, t in enumerate(texts):
-                if NAME_H.search(t) and not (POST_H.search(t) or ADDR_H.search(t)
-                                             or TEL_H.search(t) or REP_H.search(t)):
-                    tmp.setdefault("営業所名", j)
-                if POST_H.search(t): tmp.setdefault("郵便番号", j)
-                if ADDR_H.search(t): tmp.setdefault("所在地", j)
-                if TEL_H.search(t):  tmp.setdefault("電話番号", j)
-                if REP_H.search(t):  tmp.setdefault("代表者名", j)
-            if "営業所名" in tmp:
-                col = tmp
-                header_row_idx = i
-                break
+        # 名称 / 電話番号（入れ子 re_office2 の name 行・tel 行）
+        inner = tds[1].find_all("tr")
+        if len(inner) >= 2:
+            office_name = norm(inner[0].get_text(" "))
+            tel = norm(inner[1].get_text(" "))
+        else:
+            txt = norm(tds[1].get_text(" "))
+            mt = _TEL_RE.search(txt)
+            tel = mt.group(0) if mt else ""
+            office_name = norm(txt.replace(tel, ""))
 
-        if "営業所名" not in col:
+        # 住所（〒郵便番号 + 都道府県以降）
+        addr_raw = norm(tds[2].get_text(" "))
+        mp = _POST_RE.search(addr_raw)
+        post = mp.group(0) if mp else ""
+        addr = norm(re.sub(r"〒?\s*\d{3}-\d{4}", "", addr_raw))
+        mpr = PREF_PAT.search(addr)
+
+        if not office_name:
             continue
-
-        def cell(cells, key: str) -> str:
-            idx = col.get(key)
-            if idx is None or idx >= len(cells):
-                return ""
-            return norm(cells[idx].get_text(" "))
-
-        for tr in rows[header_row_idx + 1:]:
-            cells = tr.find_all(["th", "td"])
-            ni = col["営業所名"]
-            if len(cells) <= ni:
-                continue
-            name = norm(cells[ni].get_text(" "))
-            if not name or NUM_ONLY.match(name):
-                continue
-            offices.append({
-                "営業所名": name,
-                "郵便番号": cell(cells, "郵便番号"),
-                "所在地":   cell(cells, "所在地"),
-                "電話番号": cell(cells, "電話番号"),
-                "代表者名": cell(cells, "代表者名"),
-            })
-
-        if offices:
-            return offices
+        offices.append({
+            "営業所名": office_name,
+            "郵便番号": post,
+            "所在地": addr,
+            "都道府県": mpr.group(1) if mpr else "",
+            "電話番号": tel,
+        })
 
     return offices
 
@@ -631,10 +641,14 @@ def parse_company_overview_soup(soup: BeautifulSoup) -> Dict[str, str]:
 def parse_detail_rows(html: str, office_html: Optional[str], detail_url: str) -> List[Dict[str, str]]:
     """詳細HTML（業者概要）と営業所タブHTMLをパースし、営業所単位の行リストを返す。
 
-    ・各行に業者概要の全カラムを複製する。
-    ・住所/TEL/都道府県/郵便番号/代表者名 は営業所側を優先し、無ければ本社へフォールバック。
-    ・本社情報は 本社_* 列として常に保持する。
-    ・営業所タブが無い/取れない場合は本店1行のみを出力する（＝従来CSV相当の行）。
+    方針（メール要件「営業所側をベースに、本店も支店も 1 行ずつ」）:
+      ・各行に業者概要(parse_company_overview_soup)の全カラムを複製する。
+      ・住所/TEL/都道府県/郵便番号 は営業所側を採用（無ければ本社へフォールバック）。
+      ・本社情報（登記上の所在地等）は 本社_* 列として全行に保持する。
+      ・営業所タブが取れた場合は「主たる営業所(=本店)」を含む全営業所を 1 行ずつ出力。
+        → 本店を概要から別途生成すると主たる営業所と二重計上になるため行わない。
+      ・営業所タブが無い/取れない場合のみ、本店 1 行（営業所名空・住所=本社）に
+        フォールバックする（＝従来 CSV 相当の行を最低 1 行は必ず残す）。
     """
     soup = BeautifulSoup(html, "html.parser")
 
@@ -642,45 +656,31 @@ def parse_detail_rows(html: str, office_html: Optional[str], detail_url: str) ->
     overview[Schema.URL] = detail_url
     company_name = overview.get("商号", "") or overview.get(Schema.NAME, "")
 
-    def build_row(office_name: str, post: str, addr: str, tel: str, rep: str) -> Dict[str, str]:
-        row = dict(overview)
+    def build_row(office_name: str, post: str, addr: str, pref: str, tel: str) -> Dict[str, str]:
+        row = dict(overview)  # 業者概要の全カラムを各行に複製
         row["営業所名"] = office_name
+        # 名寄せ用: 商号 と 商号＋営業所名 の 2 通りを両列で保持
         row["商号_営業所"] = (f"{company_name} {office_name}".strip()
                               if office_name else company_name)
+        # 営業所側を優先（取得できなければ本社へフォールバック）
         row[Schema.POST_CODE] = post or overview.get("本社_郵便番号", "")
-        a = addr or overview.get("本社_所在地", "")
-        row[Schema.ADDR] = a
-        m = PREF_PAT.search(a)
-        row[Schema.PREF] = m.group(1) if m else overview.get("本社_都道府県", "")
+        row[Schema.ADDR] = addr or overview.get("本社_所在地", "")
+        row[Schema.PREF] = pref or overview.get("本社_都道府県", "")
         row[Schema.TEL] = tel or overview.get("本社_電話番号", "")
-        if rep:
-            row[Schema.REP_NM] = rep
         return row
 
-    rows: List[Dict[str, str]] = []
-
-    # 本店行は必ず1行（営業所名は空）
-    rows.append(build_row("", "", "", "", ""))
-
-    # 営業所タブの各行を支店として展開（本店重複はスキップ）
+    offices: List[Dict[str, str]] = []
     if office_html:
         offices = parse_offices_table(BeautifulSoup(office_html, "html.parser"))
-        seen = {"本店", "本社"}
-        for o in offices:
-            name = o.get("営業所名", "")
-            key = re.sub(r"\s+", "", name)
-            if not name or key in seen:
-                continue
-            seen.add(key)
-            rows.append(build_row(
-                name,
-                o.get("郵便番号", ""),
-                o.get("所在地", ""),
-                o.get("電話番号", ""),
-                o.get("代表者名", ""),
-            ))
 
-    return rows
+    if offices:
+        return [
+            build_row(o["営業所名"], o["郵便番号"], o["所在地"], o["都道府県"], o["電話番号"])
+            for o in offices
+        ]
+
+    # フォールバック: 営業所タブなし → 本店 1 行（営業所名空・住所=本社）
+    return [build_row("", "", "", "", "")]
 
 
 # ====================== チェックポイント / 進捗 ======================
