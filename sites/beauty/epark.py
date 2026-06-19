@@ -6,10 +6,10 @@ EPARKリラク＆エステ (mitsuraku.jp) — リラクゼーション・マッ�
 
 取得フロー:
     1. ルートページ (https://mitsuraku.jp/) から都道府県リンクを抽出
-    2. 各都道府県ページからエリア(市区町村)リンクを抽出
-    3. 各エリアページからサブエリア(駅・丁目など)リンクを抽出
-    4. 各サブエリア(またはエリア)ページを ?page=N でページネーション
-    5. 各リストページ20件の詳細ページを ThreadPoolExecutor で並行取得・即yield
+    2. 各都道府県ページを再帰的に辿り、サロンパネルが出現した時点でリストとして処理
+    3. サロンパネルがないページは子ナビゲーションリンクへ再帰 (深さ6段まで)
+    4. 各リストページを ?page=N でページネーション
+    5. 各ページ最大20件の詳細ページを ThreadPoolExecutor で並行取得・即yield
 
 実行方法:
     # ローカルテスト
@@ -24,7 +24,7 @@ import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import bs4
 import requests
@@ -42,7 +42,8 @@ _PREF_PATTERN = re.compile(
     r"^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
 )
 
-_NON_PREF_SLUGS = {
+# ナビゲーションとして辿らないスラグ (機能ページ・静的アセットなど)
+_NON_NAV_SLUGS = {
     "area", "railway", "genre", "inquiry", "esthe", "fitness", "search",
     "salon", "sitemap", "column", "salonRequest", "news", "login", "mypage",
     "corporate", "special", "massage", "term", "publish", "guide", "agreement",
@@ -50,12 +51,7 @@ _NON_PREF_SLUGS = {
     "coupon", "review", "access", "blog", "menu", "photo", "shop",
 }
 
-# 都道府県URL: https://mitsuraku.jp/{pref_slug}/
-_PREF_URL_RE = re.compile(r"https://mitsuraku\.jp/([a-z][a-z0-9-]*)/?$")
-# エリアURL: https://mitsuraku.jp/{pref_slug}/{area_slug}/
-_AREA_URL_RE = re.compile(r"https://mitsuraku\.jp/[a-z][a-z0-9-]*/([a-z][a-z0-9-]*)/?$")
-# サブエリアURL: https://mitsuraku.jp/{pref_slug}/{area_slug}/{sub_slug}/
-_SUBAREA_URL_RE = re.compile(r"https://mitsuraku\.jp/[a-z][a-z0-9-]*/[a-z][a-z0-9-]*/([a-z][a-z0-9-]*)/?$")
+_SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
 # 詳細ページ並行取得のスレッド数
 _N_WORKERS = 10
@@ -88,79 +84,73 @@ class EparkScraper(StaticCrawler):
     def parse(self, url: str):
         root_soup = self.get_soup(url)
 
-        # Step 1: 都道府県リンクをルートページから抽出
-        pref_urls = []
-        seen_pref = set()
-        for a in root_soup.select("a[href]"):
-            href = a.get("href", "")
-            if not href:
-                continue
-            full = urljoin(url, href)
-            m = _PREF_URL_RE.match(full)
-            if m and m.group(1) not in _NON_PREF_SLUGS:
-                normalized = full.rstrip("/") + "/"
-                if normalized not in seen_pref:
-                    pref_urls.append(normalized)
-                    seen_pref.add(normalized)
-
+        pref_urls = self._find_nav_children(root_soup, url)
         self.logger.info(f"都道府県数: {len(pref_urls)}")
 
+        seen: set[str] = set()
         for pref_url in pref_urls:
-            pref_soup = self.get_soup(pref_url)
-            if pref_soup is None:
-                continue
+            yield from self._traverse(pref_url, depth=1, seen=seen)
 
-            # Step 2: 都道府県ページからエリア(市区町村)リンクを抽出
-            area_urls = self._extract_area_links(pref_soup, pref_url, _AREA_URL_RE)
-            self.logger.info(f"  {pref_url}: エリア数 {len(area_urls)}")
+    def _find_nav_children(self, soup, base_url: str) -> list[str]:
+        """現在URLより1段深いナビゲーションリンクを抽出する"""
+        base_segs = [s for s in urlparse(base_url).path.split("/") if s]
+        target_depth = len(base_segs) + 1
 
-            if not area_urls:
-                yield from self._scrape_list(pref_url)
-                continue
-
-            for area_url in area_urls:
-                area_soup = self.get_soup(area_url)
-                if area_soup is None:
-                    continue
-
-                # Step 3: エリアページからサブエリア(駅・丁目など)リンクを抽出
-                sub_area_urls = self._extract_area_links(area_soup, area_url, _SUBAREA_URL_RE)
-                if sub_area_urls:
-                    self.logger.info(f"    {area_url}: サブエリア数 {len(sub_area_urls)}")
-                    for sub_url in sub_area_urls:
-                        yield from self._scrape_list(sub_url)
-                else:
-                    yield from self._scrape_list(area_url)
-
-    def _extract_area_links(self, soup, base_url: str, pattern: re.Pattern) -> list[str]:
-        """ページから指定パターンにマッチする内部エリアリンクを抽出する"""
-        urls = []
+        urls: list[str] = []
         seen: set[str] = set()
         for a in soup.select("a[href]"):
             href = a.get("href", "")
-            if not href:
+            if not href or href.startswith(("#", "mailto:", "tel:", "javascript:")):
                 continue
-            full = urljoin(base_url, href)
-            m = pattern.match(full)
-            if not m:
+            full = urljoin(base_url, href).split("?")[0].split("#")[0]
+            parsed = urlparse(full)
+            if parsed.netloc != "mitsuraku.jp":
                 continue
-            if m.group(1) in _NON_PREF_SLUGS:
+            segs = [s for s in parsed.path.split("/") if s]
+            if len(segs) != target_depth:
                 continue
-            normalized = full.rstrip("/") + "/"
+            slug = segs[-1]
+            if slug in _NON_NAV_SLUGS or not _SLUG_RE.match(slug):
+                continue
+            normalized = f"https://mitsuraku.jp/{'/'.join(segs)}/"
             if normalized not in seen and normalized != base_url:
                 urls.append(normalized)
                 seen.add(normalized)
         return urls
 
-    def _scrape_list(self, list_url: str):
+    def _traverse(self, url: str, depth: int, seen: set[str]):
+        """再帰的に階層を辿り、サロンパネルが出現したページをリストとして処理する"""
+        if url in seen or depth > 6:
+            return
+        seen.add(url)
+
+        soup = self.get_soup(url)
+        if soup is None:
+            return
+
+        panels = soup.select("div.panel.result-panel.js-salon-panel")
+        if panels:
+            # リストページ: 1ページ目のsoupを再利用してページネーション
+            yield from self._scrape_list(url, first_soup=soup)
+        else:
+            child_urls = self._find_nav_children(soup, url)
+            self.logger.info(f"{'  ' * depth}[depth={depth}] {url}: 子リンク数 {len(child_urls)}")
+            for child_url in child_urls:
+                yield from self._traverse(child_url, depth + 1, seen)
+
+    def _scrape_list(self, list_url: str, first_soup=None):
         """リスト(一覧)ページをページネーションし、各ページの詳細を並行取得してyield"""
         seen_detail: set[str] = set()
         page = 1
         while True:
-            page_url = f"{list_url}?page={page}" if page > 1 else list_url
-            soup = self.get_soup(page_url)
-            if soup is None:
-                break
+            if page == 1 and first_soup is not None:
+                soup = first_soup
+            else:
+                page_url = f"{list_url}?page={page}" if page > 1 else list_url
+                soup = self.get_soup(page_url)
+                if soup is None:
+                    break
+
             panels = soup.select("div.panel.result-panel.js-salon-panel")
             if not panels:
                 break
