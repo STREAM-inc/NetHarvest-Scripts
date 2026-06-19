@@ -5,12 +5,14 @@ EPARKリラク＆エステ (mitsuraku.jp) — リラクゼーション・マッ�
     - 全国のリラク・エステサロン基本情報 (名称・住所・電話番号・営業時間・定休日・支払い方法・HP・メニューなど)
 
 取得フロー:
-    1. ルートページ (https://mitsuraku.jp/) からナビゲーションリンクを抽出
-       (都道府県・ジャンル(esthe/massage/fitness等)・エリア/路線 を含む全トップナビ)
-    2. 各ナビページを再帰的に辿り、サロンパネルが出現した時点でリストとして処理
-    3. サロンパネルがないページは子ナビゲーションリンクへ再帰 (深さ7段まで)
-    4. 各リストページを ?page=N でページネーション
-    5. 詳細URLはグローバル seen_detail で重複排除し、ThreadPoolExecutor で並行取得・即yield
+    1. カテゴリ (マッサージ/エステ/フィットネス) × 全47都道府県 を直接構築 (計141URL)
+         /{pref}/          → マッサージ・リラク
+         /esthe/{pref}/    → エステ
+         /fitness/{pref}/  → フィットネス
+    2. 各一覧ページを ?page=N でページネーション (パネル消失でページ終了)
+    3. パネル検出: div.panel.result-panel.js-salon-panel → [class*=js-salon-panel]
+                   → h2.search_shopname の直接親要素 の順で3段フォールバック
+    4. 詳細URLは seen_detail で重複排除し、ThreadPoolExecutor (20並列) で並行取得・即yield
 
 実行方法:
     # ローカルテスト
@@ -25,7 +27,6 @@ import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
 
 import bs4
 import requests
@@ -43,23 +44,33 @@ _PREF_PATTERN = re.compile(
     r"^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
 )
 
-# ナビゲーションとして辿らないスラグ (機能ページ・静的アセットなど)
-# NOTE: "esthe"/"fitness"/"massage"/"genre"/"area"/"railway" はジャンル/エリアナビなので許可。
-#       これらを除外すると /tokyo/shinjuku/esthe/ 等のジャンル別一覧に到達できず件数が激減する。
-_NON_NAV_SLUGS = {
-    "inquiry", "search",
-    "salon", "sitemap", "column", "salonRequest", "news", "login", "mypage",
-    "corporate", "special", "term", "publish", "guide", "agreement",
-    "faq", "policy", "company", "images", "css", "js", "ajax", "reserve",
-    "coupon", "review", "access", "blog", "menu", "photo", "shop",
-}
+# 全47都道府県スラグ (mitsuraku.jp URLスラグ)
+_ALL_PREFS = [
+    # 北海道
+    "hokkaido",
+    # 東北
+    "aomori", "iwate", "miyagi", "akita", "yamagata", "fukushima",
+    # 関東
+    "ibaraki", "tochigi", "gumma", "saitama", "chiba", "tokyo", "kanagawa",
+    # 中部 (北信越・東海)
+    "niigata", "toyama", "ishikawa", "fukui", "yamanashi", "nagano",
+    "gifu", "shizuoka", "aichi",
+    # 近畿
+    "mie", "shiga", "kyoto", "osaka", "hyogo", "nara", "wakayama",
+    # 中国
+    "tottori", "shimane", "okayama", "hiroshima", "yamaguchi",
+    # 四国
+    "tokushima", "kagawa", "ehime", "kochi",
+    # 九州・沖縄
+    "fukuoka", "saga", "nagasaki", "kumamoto", "oita", "miyazaki",
+    "kagoshima", "okinawa",
+]
 
-_SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
+# カテゴリプレフィックス: マッサージ/リラク=空文字, エステ, フィットネス
+_GENRE_PREFIXES = ["", "esthe/", "fitness/"]
 
-# 詳細ページ並行取得のスレッド数
 _N_WORKERS = 20
 
-# スレッドごとの requests.Session (thread-safe)
 _thread_local = threading.local()
 
 
@@ -69,9 +80,7 @@ def _get_thread_session() -> requests.Session:
         sess = requests.Session()
         retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
         sess.mount("https://", HTTPAdapter(max_retries=retries))
-        sess.headers.update({
-            "User-Agent": StaticCrawler.USER_AGENT,
-        })
+        sess.headers.update({"User-Agent": StaticCrawler.USER_AGENT})
         _thread_local.session = sess
     return _thread_local.session
 
@@ -79,71 +88,56 @@ def _get_thread_session() -> requests.Session:
 class EparkScraper(StaticCrawler):
     """EPARKリラク＆エステ スクレイパー"""
 
-    # DELAY=0: 詳細ページは ThreadPoolExecutor で並行取得するため
-    # フレームワーク側の per-item sleep を排除し、スループットを最大化する
     DELAY = 0.0
     EXTRA_COLUMNS = ["メニュー"]
 
     def parse(self, url: str):
-        root_soup = self.get_soup(url)
-
-        nav_urls = self._find_nav_children(root_soup, url)
-        self.logger.info(f"ルートナビゲーション数: {len(nav_urls)}")
-
-        seen: set[str] = set()
+        """
+        カテゴリ×都道府県の全141組み合わせを直接スキャン。
+        ナビゲーション再帰を廃止し、全都道府県・全カテゴリを確実に処理する。
+        """
+        base = url.rstrip("/")  # "https://mitsuraku.jp"
         seen_detail: set[str] = set()
-        for nav_url in nav_urls:
-            yield from self._traverse(nav_url, depth=1, seen=seen, seen_detail=seen_detail)
 
-    def _find_nav_children(self, soup, base_url: str) -> list[str]:
-        """現在URLより1段深いナビゲーションリンクを抽出する"""
-        base_segs = [s for s in urlparse(base_url).path.split("/") if s]
-        target_depth = len(base_segs) + 1
+        total = len(_GENRE_PREFIXES) * len(_ALL_PREFS)
+        idx = 0
+        for genre_prefix in _GENRE_PREFIXES:
+            for pref in _ALL_PREFS:
+                idx += 1
+                list_url = f"{base}/{genre_prefix}{pref}/"
+                self.logger.info(f"[{idx}/{total}] {list_url}")
+                yield from self._scrape_list(list_url, seen_detail=seen_detail)
 
-        urls: list[str] = []
-        seen: set[str] = set()
-        for a in soup.select("a[href]"):
-            href = a.get("href", "")
-            if not href or href.startswith(("#", "mailto:", "tel:", "javascript:")):
-                continue
-            full = urljoin(base_url, href).split("?")[0].split("#")[0]
-            parsed = urlparse(full)
-            if parsed.netloc != "mitsuraku.jp":
-                continue
-            segs = [s for s in parsed.path.split("/") if s]
-            if len(segs) != target_depth:
-                continue
-            slug = segs[-1]
-            if slug in _NON_NAV_SLUGS or not _SLUG_RE.match(slug):
-                continue
-            normalized = f"https://mitsuraku.jp/{'/'.join(segs)}/"
-            if normalized not in seen and normalized != base_url:
-                urls.append(normalized)
-                seen.add(normalized)
-        return urls
-
-    def _traverse(self, url: str, depth: int, seen: set[str], seen_detail: set[str]):
-        """再帰的に階層を辿り、サロンパネルが出現したページをリストとして処理する"""
-        if url in seen or depth > 7:
-            return
-        seen.add(url)
-
-        soup = self.get_soup(url)
-        if soup is None:
-            return
-
+    def _find_panels(self, soup) -> list:
+        """
+        サロンパネル要素を3段フォールバックで検出。
+        1. div.panel.result-panel.js-salon-panel (元セレクタ)
+        2. [class*='js-salon-panel'] (クラス部分一致)
+        3. h2.search_shopname の直接親要素 (最汎用フォールバック)
+        """
         panels = soup.select("div.panel.result-panel.js-salon-panel")
         if panels:
-            # リストページ: 1ページ目のsoupを再利用してページネーション
-            yield from self._scrape_list(url, first_soup=soup, seen_detail=seen_detail)
-        else:
-            child_urls = self._find_nav_children(soup, url)
-            self.logger.info(f"{'  ' * depth}[depth={depth}] {url}: 子リンク数 {len(child_urls)}")
-            for child_url in child_urls:
-                yield from self._traverse(child_url, depth + 1, seen, seen_detail)
+            return panels
+
+        panels = soup.select("[class*='js-salon-panel']")
+        if panels:
+            return panels
+
+        h2s = soup.select("h2.search_shopname")
+        if not h2s:
+            return []
+        seen_ids: set[int] = set()
+        panels = []
+        for h2 in h2s:
+            parent = h2.parent
+            pid = id(parent)
+            if pid not in seen_ids:
+                seen_ids.add(pid)
+                panels.append(parent)
+        return panels
 
     def _scrape_list(self, list_url: str, first_soup=None, seen_detail: set[str] | None = None):
-        """リスト(一覧)ページをページネーションし、各ページの詳細を並行取得してyield"""
+        """一覧ページをページネーションし、各ページの詳細を並行取得してyield"""
         if seen_detail is None:
             seen_detail = set()
         page = 1
@@ -156,11 +150,10 @@ class EparkScraper(StaticCrawler):
                 if soup is None:
                     break
 
-            panels = soup.select("div.panel.result-panel.js-salon-panel")
+            panels = self._find_panels(soup)
             if not panels:
                 break
 
-            # パネルから基本情報と詳細URLを抽出
             batch: list[tuple[dict, str]] = []
             for panel in panels:
                 basic, detail_url = self._extract_panel_basic(panel)
@@ -169,7 +162,6 @@ class EparkScraper(StaticCrawler):
                 seen_detail.add(detail_url)
                 batch.append((basic, detail_url))
 
-            # 詳細ページを並行取得してyield
             if batch:
                 detail_urls = [d for _, d in batch]
                 details = self._fetch_details_concurrent(detail_urls)
