@@ -7,8 +7,9 @@ EPARKリラク＆エステ (mitsuraku.jp) — リラクゼーション・マッ�
 取得フロー:
     1. ルートページ (https://mitsuraku.jp/) から都道府県リンクを抽出
     2. 各都道府県ページからエリア(市区町村)リンクを抽出
-    3. 各エリアページを ?page=N でページネーション
-    4. 各リストページ20件の詳細ページを ThreadPoolExecutor で並行取得・即yield
+    3. 各エリアページからサブエリア(駅・丁目など)リンクを抽出
+    4. 各サブエリア(またはエリア)ページを ?page=N でページネーション
+    5. 各リストページ20件の詳細ページを ThreadPoolExecutor で並行取得・即yield
 
 実行方法:
     # ローカルテスト
@@ -53,6 +54,8 @@ _NON_PREF_SLUGS = {
 _PREF_URL_RE = re.compile(r"https://mitsuraku\.jp/([a-z][a-z0-9-]*)/?$")
 # エリアURL: https://mitsuraku.jp/{pref_slug}/{area_slug}/
 _AREA_URL_RE = re.compile(r"https://mitsuraku\.jp/[a-z][a-z0-9-]*/([a-z][a-z0-9-]*)/?$")
+# サブエリアURL: https://mitsuraku.jp/{pref_slug}/{area_slug}/{sub_slug}/
+_SUBAREA_URL_RE = re.compile(r"https://mitsuraku\.jp/[a-z][a-z0-9-]*/[a-z][a-z0-9-]*/([a-z][a-z0-9-]*)/?$")
 
 # 詳細ページ並行取得のスレッド数
 _N_WORKERS = 10
@@ -108,27 +111,46 @@ class EparkScraper(StaticCrawler):
                 continue
 
             # Step 2: 都道府県ページからエリア(市区町村)リンクを抽出
-            area_urls = []
-            seen_area = set()
-            for a in pref_soup.select("a[href]"):
-                href = a.get("href", "")
-                if not href:
-                    continue
-                full = urljoin(pref_url, href)
-                m = _AREA_URL_RE.match(full)
-                if m and m.group(1) not in _NON_PREF_SLUGS:
-                    normalized = full.rstrip("/") + "/"
-                    if normalized not in seen_area:
-                        area_urls.append(normalized)
-                        seen_area.add(normalized)
-
+            area_urls = self._extract_area_links(pref_soup, pref_url, _AREA_URL_RE)
             self.logger.info(f"  {pref_url}: エリア数 {len(area_urls)}")
 
-            if area_urls:
-                for area_url in area_urls:
-                    yield from self._scrape_list(area_url)
-            else:
+            if not area_urls:
                 yield from self._scrape_list(pref_url)
+                continue
+
+            for area_url in area_urls:
+                area_soup = self.get_soup(area_url)
+                if area_soup is None:
+                    continue
+
+                # Step 3: エリアページからサブエリア(駅・丁目など)リンクを抽出
+                sub_area_urls = self._extract_area_links(area_soup, area_url, _SUBAREA_URL_RE)
+                if sub_area_urls:
+                    self.logger.info(f"    {area_url}: サブエリア数 {len(sub_area_urls)}")
+                    for sub_url in sub_area_urls:
+                        yield from self._scrape_list(sub_url)
+                else:
+                    yield from self._scrape_list(area_url)
+
+    def _extract_area_links(self, soup, base_url: str, pattern: re.Pattern) -> list[str]:
+        """ページから指定パターンにマッチする内部エリアリンクを抽出する"""
+        urls = []
+        seen: set[str] = set()
+        for a in soup.select("a[href]"):
+            href = a.get("href", "")
+            if not href:
+                continue
+            full = urljoin(base_url, href)
+            m = pattern.match(full)
+            if not m:
+                continue
+            if m.group(1) in _NON_PREF_SLUGS:
+                continue
+            normalized = full.rstrip("/") + "/"
+            if normalized not in seen and normalized != base_url:
+                urls.append(normalized)
+                seen.add(normalized)
+        return urls
 
     def _scrape_list(self, list_url: str):
         """リスト(一覧)ページをページネーションし、各ページの詳細を並行取得してyield"""
