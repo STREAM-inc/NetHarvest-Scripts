@@ -2558,3 +2558,10 @@ sites:
     url: "https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103"
     schedule: null
     enabled: true
+
+  - site_id: catr
+    name: "官報"
+    module: "corporate.catr"
+    url: "https://catr.jp/"
+    schedule: "0 3 19 * *"
+    enabled: true
