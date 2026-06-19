@@ -2565,3 +2565,10 @@ sites:
     url: "https://catr.jp/"
     schedule: "0 3 19 * *"
     enabled: true
+
+  - site_id: ntt
+    name: "NTT東日本 光コラボレーションモデル 事業者一覧"
+    module: "corporate.ntt"
+    url: "https://flets.com/collabo/list/"
+    schedule: null
+    enabled: true
