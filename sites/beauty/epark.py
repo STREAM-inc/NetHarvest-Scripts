@@ -86,7 +86,7 @@ def _get_thread_session() -> requests.Session:
     """各ワーカースレッドに固有のセッションを返す"""
     if not hasattr(_thread_local, "session"):
         sess = requests.Session()
-        retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
+        retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
         sess.mount("https://", HTTPAdapter(max_retries=retries))
         sess.headers.update({"User-Agent": StaticCrawler.USER_AGENT})
         _thread_local.session = sess
@@ -114,7 +114,12 @@ class EparkScraper(StaticCrawler):
                 idx += 1
                 list_url = f"{base}/{genre_prefix}{pref}/"
                 self.logger.info(f"[{idx}/{total}] {list_url}")
-                yield from self._scrape_list(list_url, seen_detail=seen_detail)
+                # 1県の失敗で全141URLの巡回を止めないよう、県単位で例外を握りつぶす
+                try:
+                    yield from self._scrape_list(list_url, seen_detail=seen_detail)
+                except Exception as e:
+                    self.logger.warning(f"一覧巡回エラー (継続) {list_url}: {e}")
+                    continue
 
     def _find_panels(self, soup) -> list:
         """
@@ -144,19 +149,55 @@ class EparkScraper(StaticCrawler):
                 panels.append(parent)
         return panels
 
+    # 一覧1ページあたりの掲載件数 (mitsuraku.jp は20件固定)
+    _PAGE_SIZE = 20
+    _COUNT_PATTERN = re.compile(r"([\d,]+)\s*件中")
+
+    def _estimate_max_page(self, soup) -> int:
+        """一覧ページの「◯◯件中」表記から想定総ページ数を推定する (取得失敗時の終了判定用)"""
+        m = self._COUNT_PATTERN.search(soup.get_text(" ", strip=True))
+        if not m:
+            return 0
+        try:
+            total = int(m.group(1).replace(",", "").replace("，", ""))
+        except ValueError:
+            return 0
+        if total <= 0:
+            return 0
+        return (total + self._PAGE_SIZE - 1) // self._PAGE_SIZE
+
     def _scrape_list(self, list_url: str, first_soup=None, seen_detail: set[str] | None = None):
         """一覧ページをページネーションし、各ページの詳細を並行取得してyield"""
         if seen_detail is None:
             seen_detail = set()
         page = 1
+        # 一覧ページの想定総ページ数 ("◯◯件中" から算出)。0 のうちは未確定。
+        max_page = 0
         while True:
             if page == 1 and first_soup is not None:
                 soup = first_soup
             else:
                 page_url = f"{list_url}?page={page}" if page > 1 else list_url
-                soup = self.get_soup(page_url)
+                # get_soup が None を返すのは「最終ページ超過(404)」と「一時的エラー」の
+                # 両方があり得る。一時エラーで途中終了しないよう数回リトライしてから判定する。
+                soup = None
+                for attempt in range(3):
+                    soup = self.get_soup(page_url)
+                    if soup is not None:
+                        break
+                    self.logger.info(f"  retry page={page} ({attempt + 1}/3): {page_url}")
                 if soup is None:
+                    # リトライしても取れない。総ページ数が分かっていて未到達なら一時エラーと判断し
+                    # 次ページへ進む(穴あきを許容)。未確定 or 末尾なら終了とみなす。
+                    if max_page and page < max_page:
+                        self.logger.warning(f"  page={page} 取得失敗をスキップ: {page_url}")
+                        page += 1
+                        continue
                     break
+
+            # 総件数から最終ページを推定 (例: "1,940件中 1～20件を表示")
+            if not max_page:
+                max_page = self._estimate_max_page(soup)
 
             panels = self._find_panels(soup)
             if not panels:
