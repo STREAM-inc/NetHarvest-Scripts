@@ -5,11 +5,12 @@ EPARKリラク＆エステ (mitsuraku.jp) — リラクゼーション・マッ�
     - 全国のリラク・エステサロン基本情報 (名称・住所・電話番号・営業時間・定休日・支払い方法・HP・メニューなど)
 
 取得フロー:
-    1. ルートページ (https://mitsuraku.jp/) から都道府県リンクを抽出
-    2. 各都道府県ページを再帰的に辿り、サロンパネルが出現した時点でリストとして処理
-    3. サロンパネルがないページは子ナビゲーションリンクへ再帰 (深さ6段まで)
+    1. ルートページ (https://mitsuraku.jp/) からナビゲーションリンクを抽出
+       (都道府県・ジャンル(esthe/massage/fitness等)・エリア/路線 を含む全トップナビ)
+    2. 各ナビページを再帰的に辿り、サロンパネルが出現した時点でリストとして処理
+    3. サロンパネルがないページは子ナビゲーションリンクへ再帰 (深さ7段まで)
     4. 各リストページを ?page=N でページネーション
-    5. 各ページ最大20件の詳細ページを ThreadPoolExecutor で並行取得・即yield
+    5. 詳細URLはグローバル seen_detail で重複排除し、ThreadPoolExecutor で並行取得・即yield
 
 実行方法:
     # ローカルテスト
@@ -43,10 +44,12 @@ _PREF_PATTERN = re.compile(
 )
 
 # ナビゲーションとして辿らないスラグ (機能ページ・静的アセットなど)
+# NOTE: "esthe"/"fitness"/"massage"/"genre"/"area"/"railway" はジャンル/エリアナビなので許可。
+#       これらを除外すると /tokyo/shinjuku/esthe/ 等のジャンル別一覧に到達できず件数が激減する。
 _NON_NAV_SLUGS = {
-    "area", "railway", "genre", "inquiry", "esthe", "fitness", "search",
+    "inquiry", "search",
     "salon", "sitemap", "column", "salonRequest", "news", "login", "mypage",
-    "corporate", "special", "massage", "term", "publish", "guide", "agreement",
+    "corporate", "special", "term", "publish", "guide", "agreement",
     "faq", "policy", "company", "images", "css", "js", "ajax", "reserve",
     "coupon", "review", "access", "blog", "menu", "photo", "shop",
 }
@@ -54,7 +57,7 @@ _NON_NAV_SLUGS = {
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
 # 詳細ページ並行取得のスレッド数
-_N_WORKERS = 10
+_N_WORKERS = 20
 
 # スレッドごとの requests.Session (thread-safe)
 _thread_local = threading.local()
@@ -84,12 +87,13 @@ class EparkScraper(StaticCrawler):
     def parse(self, url: str):
         root_soup = self.get_soup(url)
 
-        pref_urls = self._find_nav_children(root_soup, url)
-        self.logger.info(f"都道府県数: {len(pref_urls)}")
+        nav_urls = self._find_nav_children(root_soup, url)
+        self.logger.info(f"ルートナビゲーション数: {len(nav_urls)}")
 
         seen: set[str] = set()
-        for pref_url in pref_urls:
-            yield from self._traverse(pref_url, depth=1, seen=seen)
+        seen_detail: set[str] = set()
+        for nav_url in nav_urls:
+            yield from self._traverse(nav_url, depth=1, seen=seen, seen_detail=seen_detail)
 
     def _find_nav_children(self, soup, base_url: str) -> list[str]:
         """現在URLより1段深いナビゲーションリンクを抽出する"""
@@ -118,9 +122,9 @@ class EparkScraper(StaticCrawler):
                 seen.add(normalized)
         return urls
 
-    def _traverse(self, url: str, depth: int, seen: set[str]):
+    def _traverse(self, url: str, depth: int, seen: set[str], seen_detail: set[str]):
         """再帰的に階層を辿り、サロンパネルが出現したページをリストとして処理する"""
-        if url in seen or depth > 6:
+        if url in seen or depth > 7:
             return
         seen.add(url)
 
@@ -131,16 +135,17 @@ class EparkScraper(StaticCrawler):
         panels = soup.select("div.panel.result-panel.js-salon-panel")
         if panels:
             # リストページ: 1ページ目のsoupを再利用してページネーション
-            yield from self._scrape_list(url, first_soup=soup)
+            yield from self._scrape_list(url, first_soup=soup, seen_detail=seen_detail)
         else:
             child_urls = self._find_nav_children(soup, url)
             self.logger.info(f"{'  ' * depth}[depth={depth}] {url}: 子リンク数 {len(child_urls)}")
             for child_url in child_urls:
-                yield from self._traverse(child_url, depth + 1, seen)
+                yield from self._traverse(child_url, depth + 1, seen, seen_detail)
 
-    def _scrape_list(self, list_url: str, first_soup=None):
+    def _scrape_list(self, list_url: str, first_soup=None, seen_detail: set[str] | None = None):
         """リスト(一覧)ページをページネーションし、各ページの詳細を並行取得してyield"""
-        seen_detail: set[str] = set()
+        if seen_detail is None:
+            seen_detail = set()
         page = 1
         while True:
             if page == 1 and first_soup is not None:
