@@ -120,12 +120,18 @@ class PPortalScraper(DynamicCrawler):
         """OAB0101 のフォームフィールド名を動的に検出する。"""
         return self.page.evaluate("""
             () => {
-                const result = {pref: null, name: null};
+                const result = {pref: null, name: null, size_sel: null, size_val: null};
                 for (const sel of document.querySelectorAll('select')) {
                     const vals = Array.from(sel.options).map(o => o.value);
-                    if (vals.some(v => /^0[1-9]$/.test(v)) && vals.length >= 10) {
+                    if (!result.pref && vals.some(v => /^0[1-9]$/.test(v)) && vals.length >= 10) {
                         result.pref = sel.name;
-                        break;
+                        continue;
+                    }
+                    // 表示件数セレクト: 数値のみの選択肢が 2〜6 個
+                    const numVals = vals.filter(v => /^\\d+$/.test(v) && parseInt(v) >= 10 && parseInt(v) <= 500);
+                    if (!result.size_sel && numVals.length >= 2 && numVals.length <= 6 && vals.length <= 8) {
+                        result.size_sel = sel.name;
+                        result.size_val = String(Math.max(...numVals.map(Number)));
                     }
                 }
                 for (const inp of document.querySelectorAll('input[type="text"], input:not([type])')) {
@@ -154,6 +160,15 @@ class PPortalScraper(DynamicCrawler):
         この URL をベースにページネーションすることで正しく取得できる。
         """
         self.get_soup(search_url)
+
+        # 表示件数を最大に設定 (フォームに件数セレクトがある場合)
+        _size_sel = getattr(self, "_size_sel", None)
+        _size_val = getattr(self, "_size_val", "100")
+        if _size_sel:
+            try:
+                self.page.select_option(f'select[name="{_size_sel}"]', _size_val)
+            except Exception as e:
+                self.logger.debug("表示件数設定失敗 (%s=%s): %s", _size_sel, _size_val, e)
 
         if pref_field and pref_code:
             try:
@@ -271,7 +286,11 @@ class PPortalScraper(DynamicCrawler):
                     self.logger.warning("Error scraping corp %s: %s", corp_no, e)
 
             page_num += 1
-            if page_num * size >= limit:
+            # size パラメータがサーバーに無視された場合でも全ページを取得するため
+            # カウントベースのブレークは使用しない。corp_links 空での自然終了を優先し、
+            # 安全上限として 100 ページを設ける。
+            if page_num > 100:
+                self.logger.warning("安全上限(100ページ)に到達 total=%d limit=%d", total, limit)
                 break
 
     def parse(self, url: str) -> Generator[dict, None, None]:
@@ -285,7 +304,12 @@ class PPortalScraper(DynamicCrawler):
         fields = self._inspect_form()
         pref_field: str | None = fields.get("pref")
         name_field: str | None = fields.get("name")
-        self.logger.info("検出フィールド: 都道府県=%s, 名称=%s", pref_field, name_field)
+        self._size_sel: str | None = fields.get("size_sel")
+        self._size_val: str = fields.get("size_val") or "100"
+        self.logger.info(
+            "検出フィールド: 都道府県=%s, 名称=%s, 件数セレクト=%s(max=%s)",
+            pref_field, name_field, self._size_sel, self._size_val,
+        )
 
         if pref_field:
             # 第1レベル: 都道府県コード 01〜47 で分割
