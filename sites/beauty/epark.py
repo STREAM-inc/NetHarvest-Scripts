@@ -153,6 +153,30 @@ class EparkScraper(StaticCrawler):
     _PAGE_SIZE = 20
     _COUNT_PATTERN = re.compile(r"([\d,]+)\s*件中")
 
+    def _fetch_list_soup(self, url: str):
+        """
+        一覧ページを直接 requests で取得して soup を返す。
+
+        フレームワークの self.get_soup() は ?page=N 付きURLで None を返す事例があり
+        (URL正規化 / 訪問済みdedup / 内部ページ上限など)、ページネーションが1ページで
+        打ち切られて取得件数が激減する。一覧取得は curl で動作確認済みの直接セッションに
+        統一し、フレームワーク依存を排除する。
+
+        戻り値:
+            soup  … 取得成功
+            None  … 404 (=最終ページ超過。巡回終了の合図)
+            例外  … 一時エラー (呼び出し側でリトライ/スキップ)
+        """
+        sess = _get_thread_session()
+        resp = sess.get(url, timeout=self.TIMEOUT)
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        content_type = resp.headers.get("Content-Type", "")
+        if "charset=" not in content_type.lower():
+            resp.encoding = resp.apparent_encoding
+        return bs4.BeautifulSoup(resp.text, "html.parser")
+
     def _estimate_max_page(self, soup) -> int:
         """一覧ページの「◯◯件中」表記から想定総ページ数を推定する (取得失敗時の終了判定用)"""
         m = self._COUNT_PATTERN.search(soup.get_text(" ", strip=True))
@@ -178,22 +202,27 @@ class EparkScraper(StaticCrawler):
                 soup = first_soup
             else:
                 page_url = f"{list_url}?page={page}" if page > 1 else list_url
-                # get_soup が None を返すのは「最終ページ超過(404)」と「一時的エラー」の
-                # 両方があり得る。一時エラーで途中終了しないよう数回リトライしてから判定する。
+                # _fetch_list_soup は 404(=最終ページ超過) で None、一時エラーで例外を返す。
+                # 一時エラーは数回リトライし、それでもダメなら(総ページ数が分かっていれば)
+                # 次ページへスキップして途中終了を避ける。
                 soup = None
+                fetched_ok = False
                 for attempt in range(3):
-                    soup = self.get_soup(page_url)
-                    if soup is not None:
-                        break
-                    self.logger.info(f"  retry page={page} ({attempt + 1}/3): {page_url}")
-                if soup is None:
-                    # リトライしても取れない。総ページ数が分かっていて未到達なら一時エラーと判断し
-                    # 次ページへ進む(穴あきを許容)。未確定 or 末尾なら終了とみなす。
+                    try:
+                        soup = self._fetch_list_soup(page_url)
+                        fetched_ok = True
+                        break  # None(404) も成功扱い(=終了判定へ)
+                    except Exception as e:
+                        self.logger.info(f"  retry page={page} ({attempt + 1}/3): {page_url} ({e})")
+                if not fetched_ok:
+                    # 一時エラー。総ページ数が分かっていて未到達なら次ページへスキップ。
                     if max_page and page < max_page:
                         self.logger.warning(f"  page={page} 取得失敗をスキップ: {page_url}")
                         page += 1
                         continue
                     break
+                if soup is None:
+                    break  # 404 = 最終ページ超過。正常終了。
 
             # 総件数から最終ページを推定 (例: "1,940件中 1～20件を表示")
             if not max_page:
