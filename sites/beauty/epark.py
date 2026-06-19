@@ -9,10 +9,11 @@ EPARKリラク＆エステ (mitsuraku.jp) — リラクゼーション・マッ�
          /{pref}/          → マッサージ・リラク
          /esthe/{pref}/    → エステ
          /fitness/{pref}/  → フィットネス
-    2. 各一覧ページを ?page=N でページネーション (パネル消失でページ終了)
+    2. 各一覧ページを ?page=N でページネーション (パネル消失 or 404 でページ終了)
     3. パネル検出: div.panel.result-panel.js-salon-panel → [class*=js-salon-panel]
                    → h2.search_shopname の直接親要素 の順で3段フォールバック
     4. 詳細URLは seen_detail で重複排除し、ThreadPoolExecutor (20並列) で並行取得・即yield
+    5. メニューは詳細ページに無いため /reserve/menu/{id}/ から別取得 (任意・失敗許容)
 
 実行方法:
     # ローカルテスト
@@ -44,6 +45,9 @@ _PREF_PATTERN = re.compile(
     r"^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
 )
 
+# 詳細URLから salon ID を抽出 (例: https://mitsuraku.jp/salon/47915/ → 47915)
+_SALON_ID_PATTERN = re.compile(r"/salon/(\d+)")
+
 # 全47都道府県スラグ (mitsuraku.jp URLスラグ)
 _ALL_PREFS = [
     # 北海道
@@ -70,6 +74,10 @@ _ALL_PREFS = [
 _GENRE_PREFIXES = ["", "esthe/", "fitness/"]
 
 _N_WORKERS = 20
+
+# メニューを別ページ (/reserve/menu/{id}/) からも取得するか。
+# 1サロンあたり追加リクエストが1件増えるため、件数優先で軽量化したい場合は False にする。
+_FETCH_MENU_PAGE = True
 
 _thread_local = threading.local()
 
@@ -185,7 +193,7 @@ class EparkScraper(StaticCrawler):
             return {}, ""
 
         name_el = name_a.select_one("span[itemprop='name']")
-        name = name_el.get_text(strip=True) if name_el else ""
+        name = name_el.get_text(strip=True) if name_el else name_a.get_text(strip=True)
 
         kana_el = panel.select_one("small[itemprop='alternateName']")
         kana = kana_el.get_text(strip=True) if kana_el else ""
@@ -224,23 +232,68 @@ class EparkScraper(StaticCrawler):
         """スレッド内から詳細ページを取得して構造化データを返す"""
         try:
             sess = _get_thread_session()
-            resp = sess.get(url, timeout=self.TIMEOUT)
-            resp.raise_for_status()
-            content_type = resp.headers.get("Content-Type", "")
-            if "charset=" not in content_type.lower():
-                resp.encoding = resp.apparent_encoding
-            soup = bs4.BeautifulSoup(resp.text, "html.parser")
-            return self._parse_detail_soup(soup, url)
+            soup = self._get_soup_with_session(sess, url)
+            if soup is None:
+                return None
+            data = self._parse_detail_soup(soup, url)
+            if data is None:
+                return None
+
+            # メニューは詳細ページに掲載されないため /reserve/menu/{id}/ から取得 (任意)
+            if _FETCH_MENU_PAGE and not data.get("メニュー"):
+                m = _SALON_ID_PATTERN.search(url)
+                if m:
+                    data["メニュー"] = self._fetch_menu(sess, m.group(1))
+            return data
         except Exception as e:
             self.logger.warning(f"詳細取得エラー ({url}): {e}")
             return None
 
+    def _get_soup_with_session(self, sess: requests.Session, url: str):
+        """セッションを使ってHTMLを取得しBeautifulSoupを返す (文字化け対策込み)"""
+        resp = sess.get(url, timeout=self.TIMEOUT)
+        resp.raise_for_status()
+        content_type = resp.headers.get("Content-Type", "")
+        if "charset=" not in content_type.lower():
+            resp.encoding = resp.apparent_encoding
+        return bs4.BeautifulSoup(resp.text, "html.parser")
+
+    def _fetch_menu(self, sess: requests.Session, salon_id: str) -> str:
+        """
+        /reserve/menu/{id}/ からメニュー(コース名+EPARK料金)を取得する。
+        詳細ページにはメニューが無く、予約メニューページに集約されているため別取得。
+        失敗しても本体取得を止めない (空文字を返す)。
+        """
+        try:
+            url = f"https://mitsuraku.jp/reserve/menu/{salon_id}/"
+            soup = self._get_soup_with_session(sess, url)
+        except Exception as e:
+            self.logger.warning(f"メニュー取得エラー (id={salon_id}): {e}")
+            return ""
+
+        items: list[str] = []
+        for name_el in soup.select("div.menu-name.fb, .menu-name"):
+            name = name_el.get_text(strip=True)
+            if not name:
+                continue
+            # コース名の近傍 (同一 reserve-menu-title / panel) にある EPARK料金 を探す
+            price = ""
+            container = name_el.find_parent(class_=re.compile(r"reserve-menu-title|reserve-menu-panel|panel-body"))
+            if container is not None:
+                price_el = container.select_one("span.ml5.fb, span.fb")
+                if price_el and "円" in price_el.get_text():
+                    price = price_el.get_text(strip=True)
+            items.append(f"{name} {price}".strip())
+            if len(items) >= 20:
+                break
+        return " / ".join(items)
+
     def _parse_detail_soup(self, soup, url: str = "") -> dict | None:
         """詳細ページのBeautifulSoupから構造化データを抽出する"""
         try:
-            # TEL: data-phone-number 属性
-            tel_el = soup.select_one("p.js-shop-phone-number[data-phone-number]")
-            tel = tel_el["data-phone-number"] if tel_el else ""
+            # TEL: data-phone-number 属性 (要素は <div>/<li>。<p> ではない点に注意)
+            tel_el = soup.select_one("[data-phone-number]")
+            tel = tel_el.get("data-phone-number", "").strip() if tel_el else ""
 
             # 住所 (itemprop)
             region_el = soup.select_one("span[itemprop='addressRegion']")
@@ -275,37 +328,23 @@ class EparkScraper(StaticCrawler):
                 ).strip()
                 if header == "営業時間":
                     p_el = value_el.select_one("p")
-                    if p_el:
-                        hours = p_el.get_text(strip=True)
+                    hours = p_el.get_text(strip=True) if p_el else value_el.get_text(strip=True)
                 elif header == "定休日":
                     p_el = value_el.select_one("p")
                     holiday = p_el.get_text(strip=True) if p_el else value_el.get_text(strip=True)
-                elif header == "クレジットカード":
-                    pay = value_el.get_text(separator=" ", strip=True)
-                elif header in ("ホームページ", "HP", "ウェブサイト"):
+                elif header in ("クレジットカード", "キャッシュレス決済"):
+                    val = value_el.get_text(separator=" ", strip=True)
+                    pay = f"{pay} / {val}".strip(" /") if pay else val
+                elif header in ("ホームページ", "HP", "ウェブサイト", "オフィシャルサイト", "公式サイト"):
                     a_el = value_el.select_one("a[href]")
                     hp = a_el["href"] if a_el else value_el.get_text(strip=True)
 
-            # メニュー
-            menu_items = []
-            for row in soup.select("div.menu-list__item, li.menu-list__item, tr.js-menu-row"):
-                name_el = row.select_one(".menu-list__name, .menu__name, td.menu-name")
-                price_el = row.select_one(".menu-list__price, .menu__price, td.menu-price")
-                item_name = name_el.get_text(strip=True) if name_el else ""
-                item_price = price_el.get_text(strip=True) if price_el else ""
-                if item_name:
-                    menu_items.append(f"{item_name} {item_price}".strip())
-            if not menu_items:
-                for section in soup.select("section.menu, div.menu-wrap, div#menu"):
-                    for row in section.select("tr, li"):
-                        text = row.get_text(separator=" ", strip=True)
-                        if text:
-                            menu_items.append(text)
-                        if len(menu_items) >= 20:
-                            break
-                    if menu_items:
-                        break
-            menu = " / ".join(menu_items[:20])
+            # メニュー: 詳細ページの「今回体験のメニュー」(report_menu) を軽量に拾う。
+            # 完全なメニュー一覧は _fetch_menu で別ページから取得する。
+            menu = ""
+            report_menu = soup.select_one("div.report_menu h4")
+            if report_menu:
+                menu = report_menu.get_text(separator=" ", strip=True)
 
             return {
                 Schema.PREF: pref,
