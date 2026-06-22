@@ -2726,3 +2726,10 @@ sites:
     url: "https://luline.jp/tohoku/shop_list/search/"
     schedule: null
     enabled: true
+
+  - site_id: re30
+    name: "Re就活30"
+    module: "jobs.re30"
+    url: "https://re-katsu30.jp/search/result?income%5B0%5D=&income%5B1%5D=&btn_search=1"
+    schedule: null
+    enabled: true
