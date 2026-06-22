@@ -2649,3 +2649,10 @@ sites:
     url: "https://cabanavi.info/shops/tohoku/"
     schedule: null
     enabled: true
+
+  - site_id: town_night
+    name: "夜遊びショコラ（東北）"
+    module: "nightlife.town_night"
+    url: "https://town-night.jp/miyagi/"
+    schedule: null
+    enabled: true
