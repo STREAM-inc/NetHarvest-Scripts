@@ -1,51 +1,60 @@
 """
-ジェイウォーム (jwarm.net) — 求人・掲載企業情報スクレイパー (DynamicCrawler 版)
+ジェイウォーム (jwarm.net) — 求人・掲載企業情報スクレイパー (StaticCrawler 版)
 
 取得対象:
     掲載企業の基本情報
-    (企業名称・郵便番号・住所・電話番号・代表者・資本金・創立/創業・売上高・従業員数・事業内容・HP)
+    (企業名称・郵便番号・住所・電話番号・代表者・資本金・設立・従業員数・売上高・事業内容・HP)
 
-取得フロー (逐次 yield — タイムアウト耐性のため一覧巡回と詳細取得をインターリーブ):
-    1. 引数 url (sites.yml の正規URL) を起点に pg=1 から一覧ページを 1 ページずつ巡回
-    2. div#itemList 内の a[href*=uni_item_detail.php] から詳細URL (id=...) を収集・重複排除
-    3. ★ ページごとに、その場で各詳細ページを取得して 1 件ずつ即 yield する。
-       全URLを先に集めてから取得する方式だと、巡回途中で時間切れ kill された際に
-       CSV が close() 時にしか書かれず 0 件になる。逐次 yield なら取得済み分は必ず残る。
-    4. itemList が無い / 詳細リンクが空 / 新規リンクが無い (範囲超過・先頭ページへの巻き戻り)
-       のいずれかで巡回終了。
-    5. 各詳細ページの div#kigyou_data テーブル (<th>ラベル</th><td>値</td>) を抽出。
+取得フロー:
+    1. 一覧ページ /uni_items.php?pg=N&ig=i を pg=1 から巡回
+    2. div#itemList 内の span.detail_btn a から詳細URL (uni_item_detail.php?id=...) を収集・重複排除
+    3. itemList が無い / リンクが空になったページで巡回終了 (範囲超過)
+    4. 各詳細ページの div#kigyou_data テーブル (<th><span>ラベル</span></th><td>値</td>) を抽出
 
-備考:
-    - 当サイトは完全サーバーサイドレンダリング。素の requests が bot 系 UA を弾くため、
-      実ブラウザ UA/挙動で安定取得できる Playwright (DynamicCrawler) を使う。
-    - SSR なので待機は networkidle ではなく domcontentloaded で十分・高速・安定。
-      (広告/トラッカーで networkidle が発火せずタイムアウトするのを避ける)
-    - 1件の取得失敗で全体を止めない (ログを残して継続)。
-    - 詳細ページの企業情報テーブルでは設立日のラベルが「創立/創業」(「設立」ではない)。
+★ なぜ StaticCrawler / Playwright 不要か (切り分け済み):
+    - 当サイトは完全サーバーサイドレンダリング。詳細ページの div#kigyou_data は
+      初期 HTML に含まれ、リファラ無しのコールドアクセスでも requests で全件取得可。
+    - ただし python-requests 等の bot 系 UA は 403 で弾かれる → 実ブラウザ UA が必須。
+    - Content-Type に charset が無く body は UTF-8 → 明示しないと文字化けし
+      <th> ラベルが一致せずパースが空になる。よって encoding を utf-8 に固定する。
+    - Playwright(ヘッドレス)経由だと詳細ページ取得が不安定/空になるため使わない。
 
 実行方法:
-    python scripts/sites/jobs/jwarm.py
+    python scripts/sites/jobs/jwarm_scraper.py
 """
 
 import re
 import sys
-import time
 from pathlib import Path
 from typing import Generator
 from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse
+
+import bs4
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from src.framework.dynamic import DynamicCrawler
+from src.framework.static import StaticCrawler
 from src.const.schema import Schema
+
+BASE_URL = "https://www.jwarm.net"
+
+# jwarm.net は python-requests / bot 系 UA を 403 で弾く。実ブラウザ UA が必須。
+_BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0.0.0 Safari/537.36"
+)
 
 # itemList が永遠に空にならない異常時の無限ループ保険 (実データは数十ページ程度)
 _MAX_PAGES = 500
 
 
-class JwarmScraper(DynamicCrawler):
+class JwarmScraper(StaticCrawler):
     """ジェイウォーム 掲載企業スクレイパー (jwarm.net)"""
 
     DELAY = 1.0
@@ -53,70 +62,88 @@ class JwarmScraper(DynamicCrawler):
     # EXTRA には Schema に無い 設立日・事業内容 のみを追加する。
     EXTRA_COLUMNS = ["設立日", "事業内容"]
 
-    def parse(self, url: str) -> Generator[dict, None, None]:
-        """引数 url を唯一のルートとして一覧を巡回し、詳細を 1 件ずつ即 yield する。"""
-        parsed = urlparse(url)
-        # 元の query (ig=i 等) を保持したまま pg だけ差し替える
-        params = {k: v[0] for k, v in parse_qs(parsed.query, keep_blank_values=True).items()}
+    def prepare(self):
+        """セッション初期化 (フレームワークが parse 前に呼ぶ。__init__ のオーバーライドは禁止)"""
+        self._session = requests.Session()
+        retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
+        self._session.mount("https://", HTTPAdapter(max_retries=retries))
+        self._session.headers.update(
+            {
+                "User-Agent": _BROWSER_UA,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "ja,en;q=0.9",
+            }
+        )
 
+    def _fetch_soup(self, url: str):
+        """セッションで取得して soup を返す (UA / 文字化け対策込み)。失敗時 None。"""
+        if getattr(self, "_session", None) is None:
+            self.prepare()
+        try:
+            resp = self._session.get(url, timeout=self.TIMEOUT)
+            resp.raise_for_status()
+        except Exception as e:
+            self.logger.warning("取得失敗 (%s): %s", url, e)
+            return None
+        # Content-Type に charset が無いと requests は ISO-8859-1 と誤認する。body は UTF-8。
+        if "charset=" not in resp.headers.get("Content-Type", "").lower():
+            resp.encoding = "utf-8"
+        return bs4.BeautifulSoup(resp.text, "html.parser")
+
+    def parse(self, url: str) -> Generator[dict, None, None]:
+        detail_urls = self._collect_detail_urls(url)
+        self.total_items = len(detail_urls)
+        self.logger.info("詳細URL収集完了: %d 件", len(detail_urls))
+
+        for i, detail_url in enumerate(detail_urls, 1):
+            item = self._scrape_detail(detail_url)
+            if item:
+                yield item
+            if i % 20 == 0:
+                self.logger.info("詳細取得 %d/%d", i, len(detail_urls))
+
+    def _collect_detail_urls(self, base_url: str) -> list[str]:
+        urls: list[str] = []
         seen: set[str] = set()
-        total = 0
+        parsed = urlparse(base_url)
+        params = {k: v[0] for k, v in parse_qs(parsed.query, keep_blank_values=True).items()}
 
         for page in range(1, _MAX_PAGES + 1):
             params["pg"] = str(page)
             page_url = urlunparse(parsed._replace(query=urlencode(params)))
 
-            soup = self.get_soup(page_url, wait_until="domcontentloaded")
+            soup = self._fetch_soup(page_url)
             if soup is None:
-                self.logger.warning("一覧取得失敗 page=%d: soup is None", page)
                 break
 
             item_list = soup.find("div", id="itemList")
             if not item_list:
-                self.logger.info("itemList 無し page=%d → 巡回終了", page)
                 break
 
-            # 同一詳細URLが画像/見出し/ボタンと複数回出るため、順序保持で重複排除
-            page_links: list[str] = []
-            page_seen: set[str] = set()
-            for a in item_list.select("a[href*='uni_item_detail.php']"):
-                href = a.get("href", "")
-                if href and href not in page_seen:
-                    page_seen.add(href)
-                    page_links.append(href)
-
-            if not page_links:
-                self.logger.info("詳細リンク無し page=%d → 巡回終了", page)
+            links = [a.get("href", "") for a in item_list.select("span.detail_btn a") if a.get("href")]
+            if not links:  # ページ範囲超過 = 終了
                 break
 
-            # ページ範囲を超えるとサイトが先頭ページへ巻き戻る場合がある。
-            # 新規リンクが 1 件も無ければ終了 (無限ループ防止)。
-            new_links = [urljoin(url, h) for h in page_links if urljoin(url, h) not in seen]
-            if not new_links:
-                self.logger.info("新規リンク無し page=%d (巻き戻り) → 巡回終了", page)
-                break
+            for link in links:
+                full = urljoin(base_url, link)
+                if full not in seen:
+                    seen.add(full)
+                    urls.append(full)
 
-            for detail_url in new_links:
-                seen.add(detail_url)
-                item = self._scrape_detail(detail_url)
-                if item:
-                    total += 1
-                    yield item
-                time.sleep(self.DELAY)
-
-            self.logger.info("page %d 完了: 累計 %d 件", page, total)
-            time.sleep(self.DELAY)
+            self.logger.info("page %d: 累計 %d 件", page, len(urls))
         else:
             self.logger.warning("ページ上限 %d に到達。巡回を打ち切りました。", _MAX_PAGES)
 
+        return urls
+
     def _scrape_detail(self, url: str) -> dict | None:
-        soup = self.get_soup(url, wait_until="domcontentloaded")
+        soup = self._fetch_soup(url)
         if soup is None:
-            self.logger.warning("詳細取得失敗: %s", url)
             return None
 
         data: dict = {Schema.URL: url}
 
+        # 電話番号は <span class='Tel'> (シングルクオート) で複数ある。最初の1つを採用。
         tel_span = soup.find("span", class_="Tel")
         if tel_span:
             data[Schema.TEL] = tel_span.get_text(strip=True)
@@ -129,7 +156,7 @@ class JwarmScraper(DynamicCrawler):
                 if not th or not td:
                     continue
                 label = th.get_text(strip=True)
-                value = re.sub(r"[　\xa0]", " ", td.get_text(" ", strip=True)).strip()
+                value = re.sub(r"[　\xa0]", " ", td.get_text(strip=True)).strip()
 
                 if label == "企業名称":
                     data[Schema.NAME] = value
@@ -143,8 +170,7 @@ class JwarmScraper(DynamicCrawler):
                             data[Schema.ADDR] = value
                     else:
                         data[Schema.ADDR] = value
-                # 設立日のラベルは実ページ上「創立/創業」。表記揺れに備え両方を許容。
-                elif "創立" in label or "創業" in label or label == "設立":
+                elif label == "設立":
                     data["設立日"] = value
                 elif label == "URL":
                     data[Schema.HP] = value
@@ -160,6 +186,7 @@ class JwarmScraper(DynamicCrawler):
                     data[Schema.EMP_NUM] = value
 
         if not data.get(Schema.NAME):
+            self.logger.warning("企業名称が取得できませんでした: %s", url)
             return None
         return data
 
