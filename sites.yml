@@ -2810,3 +2810,10 @@ sites:
     url: "https://www.ad-sanai.co.jp/job-search?area=All&pref=All&city=All&field_job_salary_system_value=All&field_job_salary_time=All&field_job_salary_day=All&field_job_salary_month=All&field_job_salary_year=All&station_name=&keyword="
     schedule: null
     enabled: true
+
+  - site_id: domo_net
+    name: "DOMO NET(ドモネット)"
+    module: "jobs.domo_net"
+    url: "https://domonet.jp/kanto"
+    schedule: null
+    enabled: true
