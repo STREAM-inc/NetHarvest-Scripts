@@ -2663,3 +2663,10 @@ sites:
     url: "https://www.shigotoarimasu.com/"
     schedule: null
     enabled: true
+
+  - site_id: noxgroup
+    name: "ノックスグループ"
+    module: "nightlife.noxgroup"
+    url: "https://noxgroup.jp/"
+    schedule: null
+    enabled: true
