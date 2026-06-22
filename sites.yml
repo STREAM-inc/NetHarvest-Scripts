@@ -2670,3 +2670,10 @@ sites:
     url: "https://noxgroup.jp/"
     schedule: null
     enabled: true
+
+  - site_id: agre
+    name: "Agre"
+    module: "jobs.agre"
+    url: "https://webagre.com/"
+    schedule: null
+    enabled: true
