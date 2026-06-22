@@ -25,6 +25,7 @@
 
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Generator
 from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse
@@ -58,6 +59,8 @@ class JwarmScraper(StaticCrawler):
     """ジェイウォーム 掲載企業スクレイパー (jwarm.net)"""
 
     DELAY = 1.0
+    # SSL EOF / 接続ドロップ時の手動リトライ回数 (urllib3 Retry の上にもう一段)
+    MAX_FETCH_RETRY = 4
     # 代表者(REP_NM)/資本金(CAP)/売上高(SALES)/従業員数(EMP_NUM) は Schema 標準項目。
     # EXTRA には Schema に無い 設立日・事業内容 のみを追加する。
     EXTRA_COLUMNS = ["設立日", "事業内容"]
@@ -65,30 +68,56 @@ class JwarmScraper(StaticCrawler):
     def prepare(self):
         """セッション初期化 (フレームワークが parse 前に呼ぶ。__init__ のオーバーライドは禁止)"""
         self._session = requests.Session()
-        retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
+        # connect/read エラーもリトライ。backoff を長めにしてレート制限を回避。
+        retries = Retry(
+            total=4,
+            connect=4,
+            read=4,
+            backoff_factor=1.0,
+            status_forcelist=[429, 500, 502, 503, 504],
+            respect_retry_after_header=True,
+        )
         self._session.mount("https://", HTTPAdapter(max_retries=retries))
         self._session.headers.update(
             {
                 "User-Agent": _BROWSER_UA,
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 "Accept-Language": "ja,en;q=0.9",
+                # ★ keep-alive の使い回し接続が落ちて SSL EOF になるのを防ぐため毎回新規接続。
+                "Connection": "close",
             }
         )
 
     def _fetch_soup(self, url: str):
-        """セッションで取得して soup を返す (UA / 文字化け対策込み)。失敗時 None。"""
+        """セッションで取得して soup を返す (UA / 文字化け / SSL EOF 対策込み)。失敗時 None。
+
+        SSLError / ConnectionError は urllib3 Retry を超えても起きうる (IP 単位の接続
+        ドロップ等)。ここでバックオフ付きの手動リトライをもう一段重ねる。
+        """
         if getattr(self, "_session", None) is None:
             self.prepare()
-        try:
-            resp = self._session.get(url, timeout=self.TIMEOUT)
-            resp.raise_for_status()
-        except Exception as e:
-            self.logger.warning("取得失敗 (%s): %s", url, e)
-            return None
-        # Content-Type に charset が無いと requests は ISO-8859-1 と誤認する。body は UTF-8。
-        if "charset=" not in resp.headers.get("Content-Type", "").lower():
-            resp.encoding = "utf-8"
-        return bs4.BeautifulSoup(resp.text, "html.parser")
+
+        last_err = None
+        for attempt in range(1, self.MAX_FETCH_RETRY + 1):
+            try:
+                resp = self._session.get(url, timeout=self.TIMEOUT)
+                resp.raise_for_status()
+                # Content-Type に charset が無いと requests は ISO-8859-1 と誤認する。body は UTF-8。
+                if "charset=" not in resp.headers.get("Content-Type", "").lower():
+                    resp.encoding = "utf-8"
+                return bs4.BeautifulSoup(resp.text, "html.parser")
+            except Exception as e:
+                last_err = e
+                if attempt < self.MAX_FETCH_RETRY:
+                    wait = self.DELAY * attempt  # 線形バックオフ: 1s, 2s, 3s...
+                    self.logger.warning(
+                        "取得失敗 %d/%d (%s): %s — %.1fs 後に再試行",
+                        attempt, self.MAX_FETCH_RETRY, url, e, wait,
+                    )
+                    time.sleep(wait)
+
+        self.logger.warning("取得最終失敗 (%s): %s", url, last_err)
+        return None
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         detail_urls = self._collect_detail_urls(url)
@@ -101,6 +130,8 @@ class JwarmScraper(StaticCrawler):
                 yield item
             if i % 20 == 0:
                 self.logger.info("詳細取得 %d/%d", i, len(detail_urls))
+            # ★ 無遅延の連打はレート制限/接続ドロップ(SSL EOF)を誘発するため必ず待つ。
+            time.sleep(self.DELAY)
 
     def _collect_detail_urls(self, base_url: str) -> list[str]:
         urls: list[str] = []
@@ -131,6 +162,7 @@ class JwarmScraper(StaticCrawler):
                     urls.append(full)
 
             self.logger.info("page %d: 累計 %d 件", page, len(urls))
+            time.sleep(self.DELAY)
         else:
             self.logger.warning("ページ上限 %d に到達。巡回を打ち切りました。", _MAX_PAGES)
 
