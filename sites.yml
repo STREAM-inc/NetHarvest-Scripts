@@ -2712,3 +2712,10 @@ sites:
     url: "https://webagre.com/career"
     schedule: null
     enabled: true
+
+  - site_id: https_bunbunweb_com_shop
+    name: "https://bunbunweb.com/shop/"
+    module: "nightlife.https_bunbunweb_com_shop"
+    url: "https://bunbunweb.com/shop/455/"
+    schedule: "0 4 5 * *"
+    enabled: true
