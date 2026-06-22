@@ -2593,3 +2593,10 @@ sites:
     url: "https://www.baitoru.com/"
     schedule: null
     enabled: true
+
+  - site_id: bar_navi
+    name: "バーナビ　 BAR-NAVI"
+    module: "food.bar_navi"
+    url: "https://bar-navi.suntory.co.jp/"
+    schedule: null
+    enabled: true
