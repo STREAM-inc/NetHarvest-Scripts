@@ -2635,3 +2635,10 @@ sites:
     url: "https://nomu.tsuku2.jp/c8"
     schedule: null
     enabled: true
+
+  - site_id: snack_guide
+    name: "スナックガイド"
+    module: "nightlife.snack_guide"
+    url: "https://www.snack-guide.com/"
+    schedule: null
+    enabled: true
