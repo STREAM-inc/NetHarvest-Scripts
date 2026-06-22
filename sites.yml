@@ -2656,3 +2656,10 @@ sites:
     url: "https://town-night.jp/miyagi/"
     schedule: null
     enabled: true
+
+  - site_id: web_3
+    name: "ルーキーWeb"
+    module: "jobs.web_3"
+    url: "https://www.shigotoarimasu.com/"
+    schedule: null
+    enabled: true
