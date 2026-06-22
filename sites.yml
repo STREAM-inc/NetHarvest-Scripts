@@ -2607,3 +2607,10 @@ sites:
     url: "https://bar-find.com/"
     schedule: null
     enabled: true
+
+  - site_id: brunavi
+    name: "ブルナビ"
+    module: "nightlife.brunavi"
+    url: "https://brunavi.com/"
+    schedule: null
+    enabled: true
