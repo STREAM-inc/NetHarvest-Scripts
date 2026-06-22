@@ -2621,3 +2621,10 @@ sites:
     url: "https://xn--pckua2a7gp15o89zb.com/"
     schedule: null
     enabled: true
+
+  - site_id: jp
+    name: "スタンバイ"
+    module: "jobs.jp_stanby"
+    url: "https://jp.stanby.com/"
+    schedule: null
+    enabled: true
