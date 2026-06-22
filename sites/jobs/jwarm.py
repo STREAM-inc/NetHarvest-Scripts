@@ -24,6 +24,7 @@
 """
 
 import re
+import os
 import sys
 import time
 from pathlib import Path
@@ -53,6 +54,11 @@ _BROWSER_UA = (
 
 # itemList が永遠に空にならない異常時の無限ループ保険 (実データは数十ページ程度)
 _MAX_PAGES = 500
+
+# ★ jwarm.net は送信元IPで遮断/スロットリングする (データセンタ帯IPは ~15req で
+#   Read timeout / SSL EOF になる)。クリーンIP(JP系/レジデンシャル)のプロキシを与える。
+#       JWARM_PROXY=http://user:pass@host:port
+_PROXY = os.environ.get("JWARM_PROXY")
 
 
 class JwarmScraper(StaticCrawler):
@@ -87,6 +93,15 @@ class JwarmScraper(StaticCrawler):
                 "Connection": "close",
             }
         )
+        # ★ IP 遮断回避: クリーンIPのプロキシがあれば全リクエストを経由させる。
+        if _PROXY:
+            self._session.proxies.update({"http": _PROXY, "https": _PROXY})
+            self.logger.info("プロキシ経由で取得します (JWARM_PROXY 設定済み)")
+        else:
+            self.logger.warning(
+                "JWARM_PROXY 未設定。データセンタIPからは ~15req で遮断され "
+                "SSL EOF / Read timeout になります。クリーンIPのプロキシ推奨。"
+            )
 
     def _fetch_soup(self, url: str):
         """セッションで取得して soup を返す (UA / 文字化け / SSL EOF 対策込み)。失敗時 None。
