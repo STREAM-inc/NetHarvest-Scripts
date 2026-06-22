@@ -2691,3 +2691,10 @@ sites:
     url: "https://www.ac-lab.jp/2027/front/top/top.html"
     schedule: null
     enabled: true
+
+  - site_id: tsunoru
+    name: "TSUNORU既卒第二新卒"
+    module: "jobs.tsunoru"
+    url: "https://job.tsunoru.jp/prev/"
+    schedule: null
+    enabled: true
