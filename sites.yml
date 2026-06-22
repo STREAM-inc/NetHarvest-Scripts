@@ -2747,3 +2747,10 @@ sites:
     url: "https://job.merit-inc.net/job_offering/job_offerings/search?area_id_1=&area_id_2=&area_id_3=&area_id_4=&employment_id=&job_id=&time_id=&tag_id=&x=163&y=50#pageTitleH1"
     schedule: null
     enabled: true
+
+  - site_id: i_select
+    name: "iセレクト"
+    module: "jobs.i_select"
+    url: "http://www.i-select.jp/search"
+    schedule: null
+    enabled: true
