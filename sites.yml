@@ -2768,3 +2768,10 @@ sites:
     url: "https://www.e-aidem.com/?show=1"
     schedule: null
     enabled: true
+
+  - site_id: e_arpa
+    name: "アルパ"
+    module: "jobs.e_arpa"
+    url: "https://www.e-arpa.jp/"
+    schedule: null
+    enabled: true
