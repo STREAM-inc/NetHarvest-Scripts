@@ -2698,3 +2698,10 @@ sites:
     url: "https://job.tsunoru.jp/prev/"
     schedule: null
     enabled: true
+
+  - site_id: night_works
+    name: "キャバクラ求人ホッケ"
+    module: "nightlife.night_works"
+    url: "https://night-works.com/"
+    schedule: "0 9 5 * *"
+    enabled: true
