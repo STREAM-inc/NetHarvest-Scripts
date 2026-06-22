@@ -2684,3 +2684,10 @@ sites:
     url: "https://nightgram.com/"
     schedule: null
     enabled: true
+
+  - site_id: ac_lab
+    name: "アクセス就活2027"
+    module: "jobs.ac_lab"
+    url: "https://www.ac-lab.jp/2027/front/top/top.html"
+    schedule: null
+    enabled: true
