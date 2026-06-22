@@ -2803,3 +2803,10 @@ sites:
     url: "https://domonet.jp/shizuoka/list"
     schedule: null
     enabled: true
+
+  - site_id: ad_sanai
+    name: "アドサンアイ"
+    module: "jobs.ad_sanai"
+    url: "https://www.ad-sanai.co.jp/job-search?area=All&pref=All&city=All&field_job_salary_system_value=All&field_job_salary_time=All&field_job_salary_day=All&field_job_salary_month=All&field_job_salary_year=All&station_name=&keyword="
+    schedule: null
+    enabled: true
