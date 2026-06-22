@@ -2714,7 +2714,7 @@ sites:
     enabled: true
 
   - site_id: https_bunbunweb_com_shop
-    name: "https://bunbunweb.com/shop/"
+    name: "BunBunweb_国分町"
     module: "nightlife.https_bunbunweb_com_shop"
     url: "https://bunbunweb.com/shop/455/"
     schedule: "0 4 5 * *"
