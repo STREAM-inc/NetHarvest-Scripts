@@ -2677,3 +2677,10 @@ sites:
     url: "https://webagre.com/"
     schedule: null
     enabled: true
+
+  - site_id: nightgram
+    name: "ナイトグラム"
+    module: "nightlife.nightgram"
+    url: "https://nightgram.com/"
+    schedule: null
+    enabled: true
