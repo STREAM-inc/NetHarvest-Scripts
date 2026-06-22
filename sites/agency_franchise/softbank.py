@@ -39,9 +39,16 @@ _PREF_PATTERN = re.compile(
 _FLAG_MAP = {"1": "あり", "0": "なし", "": ""}
 
 _DAY_KEYS = [
-    ("mon", "月"), ("tue", "火"), ("wed", "水"), ("thu", "木"),
-    ("fri", "金"), ("sat", "土"), ("sun", "日"), ("hol", "祝"),
+    ("monday", "月"), ("tuesday", "火"), ("wednesday", "水"), ("thursday", "木"),
+    ("friday", "金"), ("saturday", "土"), ("sunday", "日"), ("holiday", "祝"),
 ]
+
+
+def _to_int(value) -> int:
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return 0
 
 
 def _format_hours(hours_dict: dict) -> str:
@@ -85,16 +92,25 @@ class SoftbankCrawler(StaticCrawler):
         index_resp.raise_for_status()
         index_data = index_resp.json()
 
-        if isinstance(index_data, list):
-            cities = index_data
-        elif isinstance(index_data, dict):
-            # レスポンスが {"cities": [...]} 等のラッパー辞書の場合
-            cities = next((v for v in index_data.values() if isinstance(v, list)), [])
-        else:
-            cities = []
+        # 実レスポンス構造: {"prefecture": [{"id", "name", "city": [{"id", "name", "spots": "5"}]}]}
+        # 都市(city)は都道府県(prefecture)の下にネストされており、spots は文字列で返る。
+        cities = []
+        if isinstance(index_data, dict):
+            prefectures = index_data.get("prefecture")
+            if isinstance(prefectures, list):
+                for pref in prefectures:
+                    if isinstance(pref, dict) and isinstance(pref.get("city"), list):
+                        cities.extend(c for c in pref["city"] if isinstance(c, dict))
+            if not cities:
+                # フォールバック: トップレベルに直接 city 配列が入るラッパー形式
+                for v in index_data.values():
+                    if isinstance(v, list):
+                        cities.extend(c for c in v if isinstance(c, dict))
+        elif isinstance(index_data, list):
+            cities = [c for c in index_data if isinstance(c, dict)]
 
-        active_cities = [c for c in cities if isinstance(c, dict) and c.get("spots", 0) > 0]
-        self.total_items = sum(c.get("spots", 0) for c in active_cities)
+        active_cities = [c for c in cities if _to_int(c.get("spots")) > 0]
+        self.total_items = sum(_to_int(c.get("spots")) for c in active_cities)
 
         for city in active_cities:
             city_id = city.get("id")
@@ -125,7 +141,7 @@ class SoftbankCrawler(StaticCrawler):
                 continue
 
             shops = data.get("item") or []
-            item_count = data.get("item_count", 0)
+            item_count = _to_int(data.get("item_count"))
             if item_count > len(shops):
                 self.logger.warning(
                     f"city {city_id}: item_count={item_count} but got {len(shops)} — some shops may be missing"
@@ -154,6 +170,10 @@ class SoftbankCrawler(StaticCrawler):
 
         geo = shop.get("geo") or {}
 
+        # parking は {"sort_key": "0"} 形式の辞書で返る
+        parking = shop.get("parking")
+        parking_flag = parking.get("sort_key") if isinstance(parking, dict) else parking
+
         return {
             Schema.NAME: name,
             Schema.URL: detail_url,
@@ -168,7 +188,7 @@ class SoftbankCrawler(StaticCrawler):
             "Wi-Fi": _flag(shop.get("wifi", "")),
             "修理受付": _flag(shop.get("repair_flg", "")),
             "スマホ教室": _flag(shop.get("classroom", "")),
-            "駐車場": _flag(shop.get("parking", "")),
+            "駐車場": _flag(parking_flag),
             "来店予約": _flag(shop.get("visit_reservation_flg", "")),
         }
 
