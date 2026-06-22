@@ -2754,3 +2754,10 @@ sites:
     url: "http://www.i-select.jp/search"
     schedule: null
     enabled: true
+
+  - site_id: atsumaru
+    name: "あつまるくんの求人案内"
+    module: "jobs.atsumaru"
+    url: "https://atsumaru.jp/all/list?utf8=%E2%9C%93&s%5Bkw%5D="
+    schedule: null
+    enabled: true
