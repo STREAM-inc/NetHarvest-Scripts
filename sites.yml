@@ -2642,3 +2642,10 @@ sites:
     url: "https://www.snack-guide.com/"
     schedule: null
     enabled: true
+
+  - site_id: cabanavi
+    name: "キャバナビ"
+    module: "nightlife.cabanavi"
+    url: "https://cabanavi.info/shops/tohoku/"
+    schedule: null
+    enabled: true
