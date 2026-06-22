@@ -2796,3 +2796,10 @@ sites:
     url: "https://d-starjob.com/"
     schedule: null
     enabled: true
+
+  - site_id: domo_2
+    name: "DOMO静岡"
+    module: "jobs.domo_2"
+    url: "https://domonet.jp/shizuoka/list"
+    schedule: null
+    enabled: true
