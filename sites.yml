@@ -2782,3 +2782,10 @@ sites:
     url: "https://workin.jp/okayama/search?srchBtn=1"
     schedule: null
     enabled: true
+
+  - site_id: keeperproshop
+    name: "KeePerPROSHOP_洗車関連"
+    module: "auto.keeperproshop"
+    url: "https://www.keepercoating.jp/proshop"
+    schedule: "0 9 13 * *"
+    enabled: true
