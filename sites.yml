@@ -2733,3 +2733,10 @@ sites:
     url: "https://re-katsu30.jp/search/result?income%5B0%5D=&income%5B1%5D=&btn_search=1"
     schedule: null
     enabled: true
+
+  - site_id: pacola
+    name: "パコラ"
+    module: "jobs.pacola"
+    url: "https://www.pacola.co.jp/recruitment_special/"
+    schedule: null
+    enabled: true
