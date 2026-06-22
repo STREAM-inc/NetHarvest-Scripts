@@ -2761,3 +2761,10 @@ sites:
     url: "https://atsumaru.jp/all/list?utf8=%E2%9C%93&s%5Bkw%5D="
     schedule: null
     enabled: true
+
+  - site_id: e_aidem
+    name: "イーアイデム【全国】"
+    module: "jobs.e_aidem"
+    url: "https://www.e-aidem.com/?show=1"
+    schedule: null
+    enabled: true
