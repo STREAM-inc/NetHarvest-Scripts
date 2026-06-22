@@ -2789,3 +2789,10 @@ sites:
     url: "https://www.keepercoating.jp/proshop"
     schedule: "0 9 13 * *"
     enabled: true
+
+  - site_id: d_starjob
+    name: "ディースターネット"
+    module: "jobs.d_starjob"
+    url: "https://d-starjob.com/"
+    schedule: null
+    enabled: true
