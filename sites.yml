@@ -2628,3 +2628,10 @@ sites:
     url: "https://jp.stanby.com/"
     schedule: null
     enabled: true
+
+  - site_id: nomu
+    name: "ノムノム"
+    module: "nightlife.nomu"
+    url: "https://nomu.tsuku2.jp/c8"
+    schedule: null
+    enabled: true
