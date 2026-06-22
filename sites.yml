@@ -2600,3 +2600,10 @@ sites:
     url: "https://bar-navi.suntory.co.jp/"
     schedule: null
     enabled: true
+
+  - site_id: bar_find
+    name: "バーファインド"
+    module: "food.bar_find"
+    url: "https://bar-find.com/"
+    schedule: null
+    enabled: true
