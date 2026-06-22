@@ -2719,3 +2719,10 @@ sites:
     url: "https://bunbunweb.com/shop/455/"
     schedule: "0 4 5 * *"
     enabled: true
+
+  - site_id: luline
+    name: "夜のお店選びドットコム（東北版）"
+    module: "nightlife.luline"
+    url: "https://luline.jp/tohoku/shop_list/search/"
+    schedule: null
+    enabled: true
