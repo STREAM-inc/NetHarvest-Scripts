@@ -2614,3 +2614,10 @@ sites:
     url: "https://brunavi.com/"
     schedule: null
     enabled: true
+
+  - site_id: xn_pckua2a7gp15o89zb_2
+    name: "求人ボックス（ナイトワーク系求人）"
+    module: "jobs.xn_pckua2a7gp15o89zb_2"
+    url: "https://xn--pckua2a7gp15o89zb.com/"
+    schedule: null
+    enabled: true
