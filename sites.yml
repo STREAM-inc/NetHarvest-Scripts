@@ -2775,3 +2775,10 @@ sites:
     url: "https://www.e-arpa.jp/"
     schedule: null
     enabled: true
+
+  - site_id: workin
+    name: "workin岡山県"
+    module: "jobs.workin"
+    url: "https://workin.jp/okayama/search?srchBtn=1"
+    schedule: null
+    enabled: true
