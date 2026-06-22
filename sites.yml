@@ -2705,3 +2705,10 @@ sites:
     url: "https://night-works.com/"
     schedule: "0 9 5 * *"
     enabled: true
+
+  - site_id: webagre
+    name: "アグレキャリア"
+    module: "jobs.webagre"
+    url: "https://webagre.com/career"
+    schedule: null
+    enabled: true
