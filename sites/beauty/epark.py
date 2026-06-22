@@ -14,6 +14,7 @@ EPARKリラク＆エステ (mitsuraku.jp) — リラク・エステ・フィッ�
     python bin/run_flow.py --site-id epark
 """
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -115,38 +116,168 @@ class EparkScraper(StaticCrawler):
             Schema.CAT_SITE: cat_name,
         }
 
-        # --- 店舗名 ---
-        h1 = soup.select_one("h1.salon-detail__name, h1.shopdetail_title, h1.shop_name, h1")
-        if h1:
-            item[Schema.NAME] = h1.get_text(strip=True)
+        # --- JSON-LD 構造化データから優先取得 ---
+        _LD_TYPES = {"LocalBusiness", "HealthAndBeautyBusiness", "BeautySalon",
+                     "SportsActivityLocation", "ExerciseGym"}
+        for script in soup.find_all("script", type="application/ld+json"):
+            try:
+                data = json.loads(script.string or "")
+                if isinstance(data, list):
+                    data = next(
+                        (d for d in data if isinstance(d, dict) and d.get("@type") in _LD_TYPES),
+                        data[0] if data else None,
+                    )
+                if not isinstance(data, dict):
+                    continue
+                if data.get("name") and not item.get(Schema.NAME):
+                    item[Schema.NAME] = data["name"]
+                if data.get("telephone") and not item.get(Schema.TEL):
+                    item[Schema.TEL] = re.sub(r"[^\d\-\+\(\)]", "", data["telephone"])
+                addr = data.get("address", {})
+                if isinstance(addr, dict):
+                    pref = addr.get("addressRegion", "")
+                    locality = addr.get("addressLocality", "")
+                    street = addr.get("streetAddress", "")
+                    full_addr = pref + locality + street
+                    if full_addr and not item.get(Schema.ADDR):
+                        item[Schema.ADDR] = full_addr
+                    if pref and not item.get(Schema.PREF):
+                        item[Schema.PREF] = pref
+                oh = data.get("openingHours")
+                if oh and not item.get(Schema.TIME):
+                    item[Schema.TIME] = ", ".join(oh) if isinstance(oh, list) else str(oh)
+                url_val = data.get("url") or data.get("sameAs")
+                if url_val and not item.get(Schema.HP):
+                    item[Schema.HP] = url_val if isinstance(url_val, str) else url_val[0] if url_val else ""
+            except Exception:
+                pass
 
-        # --- dl / table の構造化フィールドを横断的に取得 ---
+        # --- 店舗名 ---
+        if not item.get(Schema.NAME):
+            h1 = soup.select_one(
+                "h1.salon-detail__name, h1.shopdetail_title, h1.shop_name, "
+                "[class*='salon-name'], [class*='shop-name'], h1"
+            )
+            if h1:
+                item[Schema.NAME] = h1.get_text(strip=True)
+
+        # --- itemprop 属性から TEL / 住所 ---
+        if not item.get(Schema.TEL):
+            tel_el = soup.select_one("[itemprop='telephone']")
+            if tel_el:
+                val = tel_el.get("content") or tel_el.get_text(strip=True)
+                if val:
+                    item[Schema.TEL] = re.sub(r"[^\d\-\+\(\)]", "", val)
+        if not item.get(Schema.ADDR):
+            addr_el = soup.select_one("[itemprop='streetAddress']")
+            if addr_el:
+                val = addr_el.get("content") or addr_el.get_text(strip=True)
+                if val:
+                    item[Schema.ADDR] = re.sub(r"\s+", " ", val).strip()
+
+        # --- dl / table / div の構造化フィールドを横断的に取得 ---
         labels = self._collect_labels(soup)
 
         _MAP = {
-            "住所":   Schema.ADDR,
-            "TEL":    Schema.TEL,
-            "電話番号": Schema.TEL,
-            "営業時間": Schema.TIME,
-            "定休日":  Schema.HOLIDAY,
-            "支払方法": Schema.PAYMENTS,
-            "支払い方法": Schema.PAYMENTS,
-            "最寄駅":  "最寄駅",
-            "アクセス": "アクセス",
-            "駐車場":  "駐車場",
-            "個室":   "個室",
-            "キャンセル料": "キャンセル料",
+            "住所":           Schema.ADDR,
+            "TEL":            Schema.TEL,
+            "Tel":            Schema.TEL,
+            "電話番号":       Schema.TEL,
+            "電話":           Schema.TEL,
+            "予約専用電話番号": Schema.TEL,
+            "予約電話番号":   Schema.TEL,
+            "お問い合わせ":   Schema.TEL,
+            "営業時間":       Schema.TIME,
+            "受付時間":       Schema.TIME,
+            "定休日":         Schema.HOLIDAY,
+            "支払方法":       Schema.PAYMENTS,
+            "支払い方法":     Schema.PAYMENTS,
+            "最寄駅":         "最寄駅",
+            "アクセス":       "アクセス",
+            "駐車場":         "駐車場",
+            "個室":           "個室",
+            "キャンセル料":   "キャンセル料",
         }
         for label, col in _MAP.items():
             if label in labels and labels[label]:
                 item.setdefault(col, labels[label])
 
+        # TEL 正規化: ラベル値に注釈テキストが混入している場合、先頭の電話番号のみ抽出
+        if item.get(Schema.TEL):
+            raw = item[Schema.TEL]
+            m = re.search(r"0\d{1,3}[\-\d]{6,12}\d", raw)
+            if m:
+                item[Schema.TEL] = m.group(0)
+            else:
+                item[Schema.TEL] = re.sub(r"[^\d\-\+\(\)]", "", raw)
+
+        # --- 予約ボタンエリアの tel: リンクから電話番号を優先取得 ---
+        if not item.get(Schema.TEL):
+            _RESERVE_SEL = (
+                "[class*='reserve'] a[href^='tel:'], [class*='yoyaku'] a[href^='tel:'], "
+                "[class*='booking'] a[href^='tel:'], [class*='tel-reserve'] a[href^='tel:'], "
+                "[class*='call'] a[href^='tel:'], [id*='reserve'] a[href^='tel:'], "
+                "[id*='yoyaku'] a[href^='tel:']"
+            )
+            reserve_tel = soup.select_one(_RESERVE_SEL)
+            if reserve_tel is None:
+                # ボタン/リンクに「予約」「電話」テキストを持つ要素の近傍を探す
+                for btn in soup.find_all(["a", "button", "span", "div"],
+                                         string=re.compile(r"電話|予約電話|TEL|tel")):
+                    parent = btn.parent
+                    if parent is None:
+                        continue
+                    reserve_tel = parent.find("a", href=re.compile(r"^tel:"))
+                    if reserve_tel:
+                        break
+            if reserve_tel:
+                num = re.sub(r"[^\d\-\+\(\)]", "", reserve_tel["href"].replace("tel:", ""))
+                if num:
+                    item[Schema.TEL] = num
+
+        # --- data-phone-number 属性から電話番号を取得 (js-shop-phone-number ボタン) ---
+        if not item.get(Schema.TEL):
+            phone_el = soup.select_one(".js-shop-phone-number[data-phone-number]")
+            if phone_el:
+                num = re.sub(r"[^\d\-\+\(\)]", "", phone_el.get("data-phone-number", ""))
+                if num:
+                    item[Schema.TEL] = num
+        if not item.get(Schema.TEL):
+            sms_btn = soup.select_one("a.sms-balloon")
+            if sms_btn:
+                m = re.search(r"0\d{1,3}[\-\d]{6,12}\d", sms_btn.get_text(strip=True))
+                if m:
+                    item[Schema.TEL] = m.group(0)
+
+        # --- tel: リンクから電話番号をフォールバック取得 ---
+        if not item.get(Schema.TEL):
+            for a in soup.find_all("a", href=re.compile(r"^tel:")):
+                num = re.sub(r"[^\d\-\+\(\)]", "", a["href"].replace("tel:", ""))
+                if num:
+                    item[Schema.TEL] = num
+                    break
+
+        # --- address 要素から住所フォールバック ---
+        if not item.get(Schema.ADDR):
+            for sel in ("address", "[class*='address']", "[class*='addr']"):
+                el = soup.select_one(sel)
+                if el:
+                    val = re.sub(r"\s+", " ", el.get_text(" ", strip=True))
+                    if val:
+                        item[Schema.ADDR] = val
+                        break
+
         # --- 住所から都道府県を分離 ---
         addr = item.get(Schema.ADDR, "")
-        if addr:
+        if addr and not item.get(Schema.PREF):
             m = _PREF_RE.match(addr)
             if m:
                 item[Schema.PREF] = m.group(1)
+                item[Schema.ADDR] = addr[m.end():].strip()
+        elif addr and item.get(Schema.PREF):
+            # JSON-LD で PREF が既に入っている場合は ADDR から都道府県部分だけ除去
+            m = _PREF_RE.match(addr)
+            if m:
                 item[Schema.ADDR] = addr[m.end():].strip()
 
         # --- 口コミ ---
@@ -168,28 +299,45 @@ class EparkScraper(StaticCrawler):
 
     @staticmethod
     def _collect_labels(soup) -> dict:
-        """dl dt→dd および table th→td からラベル:値辞書を構築する"""
+        """dl dt→dd, table th→td, div系ラベル/値ペアからラベル:値辞書を構築する"""
         labels: dict[str, str] = {}
 
+        def _set(key: str, val: str) -> None:
+            key = key.strip()
+            val = re.sub(r"\s+", " ", val).strip()
+            if key and val and key not in labels:
+                labels[key] = val
+
+        # dl/dt/dd パターン
         for dl in soup.find_all("dl"):
             for dt in dl.find_all("dt"):
                 dd = dt.find_next_sibling("dd")
                 if dd is None:
                     continue
-                key = dt.get_text(strip=True)
-                val = re.sub(r"\s+", " ", dd.get_text(" ", strip=True))
-                if key and key not in labels and val:
-                    labels[key] = val
+                _set(dt.get_text(strip=True), dd.get_text(" ", strip=True))
 
+        # table th→td パターン
         for tr in soup.find_all("tr"):
             th = tr.find("th")
             td = tr.find("td")
-            if not th or not td:
+            if th and td:
+                _set(th.get_text(strip=True), td.get_text(" ", strip=True))
+
+        # div ベースのラベル/値ペア (EPARKサイト等で多用)
+        # 例: <div class="item"><span class="label">TEL</span><span class="value">03-xxxx</span></div>
+        _LABEL_WORDS = re.compile(r"label|heading|title|term|key", re.I)
+        _VALUE_WORDS = re.compile(r"value|content|body|data|desc", re.I)
+        for label_el in soup.find_all(True, class_=_LABEL_WORDS):
+            tag = label_el.name
+            if tag in ("dt", "th", "script", "style"):
                 continue
-            key = th.get_text(strip=True)
-            val = re.sub(r"\s+", " ", td.get_text(" ", strip=True))
-            if key and key not in labels and val:
-                labels[key] = val
+            parent = label_el.parent
+            if parent is None:
+                continue
+            val_el = parent.find(True, class_=_VALUE_WORDS)
+            if val_el is None or val_el is label_el:
+                continue
+            _set(label_el.get_text(strip=True), val_el.get_text(" ", strip=True))
 
         return labels
 
