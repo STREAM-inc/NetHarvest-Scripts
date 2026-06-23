@@ -2832,9 +2832,9 @@ sites:
     schedule: null
     enabled: true
 
-  - site_id: https_www_jobkita_jp
-    name: "https://www.jobkita.jp/"
-    module: "jobs.https_www_jobkita_jp"
+  - site_id: jobkita
+    name: "ジョブキタ"
+    module: "jobs.jobkita"
     url: "https://www.jobkita.jp/job/list/"
     schedule: "0 9 18 * *"
     enabled: true
