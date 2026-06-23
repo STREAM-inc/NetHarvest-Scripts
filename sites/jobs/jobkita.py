@@ -79,21 +79,59 @@ class HttpsWwwJobkitaJpScraper(StaticCrawler):
         "掲載終了日",
     ]
 
+    def _get_soup_with_retry(self, url: str, retries: int = 3):
+        """一覧ページ取得用リトライ"""
+        for attempt in range(1, retries + 1):
+            try:
+                soup = self.get_soup(url)
+
+                if soup is not None:
+                    return soup
+
+                self.logger.warning(
+                    "Failed to fetch %s (attempt %d/%d)",
+                    url,
+                    attempt,
+                    retries,
+                )
+
+            except Exception as e:
+                self.logger.warning(
+                    "Error fetching %s (attempt %d/%d): %s",
+                    url,
+                    attempt,
+                    retries,
+                    e,
+                )
+
+        self.logger.error(
+            "Giving up after %d attempts: %s",
+            retries,
+            url,
+        )
+        return None
+
     def parse(self, url: str):
-        first_soup = self.get_soup(f"{url}?page=1")
+        first_soup = self._get_soup_with_retry(f"{url}?page=1")
+
         if first_soup is None:
+            self.logger.error("Failed to fetch first page")
             return
+
         last_page = self._get_last_page(first_soup)
         self.logger.info("Detected last page: %d", last_page)
-        for page in range(1, last_page + 1):
 
+        for page in range(1, last_page + 1):
             list_url = f"{url}?page={page}"
 
-            soup = first_soup if page == 1 else self.get_soup(list_url)
+            if page == 1:
+                soup = first_soup
+            else:
+                soup = self._get_soup_with_retry(list_url)
 
             if soup is None:
                 self.logger.warning(
-                    "Failed to fetch page %d: %s",
+                    "Skipping page %d after 3 failed attempts: %s",
                     page,
                     list_url,
                 )
@@ -122,6 +160,7 @@ class HttpsWwwJobkitaJpScraper(StaticCrawler):
 
                 try:
                     item = self._scrape_detail(detail_url)
+
                 except Exception as e:
                     self.logger.warning(
                         "Detail parse failed %s: %s",
@@ -132,6 +171,7 @@ class HttpsWwwJobkitaJpScraper(StaticCrawler):
 
                 if item:
                     yield item
+
 
     def _get_last_page(self, soup) -> int:
         last_link = soup.select_one("li.last a")
