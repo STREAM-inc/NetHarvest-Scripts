@@ -6,12 +6,14 @@
     カテゴリ求人 (キャバクラ / クラブ / パブスナック / ホストクラブ /
     フロアレディ / カウンターレディ / スナックレディ / ナイトマネージャー)。
 
-取得フロー (一覧のみ / Pattern A):
+取得フロー (一覧 + 詳細 / Pattern B):
     各ナイトワークカテゴリの検索結果ページ (Nuxt SSR で求人カードが
     HTML に直接描画される) を 1 ページずつ取得し、求人カード
-    (div.job-list-item) を 1 件ずつ即 yield する。詳細ページ
-    (/jobs/<hash>) はクライアントレンダリングで静的取得できず、かつ
-    本文 (自由記述プロース) が中心のため取得しない。
+    (div.job-list-item) を解析する。一覧カードには電話番号が無いため、
+    各求人の詳細ページ (/jobs/<hash>) も取得し、「仕事内容」本文
+    (div.card-text に SSR 描画される自由記述プロース) の下のほうに
+    記載された TEL を拾ったうえで 1 件ずつ即 yield する。詳細ページは
+    SSR 描画のため静的取得が可能。
 
 ページネーション:
     パスベース。1 ページ目 = /r_<hash> , 2 ページ目以降 = /r_<hash>/{n}。
@@ -88,6 +90,43 @@ _PREF_PATTERN = re.compile(
     r"岡山|広島|山口|徳島|香川|愛媛|高知|福岡|佐賀|長崎|熊本|大分|宮崎|鹿児島|沖縄)県)"
 )
 
+# 電話番号の抽出パターン。詳細ページ「仕事内容」の自由記述本文から拾う
+# (固定電話 / 携帯 / フリーダイヤル / 市外局番カッコ表記に対応)。
+# 掲載が無い求人も多く、その場合は空文字となる。
+_TEL_PATTERN = re.compile(
+    r"(?<![\d-])"
+    r"(?:"
+    r"0\d{1,4}-\d{1,4}-\d{3,4}"          # 03-1234-5678 / 090-1234-5678 / 0120-12-3456
+    r"|\(0\d{1,4}\)\s?\d{1,4}-?\d{3,4}"  # (03)1234-5678
+    r")"
+    r"(?![\d-])"
+)
+
+# 「仕事内容」本文中の TEL ラベル。【 TEL 】 / 【TEL】 / TEL: / 電話番号 / 電話 等に対応。
+# ラベル直後に現れる電話番号を最優先で採用する。
+_TEL_LABEL = re.compile(r"(?:【\s*TEL\s*】|TEL|電話番号|電話)\s*[:：]?\s*", re.I)
+
+
+def _pick_tel(text: str) -> str:
+    """テキストから電話番号を抽出する。無ければ空文字。
+
+    「仕事内容」では本文の下のほうに【 TEL 】等のラベル付きで電話番号が
+    記載されるため、まずラベル直後の番号を優先して拾う。ラベルが無い／
+    ラベル直後に番号が見つからない場合は、本文中で最初に現れる電話番号を
+    採用する。
+    """
+    if not text:
+        return ""
+    # 1) TEL / 電話 ラベル直後の番号を最優先 (本文下部の連絡先を狙う)
+    for m in _TEL_LABEL.finditer(text):
+        chunk = text[m.end():m.end() + 80]
+        pm = _TEL_PATTERN.search(chunk)
+        if pm:
+            return _clean(pm.group(0))
+    # 2) フォールバック: 本文中で最初に現れる電話番号
+    m = _TEL_PATTERN.search(text)
+    return _clean(m.group(0)) if m else ""
+
 
 def _clean(s) -> str:
     """空白 (全角 U+3000 含む) を 1 つにまとめてトリム。"""
@@ -119,7 +158,18 @@ class StanbyNightWorkScraper(StaticCrawler):
     """スタンバイ (jp.stanby.com) ナイトワーク求人 スクレイパー"""
 
     DELAY = 1.5
+    # 参考スクレイピングカラムとの対応 (求人検索エンジンの一覧カードに載る項目のみ取得):
+    #   名称→Schema.NAME / 都道府県→Schema.PREF / 住所→Schema.ADDR /
+    #   業種→Schema.CAT_SITE は標準カラムへマップする。
+    #   TEL→Schema.TEL は詳細ページ (/jobs/<hash>) の「仕事内容」本文の
+    #   下のほうに記載された電話番号を拾う (掲載が無い求人は出力されない)。
+    #   郵便番号・法人番号・代表者・代表者役職・資本金・売上・従業員数・
+    #   設立日・事業内容・FAX・メール・HP・Instagram・Facebook・X・LINE公式 は
+    #   一覧カードに掲載が無く取得できないため出力されない (Pipeline 側で
+    #   観測されなかったカラムは CSV に書き出されない)。
+    #   エリアは Schema 定数が無いため EXTRA_COLUMNS で保持する。
     EXTRA_COLUMNS = [
+        "エリア",         # 勤務地の市区町村 (都道府県より下位のエリア)
         "求人タイトル",   # 募集職種の見出し (短いヘッドライン)
         "給与",           # 時給/日給/月給/年収 + 諸手当 (構造化された短文)
         "雇用形態",       # アルバイト・パート / 正社員 等
@@ -229,10 +279,16 @@ class StanbyNightWorkScraper(StaticCrawler):
         if title_a and title_a.get("href"):
             link = urljoin(root_url, title_a.get("href"))
 
+        # TEL: 一覧カードには電話番号が無いため、詳細ページ (/jobs/<hash>) の
+        # 「仕事内容」本文を取得し、その下のほうに記載された TEL を拾う。
+        # (掲載が無い求人も多く、その場合は空文字となる)。
+        tel = self._fetch_tel(link)
+
         data = {
             Schema.URL: list_url,           # データ取得元 (一覧ページ)
             Schema.NAME: name,
             Schema.CAT_SITE: category,      # サイト定義のカテゴリ (キャバクラ 等)
+            Schema.TEL: tel,
             "求人タイトル": title,
             "給与": attrs.get("pay", ""),
             "雇用形態": attrs.get("emp", ""),
@@ -251,9 +307,36 @@ class StanbyNightWorkScraper(StaticCrawler):
         else:
             data[Schema.ADDR] = addr_part
         data["最寄り駅"] = station
+        # エリア = 住所先頭の市区町村 (都道府県より下位のエリア区分)
+        data["エリア"] = data.get(Schema.ADDR, "").split(" ")[0] if data.get(Schema.ADDR) else ""
 
         data["_key"] = _job_key(link, company, title)
         return data
+
+    def _fetch_tel(self, detail_url: str) -> str:
+        """詳細ページ (/jobs/<hash>) の「仕事内容」本文から TEL を拾う。
+
+        本文 (自由記述プロース) は詳細ページの div.card-text に SSR 描画され、
+        静的取得が可能。本文の下のほうに【 TEL 】等のラベル付きで電話番号が
+        記載されるため、その番号を抽出する。
+
+        スタンバイの /jobs/<hash> ページ以外 (広告リダイレクト等) や取得失敗時、
+        本文に番号が無い求人は空文字を返す。
+        """
+        if not detail_url or not re.search(r"/jobs/[0-9a-f]{16,}", detail_url):
+            return ""
+        try:
+            soup = self.get_soup(detail_url)
+        except Exception as e:
+            self.logger.warning("詳細ページ取得失敗 (%s): %s", detail_url, e)
+            return ""
+        if soup is None:
+            return ""
+        # 「仕事内容」本文は div.card-text に分割描画される。全本文を連結して
+        # TEL ラベル → 番号の順で探す。本文が取れなければページ全体を対象にする。
+        blocks = soup.select("div.card-text")
+        text = "\n".join(b.get_text("\n") for b in blocks) if blocks else soup.get_text("\n")
+        return _pick_tel(text)
 
     @staticmethod
     def _split_location(loc: str) -> tuple[str, str]:
