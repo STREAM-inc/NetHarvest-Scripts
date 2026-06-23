@@ -2831,3 +2831,10 @@ sites:
     url: "https://jp.stanby.com/"
     schedule: null
     enabled: true
+
+  - site_id: https_www_jobkita_jp
+    name: "https://www.jobkita.jp/"
+    module: "jobs.https_www_jobkita_jp"
+    url: "https://www.jobkita.jp/job/list/"
+    schedule: "0 9 18 * *"
+    enabled: true
