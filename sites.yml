@@ -2838,3 +2838,10 @@ sites:
     url: "https://www.jobkita.jp/job/list/"
     schedule: "0 9 18 * *"
     enabled: true
+
+  - site_id: https_www_sgnavi_com
+    name: "https://www.sgnavi.com/"
+    module: "jobs.https_www_sgnavi_com"
+    url: "https://www.sgnavi.com/hokkaido/job-list/"
+    schedule: null
+    enabled: true
