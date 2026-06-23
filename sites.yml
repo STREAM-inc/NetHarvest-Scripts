@@ -2824,3 +2824,10 @@ sites:
     url: "https://www.clubjt.jp/place/spot/"
     schedule: null
     enabled: true
+
+  - site_id: jp_2
+    name: "スタンバイ　ナイトワーク"
+    module: "nightlife.jp_2"
+    url: "https://jp.stanby.com/"
+    schedule: null
+    enabled: true
