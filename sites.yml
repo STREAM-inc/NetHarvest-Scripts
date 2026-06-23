@@ -2817,3 +2817,10 @@ sites:
     url: "https://domonet.jp/kanto"
     schedule: null
     enabled: true
+
+  - site_id: club_jt
+    name: "CLUB　JT"
+    module: "service.club_jt"
+    url: "https://www.clubjt.jp/place/spot/"
+    schedule: null
+    enabled: true
