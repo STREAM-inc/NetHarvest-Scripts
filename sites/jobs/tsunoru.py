@@ -34,7 +34,7 @@ from src.const.schema import Schema
 
 
 _PREF_RE = re.compile(
-    r"^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県"
+    r"(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県"
     r"|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県"
     r"|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県"
     r"|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県"
@@ -56,8 +56,15 @@ class TsunoruScraper(DynamicCrawler):
     DELAY = 2.0
     EXTRA_COLUMNS = ["主な募集職種", "主な勤務地", "採用の特徴", "選考のポイント", "売上高"]
 
-    def get_soup(self, url: str) -> BeautifulSoup:
+    def get_soup(self, url: str, wait_for: str = "") -> BeautifulSoup:
+        # domcontentloaded だけだと JS 描画前の DOM を掴むことがあるため、
+        # 解析対象セレクタが現れるまで明示的に待つ（出なければ取得済み DOM で続行）。
         self.page.goto(url, wait_until="domcontentloaded")
+        if wait_for:
+            try:
+                self.page.wait_for_selector(wait_for, timeout=15000)
+            except Exception:
+                self.logger.debug("wait_for_selector timeout: %s on %s", wait_for, url)
         return BeautifulSoup(self.page.content(), "html.parser")
 
     def parse(self, url: str):
@@ -67,7 +74,7 @@ class TsunoruScraper(DynamicCrawler):
 
         while True:
             page_url = search_url if page_num == 0 else f"{search_url}?p={page_num}"
-            soup = self.get_soup(page_url)
+            soup = self.get_soup(page_url, wait_for="div.corp_detail")
 
             if page_num == 0:
                 count_el = soup.select_one("span.num_hit")
@@ -139,55 +146,74 @@ class TsunoruScraper(DynamicCrawler):
 
             page_num += 1
 
+    def _find_company_table(self, soup: BeautifulSoup):
+        """会社概要テーブルを取得。クラス名が変わっても拾えるようフォールバック付き。"""
+        table = soup.select_one("table.tbstyle01")
+        if table:
+            return table
+        # フォールバック: 既知ラベルを最も多く含む table を選ぶ
+        keywords = ("所在地", "代表者", "資本金", "設立", "従業員", "電話")
+        best, best_score = None, 0
+        for t in soup.select("table"):
+            text = t.get_text()
+            score = sum(1 for kw in keywords if kw in text)
+            if score > best_score:
+                best, best_score = t, score
+        return best if best_score >= 2 else None
+
+    def _assign_detail(self, result: dict, key: str, val: str) -> None:
+        # ラベルは表記ゆれ（「本社所在地」「電話番号」「設立／創業」等）に備えて部分一致で判定。
+        if "郵便" in key:
+            result[Schema.POST_CODE] = val
+        elif "所在地" in key or "住所" in key:
+            m = _PREF_RE.search(val)
+            if m:
+                result[Schema.PREF] = m.group(1)
+            result[Schema.ADDR] = val
+        elif "電話" in key or "TEL" in key.upper():
+            result[Schema.TEL] = val
+        elif "代表" in key:
+            rep = _REP_PREFIX_RE.sub("", val).strip()
+            result[Schema.REP_NM] = rep or val
+        elif "設立" in key or "創業" in key:
+            result[Schema.OPEN_DATE] = val
+        elif "資本金" in key:
+            result[Schema.CAP] = val
+        elif "従業員" in key or "社員数" in key:
+            # "89人 （2024年04月）" → "89人"
+            result[Schema.EMP_NUM] = re.split(r"[（(]", val)[0].strip()
+        elif "売上" in key:
+            result["売上高"] = val
+
     def _scrape_detail(self, url: str) -> dict:
         result: dict = {}
         try:
-            soup = self.get_soup(url)
+            soup = self.get_soup(url, wait_for="table")
         except Exception as e:
             self.logger.warning("detail fetch error %s: %s", url, e)
             return result
 
-        table = soup.select_one("table.tbstyle01")
+        table = self._find_company_table(soup)
         if not table:
+            self.logger.warning("detail: company table not found %s", url)
             return result
 
         for row in table.select("tr"):
-            tds = row.select("td")
-            if len(tds) == 2:
-                # colspan=2 header + value
-                key = _clean(tds[0].get_text())
-                val = _clean(tds[1].get_text(separator=" "))
-            elif len(tds) == 3:
-                # rowspan header | sub-header | value
-                key = _clean(tds[1].get_text())
-                val = _clean(tds[2].get_text(separator=" "))
-            else:
+            # th/td 混在に対応。直下セルを優先し、無ければ全 th/td を拾う。
+            cells = row.find_all(["th", "td"], recursive=False)
+            if len(cells) < 2:
+                cells = row.find_all(["th", "td"])
+            if len(cells) < 2:
                 continue
 
+            # 値は最後のセル、ラベルはその直前のセル
+            # （2セル: th|td、3セル rowspan: th(親)|th(子)|td の双方に対応）
+            key = _clean(cells[-2].get_text(separator=" "))
+            val = _clean(cells[-1].get_text(separator=" "))
             if not key or not val:
                 continue
 
-            if key == "郵便番号":
-                result[Schema.POST_CODE] = val
-            elif key == "所在地":
-                m = _PREF_RE.match(val)
-                if m:
-                    result[Schema.PREF] = m.group(1)
-                result[Schema.ADDR] = val
-            elif key == "電話番号":
-                result[Schema.TEL] = val
-            elif key == "代表者":
-                rep = _REP_PREFIX_RE.sub("", val).strip()
-                result[Schema.REP_NM] = rep or val
-            elif key == "設立／創業":
-                result[Schema.OPEN_DATE] = val
-            elif key == "資本金":
-                result[Schema.CAP] = val
-            elif key == "従業員":
-                # "89人\n（2024年04月）" → "89人"
-                result[Schema.EMP_NUM] = val.split("（")[0].strip()
-            elif key == "売上高":
-                result["売上高"] = val
+            self._assign_detail(result, key, val)
 
         # Homepage URL (first external link in div#page_link)
         hp_div = soup.select_one("div#page_link")
