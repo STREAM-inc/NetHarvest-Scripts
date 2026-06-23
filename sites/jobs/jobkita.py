@@ -79,51 +79,73 @@ class HttpsWwwJobkitaJpScraper(StaticCrawler):
         "掲載終了日",
     ]
 
-    def parse(self, url: str) -> Generator[dict, None, None]:
-        page = 1
-        while True:
+    def parse(self, url: str):
+        first_soup = self.get_soup(f"{url}?page=1")
+        if first_soup is None:
+            return
+        last_page = self._get_last_page(first_soup)
+        self.logger.info("Detected last page: %d", last_page)
+        for page in range(1, last_page + 1):
+
             list_url = f"{url}?page={page}"
-            soup = self.get_soup(list_url)
+
+            soup = first_soup if page == 1 else self.get_soup(list_url)
+
             if soup is None:
-                self.logger.warning("一覧ページ取得失敗: %s", list_url)
-                break
+                self.logger.warning(
+                    "Failed to fetch page %d: %s",
+                    page,
+                    list_url,
+                )
+                continue
 
-            # 初回ページで総件数を取得して進捗表示を有効化
-            if page == 1:
-                m = _TOTAL_PATTERN.search(soup.get_text(" ", strip=True))
-                if m:
-                    self.total_items = int(m.group(1).replace(",", ""))
-                    self.logger.info("ジョブキタ 総求人件数: 約 %d 件", self.total_items)
-
-            # 詳細ページリンクを重複排除しつつ出現順で抽出
             seen = set()
             detail_paths = []
+
             for a in soup.select('a[href*="/job/detail/"]'):
                 href = a.get("href", "")
                 m = _JOB_ID_PATTERN.search(href)
+
                 if not m:
                     continue
+
                 job_id = m.group(1)
+
                 if job_id in seen:
                     continue
+
                 seen.add(job_id)
                 detail_paths.append(href)
 
-            if not detail_paths:
-                self.logger.info("ページ %d で求人なし。巡回終了。", page)
-                break
-
             for href in detail_paths:
                 detail_url = urljoin(url, href)
+
                 try:
                     item = self._scrape_detail(detail_url)
-                except Exception as e:  # 個別アイテムのエラーは握りつぶして継続
-                    self.logger.warning("詳細ページ解析失敗 %s: %s", detail_url, e)
+                except Exception as e:
+                    self.logger.warning(
+                        "Detail parse failed %s: %s",
+                        detail_url,
+                        e,
+                    )
                     continue
+
                 if item:
                     yield item
 
-            page += 1
+    def _get_last_page(self, soup) -> int:
+        last_link = soup.select_one("li.last a")
+
+        if not last_link:
+            return 1
+
+        href = last_link.get("href", "")
+        _LAST_PAGE_PATTERN = re.compile(r"page=(\d+)")
+        m = _LAST_PAGE_PATTERN.search(href)
+        if not m:
+            return 1
+
+        return int(m.group(1))
 
     def _scrape_detail(self, url: str) -> dict | None:
         soup = self.get_soup(url)
