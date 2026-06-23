@@ -28,6 +28,7 @@
 import json
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Generator
 from urllib.parse import urljoin
@@ -91,6 +92,10 @@ class HttpsWwwSgnaviComScraper(StaticCrawler):
     """シゴトガイド (sgnavi.com) スクレイパー"""
 
     DELAY = 1.5
+    TIMEOUT = 30            # 608KB 規模の一覧ページが datacenter egress でタイムアウトしないよう延長
+    FETCH_RETRIES = 4       # get_soup が None (タイムアウト/403/429 等) を返した際の再試行回数
+    FETCH_BACKOFF = 3.0     # 再試行間隔の基準秒 (回数に比例して待機)
+
     EXTRA_COLUMNS = [
         "職種",
         "雇用形態",
@@ -111,14 +116,46 @@ class HttpsWwwSgnaviComScraper(StaticCrawler):
         "掲載終了日",
     ]
 
+    def _setup(self):
+        # 基底の Requests セッション (自動リトライ + UA) を構築したうえで、
+        # ブラウザ相当のヘッダを足して bot 判定 / 異常レスポンスを起こしにくくする。
+        super()._setup()
+        self.session.headers.update({
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        })
+
+    def _get_soup_retry(self, url: str):
+        """get_soup を再試行付きで呼ぶ。
+
+        framework の自動リトライは 500/502/503/504 のみ対象で、
+        接続タイムアウト・403・429 等では get_soup が即 None を返す。
+        一覧ページの 1 回の通信ブリップで巡回全体が 0 件になるのを防ぐため、
+        None が返った場合は指数的に待機しつつ FETCH_RETRIES 回まで再試行する。
+        """
+        for attempt in range(1, self.FETCH_RETRIES + 1):
+            soup = self.get_soup(url)
+            if soup is not None:
+                return soup
+            if attempt < self.FETCH_RETRIES:
+                wait = self.FETCH_BACKOFF * attempt
+                self.logger.warning(
+                    "取得失敗 (%d/%d) %s — %.1f 秒後に再試行",
+                    attempt, self.FETCH_RETRIES, url, wait,
+                )
+                time.sleep(wait)
+        return None
+
     def parse(self, url: str) -> Generator[dict, None, None]:
         seen: set[str] = set()
         page = 1
         while True:
             list_url = f"{url}?page={page}"
-            soup = self.get_soup(list_url)
+            soup = self._get_soup_retry(list_url)
             if soup is None:
-                self.logger.warning("一覧ページ取得失敗: %s", list_url)
+                self.logger.warning("一覧ページ取得失敗 (再試行上限到達): %s", list_url)
                 break
 
             detail_urls = self._collect_detail_urls(soup, url)
@@ -148,7 +185,7 @@ class HttpsWwwSgnaviComScraper(StaticCrawler):
         return list(dict.fromkeys(urls))
 
     def _scrape_detail(self, detail_url: str) -> dict | None:
-        soup = self.get_soup(detail_url)
+        soup = self._get_soup_retry(detail_url)
         if soup is None:
             return None
 
