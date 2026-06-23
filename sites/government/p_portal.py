@@ -10,7 +10,9 @@ URL: https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103
 取得フロー:
     1. OAB0101 (事業者情報検索フォーム) へアクセス
     2. 「本社住所を選択する」モーダルで 都道府県 + 市区町村 を設定して検索送信 → OAB0103
-    3. フォーム送信後の実 URL をベースに ?page=N&size=50 でページネーション (最大500件/検索)
+    3. フォーム送信後の実 URL をベースに ?page=N でページネーション (1ページ50件固定・最大500件/検索)
+       ※ size= は無視され常に50件/ページ。範囲外 page= は page0 にクランプされるため
+         総件数からページ数を算出して停止する (実機検証済)。
     4. 各行の法人番号を OAB0108 へ page.request.post() → 詳細ページを取得
     5. 基本情報・統一資格情報・落札実績件数を抽出して yield
 
@@ -171,6 +173,8 @@ class PPortalScraper(DynamicCrawler):
     """調達ポータル【法人】事業者情報公開機能 スクレイパー"""
 
     DELAY = 1.0
+    # サーバーは 1ページ50件固定 (size= パラメータは無視される / 実機検証済)。
+    PAGE_SIZE = 50
     EXTRA_COLUMNS = [
         "業者種別",      # 株式会社 / 合同会社 等 (構造化ラベル)
         "資格番号",      # 例: 0000100505
@@ -284,15 +288,19 @@ class PPortalScraper(DynamicCrawler):
         result_url: _do_search() が返したフォーム送信後の実 URL。
                     ページネーション URL の生成に使い、検索コンテキストを維持する。
         """
-        page_num = 0
-        limit = min(total, 500)
+        # サーバーは1ページ50件固定で、範囲外の page= は page0 にクランプされ
+        # 同じ結果を返す (空ページにならない / 実機検証済)。したがって "corp_links 空"
+        # では止まらないため、総件数からページ数を算出して停止する。
+        # 念のため直前ページと同一内容になった場合 (クランプ) も打ち切る。
+        max_pages = max(1, -(-min(total, 500) // self.PAGE_SIZE))  # ceil
+        prev_hrefs: list[str] | None = None
 
-        while True:
+        for page_num in range(max_pages):
             if page_num == 0:
                 soup = first_soup
                 page_url = result_url
             else:
-                page_url = _build_page_url(result_url, page_num, size)
+                page_url = _build_page_url(result_url, page_num, self.PAGE_SIZE)
                 soup = self.get_soup(page_url)
                 if soup is None:
                     break
@@ -304,6 +312,13 @@ class PPortalScraper(DynamicCrawler):
             if not corp_links:
                 self.logger.debug("ページ%d: corp_links 0件 → ページネーション終了", page_num)
                 break
+
+            # クランプ検出: 範囲外ページは直前ページと同一内容になるため打ち切る
+            page_hrefs = [link.get("href", "") for link in corp_links]
+            if prev_hrefs is not None and page_hrefs == prev_hrefs:
+                self.logger.debug("ページ%d: 直前ページと同一 (クランプ) → 終了", page_num)
+                break
+            prev_hrefs = page_hrefs
 
             for link in corp_links:
                 href = link.get("href", "")
@@ -344,14 +359,6 @@ class PPortalScraper(DynamicCrawler):
 
                 except Exception as e:
                     self.logger.warning("Error scraping corp %s: %s", corp_no, e)
-
-            page_num += 1
-            # size パラメータがサーバーに無視された場合でも全ページを取得するため
-            # カウントベースのブレークは使用しない。corp_links 空での自然終了を優先し、
-            # 安全上限として 100 ページを設ける。
-            if page_num > 100:
-                self.logger.warning("安全上限(100ページ)に到達 total=%d limit=%d", total, limit)
-                break
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         search_url = urljoin(url, "OAB0101")
