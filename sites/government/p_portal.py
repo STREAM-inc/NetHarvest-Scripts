@@ -20,18 +20,23 @@ URL: https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103
     - 1回の検索で最大500件のサーバー制限を回避するため検索条件を段階的に分割する。
     - 第1レベル: 都道府県 (01〜47) × 市区町村 で分割。
                 市区町村リストは都道府県選択時の AJAX 応答から動的に取得する。
-    - 第2レベル: ある市区町村が500件超に達した場合のみ「資格の種類・営業品目」
-                (営業品目コード) でさらに分割する。
+    - 第2レベル: ある市区町村が500件超に達した場合のみ、以下2方式を併用して網羅する
+                (両者は共通の seen で重複排除・自動マージ)。
+                  (a) 「資格の種類・営業品目」(営業品目コード) で分割
+                      → 統一資格保有者をカテゴリ別に取得。英数字始まり等かな分割で
+                        当たらない商号も拾える。
+                  (b) 市区町村 × 商号 (かな頭文字) で分割
+                      → 無資格事業者を含む全事業者を網羅する。
     - 第3レベル: (市区町村 × 営業品目) でも500件超の場合のみ、商号 (かな頭文字) で分割する。
     - 法人番号による重複排除を実施。
 
     ⚠ 完全性の注意:
-        第2レベルの「営業品目」フィルタは "統一資格から検索する場合のみ" の条件であり、
-        統一資格を保有する事業者のみを返す。したがって500件超の市区町村に統一資格を
-        持たない事業者が大量に存在する場合、その一部を取りこぼす可能性がある
-        (旧実装のかな分割と同様のベストエフォート方針)。
-        全事業者 (非保有者含む) を確実に網羅したい場合は、市区町村そのものを
-        かな分割する構成に切り替える必要がある。
+        (a) の「営業品目」フィルタは "統一資格から検索する場合のみ" の条件であり統一資格
+        保有者のみを返すが、(b) の市区町村かな分割で無資格事業者も併せて取得するため、
+        両方式の併用で取りこぼしを最小化している。
+        なお (市区町村 × かな) が500件超になるケース、または かな頭文字に当たらず
+        営業品目フィルタにも掛からない無資格事業者は依然取りこぼす可能性がある
+        (ベストエフォート方針)。WARNING ログ "500件超 → 取りこぼしの可能性あり" を監視のこと。
 
 設計メモ:
     - OAB0103/OAB0108 は直打ちアクセス不可 (JSESSIONID + CSRFトークン必須)。
@@ -396,9 +401,18 @@ class PPortalScraper(DynamicCrawler):
                         result_url, soup, total, size, detail_url, seen
                     )
                 else:
-                    # 第2レベル: 500件超 → 営業品目で細分化
-                    self.logger.info("%s %s: 500件超 → 営業品目で細分化", pref_code, cname)
+                    # 第2レベル: 500件超 → 営業品目 と 商号かな を併用して網羅。
+                    #   - 営業品目分割: 統一資格保有者をカテゴリ別に取得 (英数字始まりの
+                    #     商号などかな分割で当たらない事業者も拾える)。
+                    #   - 市区町村かな分割: 無資格事業者を含む全事業者を商号頭文字で取得。
+                    #   両者は共通の seen で自動マージ・重複排除される。
+                    self.logger.info(
+                        "%s %s: 500件超 → 営業品目 + 商号かな を併用して細分化", pref_code, cname
+                    )
                     yield from self._split_by_bizitem(
+                        search_url, pref_code, ccode, cname, size, detail_url, seen
+                    )
+                    yield from self._split_by_kana(
                         search_url, pref_code, ccode, cname, size, detail_url, seen
                     )
 
@@ -435,20 +449,45 @@ class PPortalScraper(DynamicCrawler):
                 self.logger.info(
                     "%s %s 品目%s: 500件超 → 仮名で細分化", pref_code, city_name, biz
                 )
-                for kana in _KANA_PREFIXES:
-                    k_soup, k_total, k_overflow, k_url = self._do_search(
-                        search_url, pref_code, city_code, biz_item=biz, name_prefix=kana
-                    )
-                    if k_total == 0 and not k_overflow:
-                        continue
-                    if k_overflow:
-                        self.logger.warning(
-                            "%s %s 品目%s 仮名%s: 500件超 → 取りこぼしの可能性あり",
-                            pref_code, city_name, biz, kana,
-                        )
-                    yield from self._paginate_and_yield(
-                        k_url, k_soup, k_total, size, detail_url, seen
-                    )
+                yield from self._split_by_kana(
+                    search_url, pref_code, city_code, city_name,
+                    size, detail_url, seen, biz_item=biz,
+                )
+
+    def _split_by_kana(
+        self,
+        search_url: str,
+        pref_code: str,
+        city_code: str,
+        city_name: str,
+        size: int,
+        detail_url: str,
+        seen: set[str],
+        biz_item: str | None = None,
+    ) -> Generator[dict, None, None]:
+        """商号かな頭文字で検索を分割する。
+
+        biz_item=None : 市区町村全体 (無資格事業者を含む全事業者) を対象に分割。
+        biz_item 指定: (市区町村 × 営業品目) が500件超だった場合の第3レベル分割。
+
+        どちらも共通の seen で重複排除されるため、_split_by_bizitem と併用して
+        呼び出すことで取りこぼしを最小化できる。
+        """
+        label = f"品目{biz_item}" if biz_item else "全体"
+        for kana in _KANA_PREFIXES:
+            k_soup, k_total, k_overflow, k_url = self._do_search(
+                search_url, pref_code, city_code, biz_item=biz_item, name_prefix=kana
+            )
+            if k_total == 0 and not k_overflow:
+                continue
+            if k_overflow:
+                self.logger.warning(
+                    "%s %s %s 仮名%s: 500件超 → 取りこぼしの可能性あり",
+                    pref_code, city_name, label, kana,
+                )
+            yield from self._paginate_and_yield(
+                k_url, k_soup, k_total, size, detail_url, seen
+            )
 
     def _scrape_detail(self, soup: BeautifulSoup, source_url: str) -> dict | None:
         tables = soup.find_all("table")
