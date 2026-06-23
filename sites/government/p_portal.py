@@ -8,18 +8,28 @@ URL: https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103
     - 調達ポータルに登録された事業者の基本情報・統一資格情報・落札実績件数
 
 取得フロー:
-    1. OAB0101 (事業者情報検索フォーム) へアクセスしフォームフィールドを動的検出
-    2. 都道府県コード 01〜47 でフィルタを設定して検索送信 → OAB0103 へリダイレクト
-    3. フォーム送信後の実 URL をベースに ?page=N&size=100 でページネーション (最大500件/都道府県)
+    1. OAB0101 (事業者情報検索フォーム) へアクセス
+    2. 「本社住所を選択する」モーダルで 都道府県 + 市区町村 を設定して検索送信 → OAB0103
+    3. フォーム送信後の実 URL をベースに ?page=N&size=50 でページネーション (最大500件/検索)
     4. 各行の法人番号を OAB0108 へ page.request.post() → 詳細ページを取得
     5. 基本情報・統一資格情報・落札実績件数を抽出して yield
 
-大量取得戦略:
+大量取得戦略 (段階的に絞り込む = 必要な時だけ深掘りしリクエスト数を最小化):
     - 1回の検索で最大500件のサーバー制限を回避するため検索条件を段階的に分割する。
-    - 第1レベル: 都道府県コード 01〜47 で分割 (最大 47 × 500 = 23,500 件)
-    - 第2レベル: 各都道府県が500件上限に達した場合、かな頭文字でさらに分割
-                (47 × ~73 かな × 500 = ~1.7M 件)
+    - 第1レベル: 都道府県 (01〜47) × 市区町村 で分割。
+                市区町村リストは都道府県選択時の AJAX 応答から動的に取得する。
+    - 第2レベル: ある市区町村が500件超に達した場合のみ「資格の種類・営業品目」
+                (営業品目コード) でさらに分割する。
+    - 第3レベル: (市区町村 × 営業品目) でも500件超の場合のみ、商号 (かな頭文字) で分割する。
     - 法人番号による重複排除を実施。
+
+    ⚠ 完全性の注意:
+        第2レベルの「営業品目」フィルタは "統一資格から検索する場合のみ" の条件であり、
+        統一資格を保有する事業者のみを返す。したがって500件超の市区町村に統一資格を
+        持たない事業者が大量に存在する場合、その一部を取りこぼす可能性がある
+        (旧実装のかな分割と同様のベストエフォート方針)。
+        全事業者 (非保有者含む) を確実に網羅したい場合は、市区町村そのものを
+        かな分割する構成に切り替える必要がある。
 
 設計メモ:
     - OAB0103/OAB0108 は直打ちアクセス不可 (JSESSIONID + CSRFトークン必須)。
@@ -27,7 +37,12 @@ URL: https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103
       OAB0108 を呼び出すため、1件ごとに画面遷移しない。
     - ページネーション URL は _do_search() が返す「フォーム送信後の実 URL」を使う。
       直接 OAB0103?page=N を構築するとサーバーが検索コンテキストを失い0件になる。
-    - フォームの都道府県フィールド名・名称フィールド名は起動時に動的に検出する。
+    - 本社住所・営業品目はカスタムスタイルのモーダル UI だが、フォーム入力要素自体は
+      DOM に常在し name 属性を持つため、モーダルを開かずに JS で値を設定し change
+      イベントを発火するだけで検索条件として送信される (DOM調査で確認済み)。
+      市区町村セレクトは都道府県の change で AJAX 補充されるため待機が必要。
+    - 件数判定: "N件見つかりました" = 実件数 / "500件を超え" = 上限到達(500扱い) /
+      "合致する事業者情報がありません" = 0件。
     - 統一資格情報・落札実績情報が存在しない事業者は対応フィールドを空文字で返す。
     - HTML の th「商品号又は名称」の実体は商号・名称 (Schema.NAME に対応)。
     - 代表者役職・代表者氏名が「－」の事業者は空文字に正規化する。
@@ -67,12 +82,62 @@ _QUAL_CATEGORIES = ["物品の製造", "物品の販売", "役務の提供等", 
 # 都道府県コード 01〜47 (検索第1レベル分割)
 _PREF_CODES = [f"{i:02d}" for i in range(1, 48)]
 
-# かな頭文字 (検索第2レベル分割: 都道府県検索が500件上限に達した場合)
+# かな頭文字 (検索第3レベル分割: 市区町村 × 営業品目 でも500件超の場合)
 _KANA_PREFIXES = list(
     "アイウエオカキクケコサシスセソタチツテトナニヌネノ"
     "ハヒフヘホマミムメモヤユヨラリルレロワヲン"
     "ガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポ"
 )
+
+# --- フォーム要素セレクタ (2025年DOM調査で確定) ---
+_NAME_FIELD = 'input[name="inputSearchCondtionBean.tradeName"]'  # 商号又は名称
+_CITY_READY_JS = (
+    "() => { const s = document.querySelector('#city_select');"
+    " return s && s.options.length > 1; }"
+)
+
+# 本社住所 (市区町村方式) を設定する JS。
+# #select-city ラジオ(method=02)を ON にし、都道府県セレクトに値をセットして
+# change を発火 → サーバーが市区町村セレクトを AJAX 補充する。
+_JS_SET_PREF = """
+(pref) => {
+    const radio = document.querySelector('#select-city');
+    if (radio) { radio.checked = true; radio.dispatchEvent(new Event('change', {bubbles:true})); }
+    const sel = document.querySelector('#presures_select');
+    if (sel) { sel.value = pref; sel.dispatchEvent(new Event('change', {bubbles:true})); }
+}
+"""
+
+# 市区町村を選択して「選択」確定ボタンを押す JS。
+_JS_SET_CITY = """
+(city) => {
+    const sel = document.querySelector('#city_select');
+    if (sel) { sel.value = city; sel.dispatchEvent(new Event('change', {bubbles:true})); }
+    const ok = document.querySelector('#companyAdressSelected');
+    if (ok) ok.click();
+}
+"""
+
+# 資格の種類・営業品目モーダルで営業品目チェックを ON にし「選択」確定する JS。
+_JS_SET_BIZ = """
+(value) => {
+    const cb = [...document.querySelectorAll('.modal-type-01 input[type=checkbox]')]
+        .find(c => c.value === value);
+    if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change', {bubbles:true})); }
+    const ok = document.querySelector('#qualificationKindBizItemSelected');
+    if (ok) ok.click();
+}
+"""
+
+# 検索ボタンを押す JS (name 属性がサイト改修で変わることがあるため複数候補)。
+_JS_CLICK_SEARCH = """
+() => {
+    const cands = ['input[name="OAB0103"]', 'input[type=submit][value*=検索]',
+                   'button[type=submit]', 'input[type=submit]'];
+    for (const sel of cands) { const b = document.querySelector(sel); if (b) { b.click(); return true; } }
+    return false;
+}
+"""
 
 
 def _clean(s: str) -> str:
@@ -116,99 +181,94 @@ class PPortalScraper(DynamicCrawler):
         "落札実績件数",  # 落札実績の総件数 (整数文字列)
     ]
 
-    def _inspect_form(self) -> dict[str, str | None]:
-        """OAB0101 のフォームフィールド名を動的に検出する。"""
-        return self.page.evaluate("""
-            () => {
-                const result = {pref: null, name: null, size_sel: null, size_val: null};
-                for (const sel of document.querySelectorAll('select')) {
-                    const vals = Array.from(sel.options).map(o => o.value);
-                    if (!result.pref && vals.some(v => /^0[1-9]$/.test(v)) && vals.length >= 10) {
-                        result.pref = sel.name;
-                        continue;
-                    }
-                    // 表示件数セレクト: 数値のみの選択肢が 2〜6 個
-                    const numVals = vals.filter(v => /^\\d+$/.test(v) && parseInt(v) >= 10 && parseInt(v) <= 500);
-                    if (!result.size_sel && numVals.length >= 2 && numVals.length <= 6 && vals.length <= 8) {
-                        result.size_sel = sel.name;
-                        result.size_val = String(Math.max(...numVals.map(Number)));
-                    }
-                }
-                for (const inp of document.querySelectorAll('input[type="text"], input:not([type])')) {
-                    const ctx = (inp.name + ' ' + inp.id + ' ' + (inp.placeholder || '')).toLowerCase();
-                    if (/nm|name|corp|kaisha|shogo|meisho|kana|furi|yomi|search|jigy/.test(ctx)) {
-                        result.name = inp.name;
-                        break;
-                    }
-                }
-                return result;
-            }
-        """)
+    def _get_cities(self, search_url: str, pref_code: str) -> list[dict[str, str]]:
+        """指定都道府県の市区町村リストを取得する。
+
+        OAB0101 を開き、都道府県セレクトに値をセットして change を発火すると
+        サーバーが市区町村セレクトを AJAX 補充する。補充完了を待って
+        [{code, name}, ...] を返す。
+        """
+        self.get_soup(search_url)
+        self.page.wait_for_timeout(1500)  # フォーム JS(イベントハンドラ)初期化待ち
+        try:
+            self.page.evaluate(_JS_SET_PREF, pref_code)
+            # 市区町村セレクトが AJAX 補充されるまで待機
+            self.page.wait_for_function(_CITY_READY_JS, timeout=15000)
+        except Exception as e:
+            self.logger.warning("都道府県%s: 市区町村リスト取得失敗: %s", pref_code, e)
+            return []
+        return self.page.eval_on_selector_all(
+            "#city_select option",
+            "els => els.map(o => ({code:o.value, name:o.text.trim()})).filter(o => o.code)",
+        )
 
     def _do_search(
         self,
         search_url: str,
-        pref_field: str | None,
-        pref_code: str | None,
-        name_field: str | None,
-        name_prefix: str | None,
-    ) -> tuple[BeautifulSoup, int, str]:
-        """フォームを設定して検索を実行し、結果ページの soup・件数・実 URL を返す。
+        pref_code: str,
+        city_code: str,
+        biz_item: str | None = None,
+        name_prefix: str | None = None,
+    ) -> tuple[BeautifulSoup, int, bool, str]:
+        """検索条件を設定して検索を実行し、(soup, 件数, 上限超フラグ, 実 URL) を返す。
 
-        戻り値の result_url はフォーム送信後にブラウザが表示した実際の URL。
-        サーバーが検索条件をセッションではなく URL パラメータで管理する場合でも
-        この URL をベースにページネーションすることで正しく取得できる。
+        本社住所・営業品目モーダルの入力要素は DOM に常在し name 属性を持つため、
+        モーダルを開かずに JS で値を設定して change を発火するだけで検索条件として
+        送信される。市区町村は都道府県の change で AJAX 補充されるため待機する。
+
+        戻り値の result_url はフォーム送信後にブラウザが表示した実 URL。
+        これをベースにページネーションすることで検索コンテキストを維持する。
+
+        overflow=True のとき total は 500 (上限) を表す。
         """
         self.get_soup(search_url)
+        self.page.wait_for_timeout(1500)  # フォーム JS 初期化待ち
 
-        # 表示件数を最大に設定 (フォームに件数セレクトがある場合)
-        _size_sel = getattr(self, "_size_sel", None)
-        _size_val = getattr(self, "_size_val", "100")
-        if _size_sel:
+        # --- 本社住所 (都道府県 × 市区町村) ---
+        self.page.evaluate(_JS_SET_PREF, pref_code)
+        try:
+            self.page.wait_for_function(_CITY_READY_JS, timeout=15000)
+        except Exception as e:
+            self.logger.debug("市区町村補充待ちタイムアウト %s: %s", pref_code, e)
+        self.page.evaluate(_JS_SET_CITY, city_code)
+        self.page.wait_for_timeout(300)
+
+        # --- 資格の種類・営業品目 (第2レベル分割時のみ) ---
+        if biz_item:
+            self.page.evaluate(_JS_SET_BIZ, biz_item)
+            self.page.wait_for_timeout(300)
+
+        # --- 商号 かな頭文字 (第3レベル分割時のみ) ---
+        if name_prefix:
             try:
-                self.page.select_option(f'select[name="{_size_sel}"]', _size_val)
+                self.page.fill(_NAME_FIELD, name_prefix)
             except Exception as e:
-                self.logger.debug("表示件数設定失敗 (%s=%s): %s", _size_sel, _size_val, e)
+                self.logger.debug("商号入力失敗 %s: %s", name_prefix, e)
 
-        if pref_field and pref_code:
-            try:
-                self.page.select_option(f'select[name="{pref_field}"]', pref_code)
-            except Exception as e:
-                self.logger.debug("都道府県選択失敗 %s: %s", pref_code, e)
-
-        if name_field and name_prefix:
-            try:
-                self.page.fill(f'input[name="{name_field}"]', name_prefix)
-            except Exception as e:
-                self.logger.debug("名称入力失敗 %s: %s", name_prefix, e)
-
-        # 検索ボタンを複数セレクタで試行 (サイト改修でname属性が変わることがある)
-        _BTN_CANDIDATES = [
-            'input[name="OAB0103"]',
-            'input[type="submit"][value*="検索"]',
-            'button[type="submit"]',
-            'input[type="submit"]',
-        ]
-        clicked = False
-        for sel in _BTN_CANDIDATES:
-            try:
-                self.page.click(sel, timeout=5000)
-                clicked = True
-                break
-            except Exception:
-                continue
-        if not clicked:
-            raise RuntimeError("検索ボタンが見つかりません: " + str(_BTN_CANDIDATES))
-        self.page.wait_for_load_state("domcontentloaded")
-        self.page.wait_for_timeout(2000)
+        # --- 検索送信 (フォーム POST → OAB0103 へ遷移) ---
+        try:
+            with self.page.expect_navigation(wait_until="domcontentloaded", timeout=30000):
+                self.page.evaluate(_JS_CLICK_SEARCH)
+        except Exception as e:
+            self.logger.warning(
+                "検索送信失敗 (pref=%s city=%s biz=%s kana=%s): %s",
+                pref_code, city_code, biz_item, name_prefix, e,
+            )
+            return BeautifulSoup("", "html.parser"), 0, False, self.page.url
+        self.page.wait_for_timeout(1200)
 
         # フォーム送信後の実 URL をキャプチャ (ページネーション URL 生成に使用)
         result_url = self.page.url
 
         soup = BeautifulSoup(self.page.content(), "html.parser")
-        m = re.search(r"(\d+)件見つかりました", soup.get_text())
-        total = int(m.group(1)) if m else 0
-        return soup, total, result_url
+        text = soup.get_text()
+        overflow = "500件を超え" in text
+        m = re.search(r"(\d[\d,]*)件見つかりました", text)
+        if m:
+            total = int(m.group(1).replace(",", ""))
+        else:
+            total = 500 if overflow else 0
+        return soup, total, overflow, result_url
 
     def _paginate_and_yield(
         self,
@@ -296,80 +356,92 @@ class PPortalScraper(DynamicCrawler):
     def parse(self, url: str) -> Generator[dict, None, None]:
         search_url = urljoin(url, "OAB0101")
         detail_url = urljoin(url, "OAB0108?")
-        size = 100
+        size = 50  # フォームに件数セレクトは無く、サーバー既定は 50件/ページ
         seen: set[str] = set()
 
-        # フォームフィールドを動的に検出
+        # 営業品目コード一覧を動的取得 (第2レベル分割で使用)
         self.get_soup(search_url)
-        fields = self._inspect_form()
-        pref_field: str | None = fields.get("pref")
-        name_field: str | None = fields.get("name")
-        self._size_sel: str | None = fields.get("size_sel")
-        self._size_val: str = fields.get("size_val") or "100"
-        self.logger.info(
-            "検出フィールド: 都道府県=%s, 名称=%s, 件数セレクト=%s(max=%s)",
-            pref_field, name_field, self._size_sel, self._size_val,
+        self.page.wait_for_timeout(1500)
+        self._biz_items: list[str] = self.page.eval_on_selector_all(
+            ".modal-type-01 input[type=checkbox][name*='bizItem']",
+            "els => els.map(e => e.value)",
         )
+        self.logger.info("営業品目コード %d件 を検出", len(self._biz_items))
 
-        if pref_field:
-            # 第1レベル: 都道府県コード 01〜47 で分割
-            for pref_code in _PREF_CODES:
-                soup, total, result_url = self._do_search(
-                    search_url, pref_field, pref_code, None, None
+        # 第1レベル: 都道府県 (01〜47) × 市区町村
+        for pref_code in _PREF_CODES:
+            cities = self._get_cities(search_url, pref_code)
+            if not cities:
+                continue
+            self.logger.info("都道府県%s: 市区町村 %d件", pref_code, len(cities))
+
+            for city in cities:
+                ccode, cname = city["code"], city["name"]
+                soup, total, overflow, result_url = self._do_search(
+                    search_url, pref_code, ccode
                 )
-                if total == 0:
+                if total == 0 and not overflow:
                     continue
-                self.logger.info("都道府県%s: %d件 (result_url=%s)", pref_code, total, result_url)
 
-                if total < 500 or not name_field:
+                if not overflow:
+                    self.logger.info("%s %s: %d件", pref_code, cname, total)
                     yield from self._paginate_and_yield(
                         result_url, soup, total, size, detail_url, seen
                     )
                 else:
-                    # 第2レベル: 500件上限 → まず pref 検索結果をyieldし、かな分割で補完
-                    # (pref 結果を先 yield することでテストタイムアウト前に件数を確保する)
-                    self.logger.info("都道府県%s: 500件上限 → かな分割 (先に pref 結果をyield)", pref_code)
-                    yield from self._paginate_and_yield(
-                        result_url, soup, total, size, detail_url, seen
+                    # 第2レベル: 500件超 → 営業品目で細分化
+                    self.logger.info("%s %s: 500件超 → 営業品目で細分化", pref_code, cname)
+                    yield from self._split_by_bizitem(
+                        search_url, pref_code, ccode, cname, size, detail_url, seen
                     )
-                    for kana in _KANA_PREFIXES:
-                        k_soup, k_total, k_result_url = self._do_search(
-                            search_url, pref_field, pref_code, name_field, kana
-                        )
-                        if k_total == 0:
-                            continue
-                        if k_total >= 500:
-                            self.logger.warning(
-                                "都道府県%s かな%s: 500件上限に到達 → 取りこぼしの可能性あり",
-                                pref_code, kana,
-                            )
-                        yield from self._paginate_and_yield(
-                            k_result_url, k_soup, k_total, size, detail_url, seen
-                        )
 
-        elif name_field:
-            # 都道府県フィールド未検出 → かな頭文字のみで分割
-            for kana in _KANA_PREFIXES:
-                k_soup, k_total, k_result_url = self._do_search(
-                    search_url, None, None, name_field, kana
-                )
-                if k_total == 0:
-                    continue
-                self.logger.info("かな %s: %d件", kana, k_total)
-                yield from self._paginate_and_yield(
-                    k_result_url, k_soup, k_total, size, detail_url, seen
-                )
+        self.total_items = len(seen)
 
-        else:
-            # フィールド未検出 → シングル検索にフォールバック
-            self.logger.warning("フォームフィールド未検出 → シングル検索フォールバック")
-            soup, total, result_url = self._do_search(search_url, None, None, None, None)
-            if total > 0:
+    def _split_by_bizitem(
+        self,
+        search_url: str,
+        pref_code: str,
+        city_code: str,
+        city_name: str,
+        size: int,
+        detail_url: str,
+        seen: set[str],
+    ) -> Generator[dict, None, None]:
+        """市区町村 × 営業品目で検索を細分化する (第2レベル)。
+
+        営業品目でも500件超の場合はさらに商号かな頭文字で分割する (第3レベル)。
+        """
+        for biz in self._biz_items:
+            soup, total, overflow, result_url = self._do_search(
+                search_url, pref_code, city_code, biz_item=biz
+            )
+            if total == 0 and not overflow:
+                continue
+
+            if not overflow:
+                self.logger.info("%s %s 品目%s: %d件", pref_code, city_name, biz, total)
                 yield from self._paginate_and_yield(
                     result_url, soup, total, size, detail_url, seen
                 )
-
-        self.total_items = len(seen)
+            else:
+                # 第3レベル: (市区町村 × 営業品目) でも500件超 → 商号かな分割
+                self.logger.info(
+                    "%s %s 品目%s: 500件超 → 仮名で細分化", pref_code, city_name, biz
+                )
+                for kana in _KANA_PREFIXES:
+                    k_soup, k_total, k_overflow, k_url = self._do_search(
+                        search_url, pref_code, city_code, biz_item=biz, name_prefix=kana
+                    )
+                    if k_total == 0 and not k_overflow:
+                        continue
+                    if k_overflow:
+                        self.logger.warning(
+                            "%s %s 品目%s 仮名%s: 500件超 → 取りこぼしの可能性あり",
+                            pref_code, city_name, biz, kana,
+                        )
+                    yield from self._paginate_and_yield(
+                        k_url, k_soup, k_total, size, detail_url, seen
+                    )
 
     def _scrape_detail(self, soup: BeautifulSoup, source_url: str) -> dict | None:
         tables = soup.find_all("table")
