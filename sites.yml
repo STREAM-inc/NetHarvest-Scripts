@@ -2910,3 +2910,10 @@ sites:
     url: "https://www.tainew.com/"
     schedule: "0 9 11 * *"
     enabled: true
+
+  - site_id: jasmac8
+    name: "ジャスマック八戸館"
+    module: "nightlife.jasmac8"
+    url: "https://www.jasmac8.com/sitemap.html"
+    schedule: "0 9 1 * *"
+    enabled: true
