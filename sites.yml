@@ -2924,3 +2924,10 @@ sites:
     url: "https://www.japanshishatimes.jp/shoplist"
     schedule: null
     enabled: true
+
+  - site_id: prefer_work
+    name: "Prefer Work"
+    module: "nightlife.prefer_work"
+    url: "https://offer-prefer.site/"
+    schedule: "0 16 17 * *"
+    enabled: true
