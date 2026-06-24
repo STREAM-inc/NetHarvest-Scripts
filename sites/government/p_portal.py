@@ -207,26 +207,49 @@ class PPortalScraper(DynamicCrawler):
         "落札実績件数",  # 落札実績の総件数 (整数文字列)
     ]
 
+    def _load_search_form(self, search_url: str) -> bool:
+        """検索フォーム (OAB0101) を開き、操作可能になるまで待つ。
+
+        固定時間待ち (wait_for_timeout) はワーカー環境が遅いと不足し、市区町村 AJAX や
+        営業品目検出が空振りする。代わりに都道府県セレクトが populate されること
+        (フォーム JS の初期化完了の指標) を待つ。成功で True を返す。
+        """
+        self.get_soup(search_url)
+        try:
+            self.page.wait_for_function(
+                "() => { const s = document.querySelector('#presures_select');"
+                " return s && s.options.length > 40; }",
+                timeout=30000,
+            )
+            return True
+        except Exception as e:
+            self.logger.warning("検索フォーム初期化待ちタイムアウト: %s", e)
+            return False
+
     def _get_cities(self, search_url: str, pref_code: str) -> list[dict[str, str]]:
-        """指定都道府県の市区町村リストを取得する。
+        """指定都道府県の市区町村リストを取得する (失敗時は最大3回リトライ)。
 
         OAB0101 を開き、都道府県セレクトに値をセットして change を発火すると
         サーバーが市区町村セレクトを AJAX 補充する。補充完了を待って
-        [{code, name}, ...] を返す。
+        [{code, name}, ...] を返す。ワーカーの一時的な遅延・失敗に備えてリトライする。
         """
-        self.get_soup(search_url)
-        self.page.wait_for_timeout(1500)  # フォーム JS(イベントハンドラ)初期化待ち
-        try:
-            self.page.evaluate(_JS_SET_PREF, pref_code)
-            # 市区町村セレクトが AJAX 補充されるまで待機
-            self.page.wait_for_function(_CITY_READY_JS, timeout=15000)
-        except Exception as e:
-            self.logger.warning("都道府県%s: 市区町村リスト取得失敗: %s", pref_code, e)
-            return []
-        return self.page.eval_on_selector_all(
-            "#city_select option",
-            "els => els.map(o => ({code:o.value, name:o.text.trim()})).filter(o => o.code)",
-        )
+        for attempt in range(1, 4):
+            if not self._load_search_form(search_url):
+                continue
+            try:
+                self.page.evaluate(_JS_SET_PREF, pref_code)
+                # 市区町村セレクトが AJAX 補充されるまで待機
+                self.page.wait_for_function(_CITY_READY_JS, timeout=20000)
+                return self.page.eval_on_selector_all(
+                    "#city_select option",
+                    "els => els.map(o => ({code:o.value, name:o.text.trim()})).filter(o => o.code)",
+                )
+            except Exception as e:
+                self.logger.warning(
+                    "都道府県%s: 市区町村リスト取得失敗 (試行%d/3): %s", pref_code, attempt, e
+                )
+        self.logger.warning("都道府県%s: 市区町村リスト取得に3回失敗 → スキップ", pref_code)
+        return []
 
     def _do_search(
         self,
@@ -249,13 +272,12 @@ class PPortalScraper(DynamicCrawler):
 
         overflow=True のとき total は 500 (上限) を表す。
         """
-        self.get_soup(search_url)
-        self.page.wait_for_timeout(1500)  # フォーム JS 初期化待ち
+        self._load_search_form(search_url)  # フォーム JS 初期化完了まで待つ
 
         # --- 本社住所 (都道府県 × 市区町村) ---
         self.page.evaluate(_JS_SET_PREF, pref_code)
         try:
-            self.page.wait_for_function(_CITY_READY_JS, timeout=15000)
+            self.page.wait_for_function(_CITY_READY_JS, timeout=20000)
         except Exception as e:
             self.logger.debug("市区町村補充待ちタイムアウト %s: %s", pref_code, e)
         self.page.evaluate(_JS_SET_CITY, city_code)
@@ -415,14 +437,31 @@ class PPortalScraper(DynamicCrawler):
         self._fetched_total = 0
         self._retrieved_total = 0
 
-        # 営業品目コード一覧を動的取得 (第2レベル分割で使用)
-        self.get_soup(search_url)
-        self.page.wait_for_timeout(1500)
-        self._biz_items: list[str] = self.page.eval_on_selector_all(
-            ".modal-type-01 input[type=checkbox][name*='bizItem']",
-            "els => els.map(e => e.value)",
-        )
+        # 営業品目コード一覧を動的取得 (第2レベル分割で使用)。
+        # フォーム JS 初期化完了 + 営業品目チェックボックスの出現を待ってから検出する
+        # (固定待ちだとワーカーが遅いとき 0件になり、品目分割が空振りする)。
+        self._biz_items: list[str] = []
+        for attempt in range(1, 4):
+            self._load_search_form(search_url)
+            try:
+                self.page.wait_for_selector(
+                    "input[type=checkbox][name*='bizItem']", timeout=15000
+                )
+            except Exception:
+                pass
+            self._biz_items = self.page.eval_on_selector_all(
+                "input[type=checkbox][name*='bizItem']",
+                "els => els.map(e => e.value)",
+            )
+            if self._biz_items:
+                break
+            self.logger.warning("営業品目コード検出 0件 (試行%d/3) → 再試行", attempt)
         self.logger.info("営業品目コード %d件 を検出", len(self._biz_items))
+        if not self._biz_items:
+            self.logger.warning(
+                "営業品目コードを検出できませんでした。営業品目分割をスキップします "
+                "(商号かな分割でのみ網羅)"
+            )
 
         # 第1レベル: 都道府県 (01〜47) × 市区町村
         for pref_code in _PREF_CODES:
