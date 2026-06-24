@@ -2945,3 +2945,10 @@ sites:
     url: "https://www.foul.co.jp/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: navi_2
+    name: "便利屋さんNAVI"
+    module: "service.navi_2"
+    url: "https://benriyanavi.com/"
+    schedule: "0 0 1 * *"
+    enabled: true
