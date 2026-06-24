@@ -2850,7 +2850,7 @@ sites:
     name: "エール"
     module: "jobs.yell"
     url: "https://herp.careers/v1/yell"
-    schedule: null
+    schedule: "0 5 * * 1"
     enabled: true
 
   - site_id: girls_good_job
