@@ -2903,3 +2903,10 @@ sites:
     url: "https://con-girl.com/"
     schedule: "0 13 27 * *"
     enabled: true
+
+  - site_id: tainew
+    name: "体入ドットコム"
+    module: "nightlife.tainew"
+    url: "https://www.tainew.com/"
+    schedule: "0 9 11 * *"
+    enabled: true
