@@ -2882,3 +2882,10 @@ sites:
     url: "https://www.kensetsu-databank.co.jp/"
     schedule: "0 18 28 * *"
     enabled: true
+
+  - site_id: girlswork
+    name: "がーるずわーく"
+    module: "jobs.girlswork"
+    url: "https://girlswork.jp/"
+    schedule: "0 16 26 * *"
+    enabled: true
