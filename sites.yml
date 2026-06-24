@@ -2859,3 +2859,10 @@ sites:
     url: "https://girls-good-job.jp/"
     schedule: "0 22 18 * *"
     enabled: true
+
+  - site_id: tainew_walker
+    name: "体入キャストウォーカー"
+    module: "nightlife.tainew_walker"
+    url: "https://tainew-walker.jp/"
+    schedule: "0 19 8 * *"
+    enabled: true
