@@ -2931,3 +2931,10 @@ sites:
     url: "https://offer-prefer.site/"
     schedule: "0 16 17 * *"
     enabled: true
+
+  - site_id: ekimae_lab
+    name: "エキラボ"
+    module: "nightlife.ekimae_lab"
+    url: "https://ekimae-lab.com/"
+    schedule: "0 9 1 * *"
+    enabled: true
