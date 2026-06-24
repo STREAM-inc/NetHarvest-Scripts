@@ -13,8 +13,11 @@ URL: https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103
     3. フォーム送信後の実 URL をベースに ?page=N でページネーション (1ページ50件固定・最大500件/検索)
        ※ size= は無視され常に50件/ページ。範囲外 page= は page0 にクランプされるため
          総件数からページ数を算出して停止する (実機検証済)。
-    4. 各行の法人番号を OAB0108 へ page.request.post() → 詳細ページを取得
+    4. 1検索ぶんを2フェーズで処理する (フェッチと取得の件数を一致させ、中断時の不整合を防ぐ):
+       (フェッチ相) 全ページの一覧を先に巡回し新規法人番号を収集 → (取得相) 収集した
+       全件の法人番号を OAB0108 へ page.request.post() して詳細ページを取得
     5. 基本情報・統一資格情報・落札実績件数を抽出して yield
+       進捗は10件刻みではなく、検索単位で「フェッチ累計 / 取得累計」を突合ログ出力する。
 
 大量取得戦略 (段階的に絞り込む = 必要な時だけ深掘りしリクエスト数を最小化):
     - 1回の検索で最大500件のサーバー制限を回避するため検索条件を段階的に分割する。
@@ -303,18 +306,27 @@ class PPortalScraper(DynamicCrawler):
         size: int,
         detail_url: str,
         seen: set[str],
+        label: str = "",
     ) -> Generator[dict, None, None]:
-        """検索結果ページをページネーションして詳細をyieldする。
+        """1検索ぶんを「全ページのフェッチ → 全件の詳細取得」の2フェーズで処理する。
+
+        フェッチ相: 全ページの一覧を先に巡回し、新規法人番号 (seen 未登録) を収集する。
+        取得相    : 収集した全件の詳細をまとめて取得して yield する。
+        こうすることで「フェッチしたものを全て取得してから次の検索へ」を保証し、
+        中断してもフェッチ済みの検索は取得まで完了している状態になる。
 
         result_url: _do_search() が返したフォーム送信後の実 URL。
                     ページネーション URL の生成に使い、検索コンテキストを維持する。
+        label     : 進捗ログ用の検索ラベル (例 "01 札幌市中央区 商号アイ")。
         """
+        # === フェッチ相: 全ページの一覧から新規法人番号を収集 ===
         # サーバーは1ページ50件固定で、範囲外の page= は page0 にクランプされ
         # 同じ結果を返す (空ページにならない / 実機検証済)。したがって "corp_links 空"
         # では止まらないため、総件数からページ数を算出して停止する。
         # 念のため直前ページと同一内容になった場合 (クランプ) も打ち切る。
         max_pages = max(1, -(-min(total, 500) // self.PAGE_SIZE))  # ceil
         prev_hrefs: list[str] | None = None
+        entries: list[tuple[str, str, str, str]] = []  # (corp_no, art_qual_id, csrf, page_url)
 
         for page_num in range(max_pages):
             if page_num == 0:
@@ -347,45 +359,61 @@ class PPortalScraper(DynamicCrawler):
                 m_art = re.search(r"articleQualificationInfoId', value:'([^']*)'", href)
                 if not m_corp:
                     continue
-
                 corp_no = m_corp.group(1)
                 if corp_no in seen:
                     continue
                 seen.add(corp_no)
+                entries.append((corp_no, m_art.group(1) if m_art else "", csrf, page_url))
 
-                art_qual_id = m_art.group(1) if m_art else ""
+        self._fetched_total += len(entries)
 
-                try:
-                    resp = self.page.request.post(
-                        detail_url,
-                        form={
-                            "_csrf": csrf,
-                            "articleQualificationInfoId": art_qual_id,
-                            "corporationNo": corp_no,
-                        },
-                    )
-                    if resp.status != 200:
-                        self.logger.warning("OAB0108 error for %s: HTTP %d", corp_no, resp.status)
-                        continue
+        # === 取得相: 収集した全件の詳細を取得 ===
+        got = 0
+        for corp_no, art_qual_id, csrf, page_url in entries:
+            try:
+                resp = self.page.request.post(
+                    detail_url,
+                    form={
+                        "_csrf": csrf,
+                        "articleQualificationInfoId": art_qual_id,
+                        "corporationNo": corp_no,
+                    },
+                )
+                if resp.status != 200:
+                    self.logger.warning("OAB0108 error for %s: HTTP %d", corp_no, resp.status)
+                    continue
 
-                    detail_soup = BeautifulSoup(resp.text(), "html.parser")
-                    article_el = detail_soup.find("article")
-                    if article_el and "事業者情報を取得できません" in article_el.get_text():
-                        self.logger.debug("corp %s: 情報なし", corp_no)
-                        continue
+                detail_soup = BeautifulSoup(resp.text(), "html.parser")
+                article_el = detail_soup.find("article")
+                if article_el and "事業者情報を取得できません" in article_el.get_text():
+                    self.logger.debug("corp %s: 情報なし", corp_no)
+                    continue
 
-                    item = self._scrape_detail(detail_soup, page_url)
-                    if item:
-                        yield item
+                item = self._scrape_detail(detail_soup, page_url)
+                if item:
+                    self._retrieved_total += 1
+                    got += 1
+                    yield item
 
-                except Exception as e:
-                    self.logger.warning("Error scraping corp %s: %s", corp_no, e)
+            except Exception as e:
+                self.logger.warning("Error scraping corp %s: %s", corp_no, e)
+
+        # === 累計の突合ログ (10件刻みではなく、検索単位でフェッチ/取得の合計を表示) ===
+        if entries:
+            self.logger.info(
+                "📥 %s: フェッチ%d件 取得%d件 → 累計 フェッチ%d件 / 取得%d件",
+                label or "(検索)", len(entries), got,
+                self._fetched_total, self._retrieved_total,
+            )
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         search_url = urljoin(url, "OAB0101")
         detail_url = urljoin(url, "OAB0108?")
         size = 50  # フォームに件数セレクトは無く、サーバー既定は 50件/ページ
         seen: set[str] = set()
+        # フェッチ(一覧で発見した新規法人番号)/取得(詳細取得に成功した件数)の累計
+        self._fetched_total = 0
+        self._retrieved_total = 0
 
         # 営業品目コード一覧を動的取得 (第2レベル分割で使用)
         self.get_soup(search_url)
@@ -405,16 +433,20 @@ class PPortalScraper(DynamicCrawler):
 
             for city in cities:
                 ccode, cname = city["code"], city["name"]
-                soup, total, overflow, result_url = self._do_search(
-                    search_url, pref_code, ccode
-                )
+                try:
+                    soup, total, overflow, result_url = self._do_search(
+                        search_url, pref_code, ccode
+                    )
+                except Exception as e:
+                    self.logger.warning("%s %s: 検索失敗のためスキップ: %s", pref_code, cname, e)
+                    continue
                 if total == 0 and not overflow:
                     continue
 
                 if not overflow:
-                    self.logger.info("%s %s: %d件", pref_code, cname, total)
                     yield from self._paginate_and_yield(
-                        result_url, soup, total, size, detail_url, seen
+                        result_url, soup, total, size, detail_url, seen,
+                        label=f"{pref_code} {cname}",
                     )
                 else:
                     # 第2レベル: 500件超 → 営業品目 と 商号かな を併用して網羅。
@@ -449,16 +481,21 @@ class PPortalScraper(DynamicCrawler):
         営業品目でも500件超の場合はさらに商号かな頭文字で分割する (第3レベル)。
         """
         for biz in self._biz_items:
-            soup, total, overflow, result_url = self._do_search(
-                search_url, pref_code, city_code, biz_item=biz
-            )
+            try:
+                soup, total, overflow, result_url = self._do_search(
+                    search_url, pref_code, city_code, biz_item=biz
+                )
+            except Exception as e:
+                self.logger.warning("%s %s 品目%s: 検索失敗のためスキップ: %s",
+                                    pref_code, city_name, biz, e)
+                continue
             if total == 0 and not overflow:
                 continue
 
             if not overflow:
-                self.logger.info("%s %s 品目%s: %d件", pref_code, city_name, biz, total)
                 yield from self._paginate_and_yield(
-                    result_url, soup, total, size, detail_url, seen
+                    result_url, soup, total, size, detail_url, seen,
+                    label=f"{pref_code} {city_name} 品目{biz}",
                 )
             else:
                 # 第3レベル: (市区町村 × 営業品目) でも500件超 → 商号かな分割
@@ -500,14 +537,22 @@ class PPortalScraper(DynamicCrawler):
         """
         for kana in _KANA_PREFIXES:
             np = prefix + kana
-            k_soup, k_total, k_overflow, k_url = self._do_search(
-                search_url, pref_code, city_code, biz_item=biz_item, name_prefix=np
-            )
+            try:
+                k_soup, k_total, k_overflow, k_url = self._do_search(
+                    search_url, pref_code, city_code, biz_item=biz_item, name_prefix=np
+                )
+            except Exception as e:
+                self.logger.warning("%s %s 商号%s: 検索失敗のためスキップ: %s",
+                                    pref_code, city_name, np, e)
+                continue
             if k_total == 0 and not k_overflow:
                 continue
+            lbl = f"{pref_code} {city_name} 商号{np}"
+            if biz_item:
+                lbl = f"{pref_code} {city_name} 品目{biz_item} 商号{np}"
             if not k_overflow:
                 yield from self._paginate_and_yield(
-                    k_url, k_soup, k_total, size, detail_url, seen
+                    k_url, k_soup, k_total, size, detail_url, seen, label=lbl
                 )
             elif depth < _KANA_MAX_DEPTH:
                 # 500件超 → 商号をもう1文字深く分割。
@@ -518,7 +563,7 @@ class PPortalScraper(DynamicCrawler):
                     pref_code, city_name, np, depth + 1,
                 )
                 yield from self._paginate_and_yield(
-                    k_url, k_soup, k_total, size, detail_url, seen
+                    k_url, k_soup, k_total, size, detail_url, seen, label=lbl
                 )
                 yield from self._split_by_kana(
                     search_url, pref_code, city_code, city_name,
@@ -532,7 +577,7 @@ class PPortalScraper(DynamicCrawler):
                     pref_code, city_name, np, _KANA_MAX_DEPTH,
                 )
                 yield from self._paginate_and_yield(
-                    k_url, k_soup, k_total, size, detail_url, seen
+                    k_url, k_soup, k_total, size, detail_url, seen, label=lbl
                 )
 
     def _scrape_detail(self, soup: BeautifulSoup, source_url: str) -> dict | None:
