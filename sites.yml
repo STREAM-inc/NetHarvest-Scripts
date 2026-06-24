@@ -2889,3 +2889,10 @@ sites:
     url: "https://girlswork.jp/"
     schedule: "0 16 26 * *"
     enabled: true
+
+  - site_id: kensetsu_databank_2
+    name: "建築計画のお知らせ看板情報"
+    module: "construction.kensetsu_databank_2"
+    url: "https://www.kensetsu-databank.co.jp/"
+    schedule: "0 19 1 * *"
+    enabled: true
