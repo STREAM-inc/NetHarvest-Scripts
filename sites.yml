@@ -2938,3 +2938,10 @@ sites:
     url: "https://ekimae-lab.com/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: foul
+    name: "ファウルプラチナム"
+    module: "nightlife.foul"
+    url: "https://www.foul.co.jp/"
+    schedule: "0 9 1 * *"
+    enabled: true
