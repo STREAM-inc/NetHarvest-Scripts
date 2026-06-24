@@ -2845,3 +2845,10 @@ sites:
     url: "https://www.sgnavi.com/hokkaido/job-list/"
     schedule: null
     enabled: true
+
+  - site_id: https_herp_careers_v1_yell
+    name: "https://herp.careers/v1/yell"
+    module: "jobs.https_herp_careers_v1_yell"
+    url: "https://herp.careers/v1/yell"
+    schedule: null
+    enabled: true
