@@ -2973,3 +2973,10 @@ sites:
     url: "https://benriya-paradise.com/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: helper
+    name: "便利屋お助けナビ"
+    module: "service.helper"
+    url: "https://helper.kokoroegao.com/"
+    schedule: "0 1 8 * *"
+    enabled: true
