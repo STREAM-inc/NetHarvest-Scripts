@@ -2852,3 +2852,10 @@ sites:
     url: "https://herp.careers/v1/yell"
     schedule: null
     enabled: true
+
+  - site_id: girls_good_job
+    name: "girls good job"
+    module: "nightlife.girls_good_job"
+    url: "https://girls-good-job.jp/"
+    schedule: "0 22 18 * *"
+    enabled: true
