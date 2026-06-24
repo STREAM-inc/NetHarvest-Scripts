@@ -2966,3 +2966,10 @@ sites:
     url: "https://girlsbar-prds.net/"
     schedule: null
     enabled: true
+
+  - site_id: benriya_paradise
+    name: "便利屋パラダイス"
+    module: "service.benriya_paradise"
+    url: "https://benriya-paradise.com/"
+    schedule: "0 9 1 * *"
+    enabled: true
