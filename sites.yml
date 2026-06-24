@@ -2866,3 +2866,10 @@ sites:
     url: "https://tainew-walker.jp/"
     schedule: "0 19 8 * *"
     enabled: true
+
+  - site_id: beJob_navi
+    name: "Be-Job navi"
+    module: "jobs.beJob_navi"
+    url: "https://www.bejob-navi.jp"
+    schedule: "0 5 * * 1"
+    enabled: true
