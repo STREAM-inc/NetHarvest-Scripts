@@ -2868,3 +2868,10 @@ sites:
     enabled: true
 
  
+
+  - site_id: luline_2
+    name: "夜のお店選びドットコム"
+    module: "nightlife.luline_2"
+    url: "https://luline.jp/top/"
+    schedule: "0 9 1 * *"
+    enabled: true
