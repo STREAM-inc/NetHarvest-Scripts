@@ -2952,3 +2952,10 @@ sites:
     url: "https://benriyanavi.com/"
     schedule: "0 0 1 * *"
     enabled: true
+
+  - site_id: nightstyle_2
+    name: "ナイト_ナイトスタイル"
+    module: "nightlife.nightstyle_2"
+    url: "https://nightstyle.jp/g7/"
+    schedule: null
+    enabled: true
