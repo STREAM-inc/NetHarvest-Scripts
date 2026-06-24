@@ -2875,3 +2875,10 @@ sites:
     url: "https://luline.jp/top/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: kensetsu_databank
+    name: "建築計画のお知らせ看板情報【首都圏】"
+    module: "construction.kensetsu_databank"
+    url: "https://www.kensetsu-databank.co.jp/"
+    schedule: "0 18 28 * *"
+    enabled: true
