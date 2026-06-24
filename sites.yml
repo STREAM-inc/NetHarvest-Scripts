@@ -2917,3 +2917,10 @@ sites:
     url: "https://www.jasmac8.com/sitemap.html"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: japanshishatimes
+    name: "シーシャマップジャパン"
+    module: "nightlife.japanshishatimes"
+    url: "https://www.japanshishatimes.jp/shoplist"
+    schedule: null
+    enabled: true
