@@ -1,5 +1,5 @@
 """
-キャバナビ (cabanavi.info) — 東北エリアのキャバクラ・ガールズバー店舗スクレイパー
+キャバナビ (cabanavi.info) — 全国のキャバクラ・ガールズバー店舗スクレイパー
 
 取得対象:
     - 店名 / 都道府県 / 住所 / TEL / 業種 / 営業時間 / 定休日 / HP
@@ -7,10 +7,19 @@
     - 最低料金 / TAXサービス料
 
 取得フロー:
-    1. 一覧ページ (/shops/tohoku/?page=N) をページ送り (10件/ページ, 最大15ページ)
-    2. 各 div.shopInfo からエリア・最寄り駅・詳細URL を取得
-    3. 詳細ページ /shop/{id}/ の dl.detailRow__dl と table.detailRow__table から店舗情報を抽出
-    4. 1件取得するごとに即 yield (Pattern B / 早期 yield)
+    1. ルート url (/shops/tohoku/) の親 /shops/ を基点に、全国 8 地方ブロック
+       (北海道/東北/関東/北信越/東海/関西/中国・四国/九州・沖縄) の一覧 url を
+       urljoin で派生させて順に巡回する
+    2. 各地方の一覧ページ (/shops/{region}/?page=N) をページ送り (10件/ページ)
+    3. 各 div.shopInfo からエリア・最寄り駅・詳細URL を取得
+    4. 詳細ページ /shop/{id}/ の dl.detailRow__dl と table.detailRow__table から店舗情報を抽出
+    5. 1件取得するごとに即 yield (Pattern B / 早期 yield)。詳細URLで重複排除
+
+レート制限対策:
+    cabanavi は nginx の limit_req が極端に厳しく HTTP 429 を返す。フレームワーク標準の
+    get_soup() は 429 をリトライ対象にしておらず None を返すため、429 が出た地方/ページが
+    丸ごと欠落し「東北しか取れない」状態になる。そこで全 HTTP 取得を _fetch_soup() に集約し、
+    429/503 を指数バックオフで明示的にリトライして全国を確実に巡回する。
 
 実行方法:
     # ローカルテスト
@@ -27,11 +36,13 @@ import sys
 import time
 from pathlib import Path
 from typing import Generator
+from urllib.parse import urljoin
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
+import requests
 from bs4 import BeautifulSoup
 
 from src.const.schema import Schema
@@ -52,7 +63,22 @@ _TEL_PATTERN = re.compile(r"\d{2,4}-\d{2,4}-\d{4}")
 _TOTAL_PATTERN = re.compile(r"(\d+)件")
 
 
-_REQUEST_DELAY = 1.5  # 全 HTTP リクエスト間の待機秒数 (手動管理)
+_REQUEST_DELAY = 1.5   # 全 HTTP リクエスト前の基本待機秒数 (手動管理)
+_MAX_RETRIES = 6       # 429/503 リトライ回数の上限
+_MAX_BACKOFF = 60.0    # 指数バックオフの待機秒数の上限
+
+# 全国を網羅する 8 地方ブロックの slug。ルート url (/shops/tohoku/) の親 /shops/ を
+# 基点に urljoin で各地方の一覧 url を派生させる (ルート url 自体もこの中に含まれる)。
+_REGION_SLUGS = [
+    "hokkaido",         # 北海道
+    "tohoku",           # 東北
+    "kanto",            # 関東
+    "hokushinetsu",     # 北信越
+    "tokai",            # 東海
+    "kansai",           # 関西
+    "chugoku-shikoku",  # 中国・四国
+    "kyushu-okinawa",   # 九州・沖縄
+]
 
 
 class CabanaviScraper(StaticCrawler):
@@ -66,22 +92,70 @@ class CabanaviScraper(StaticCrawler):
     ]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        first_soup = self.get_soup(url)
+        # 引数 url を唯一の起点とし、その親 /shops/ から全国 8 地方の一覧 url を派生。
+        self.total_items = 0
+        self._seen_urls: set[str] = set()
+        for region_url in self._region_urls(url):
+            yield from self._parse_listing(region_url)
+
+    def _region_urls(self, url: str) -> list[str]:
+        """ルート url (.../shops/{region}/) の親 /shops/ を基点に全地方の一覧 url を生成。"""
+        base = urljoin(url, "../")  # 例: https://cabanavi.info/shops/
+        return [urljoin(base, f"{slug}/") for slug in _REGION_SLUGS]
+
+    def _fetch_soup(self, url: str) -> BeautifulSoup | None:
+        """全 HTTP 取得の単一窓口。各リクエスト前に必ず待機し、429/503 は指数バックオフで再試行。
+
+        フレームワークの get_soup() は 429 をリトライせず None を返すため、429 が出た
+        地方/ページが丸ごと欠落して「東北しか取れない」状態になる。ここで 429/503 を
+        明示的にリトライすることで全国 8 地方を確実に巡回できる。
+        """
+        backoff = _REQUEST_DELAY
+        for _ in range(_MAX_RETRIES):
+            time.sleep(backoff)  # 全リクエスト前に待機 (limit_req 対策)
+            try:
+                resp = self.session.get(url, timeout=self.TIMEOUT)
+            except requests.exceptions.RequestException as e:
+                self.logger.warning("通信エラー (再試行): url=%s (%s)", url, e)
+                backoff = min(backoff * 2, _MAX_BACKOFF)
+                continue
+
+            if resp.status_code in (429, 503):
+                backoff = min(backoff * 2, _MAX_BACKOFF)
+                self.logger.info(
+                    "レート制限 HTTP %s — %.1f秒待機して再試行: %s",
+                    resp.status_code, backoff, url,
+                )
+                continue
+            if resp.status_code >= 400:
+                self.logger.warning("HTTP %s (スキップ): %s", resp.status_code, url)
+                return None
+
+            content_type = resp.headers.get("Content-Type", "")
+            if "charset=" not in content_type.lower():
+                resp.encoding = resp.apparent_encoding
+            return BeautifulSoup(resp.text, "html.parser")
+
+        self.logger.warning("リトライ上限に到達、スキップ: %s", url)
+        return None
+
+    def _parse_listing(self, region_url: str) -> Generator[dict, None, None]:
+        first_soup = self._fetch_soup(region_url)
         if first_soup is None:
             return
 
         total_el = first_soup.select_one("p.mb-10.pc")
         if total_el:
             m = _TOTAL_PATTERN.search(total_el.get_text())
-            self.total_items = int(m.group(1)) if m else None
+            if m:
+                self.total_items = (self.total_items or 0) + int(m.group(1))
 
         page = 1
         while True:
             if page == 1:
                 soup = first_soup
             else:
-                time.sleep(_REQUEST_DELAY)  # 一覧ページ取得前の明示的待機
-                soup = self.get_soup(f"{url}?page={page}")
+                soup = self._fetch_soup(f"{region_url}?page={page}")
             if soup is None:
                 break
 
@@ -94,13 +168,17 @@ class CabanaviScraper(StaticCrawler):
                 if not name_a or not name_a.get("href"):
                     continue
 
-                detail_url = name_a["href"]
+                # 相対 href も region_url から絶対化 (詳細 url も url 起点で派生)。
+                detail_url = urljoin(region_url, name_a["href"])
+                if detail_url in self._seen_urls:
+                    continue
+                self._seen_urls.add(detail_url)
+
                 ps = item.select(".shopInfo__name p.typography-body-1")
                 area_genre = self._text(ps[0]) if ps else ""
                 area, _ = self._split_area_genre(area_genre)
                 station = self._text(ps[1]) if len(ps) >= 2 else ""
 
-                time.sleep(_REQUEST_DELAY)  # 詳細ページ取得前の明示的待機
                 try:
                     record = self._scrape_detail(detail_url, area=area, station=station)
                 except Exception as e:
@@ -116,7 +194,7 @@ class CabanaviScraper(StaticCrawler):
             page += 1
 
     def _scrape_detail(self, detail_url: str, area: str = "", station: str = "") -> dict | None:
-        soup = self.get_soup(detail_url)
+        soup = self._fetch_soup(detail_url)
         if soup is None:
             return None
 
