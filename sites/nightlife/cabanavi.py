@@ -15,11 +15,22 @@
     4. 詳細ページ /shop/{id}/ の dl.detailRow__dl と table.detailRow__table から店舗情報を抽出
     5. 1件取得するごとに即 yield (Pattern B / 早期 yield)。詳細URLで重複排除
 
-レート制限対策:
-    cabanavi は nginx の limit_req が極端に厳しく HTTP 429 を返す。フレームワーク標準の
-    get_soup() は 429 をリトライ対象にしておらず None を返すため、429 が出た地方/ページが
-    丸ごと欠落し「東北しか取れない」状態になる。そこで全 HTTP 取得を _fetch_soup() に集約し、
-    429/503 を指数バックオフで明示的にリトライして全国を確実に巡回する。
+レート制限対策 (適応ペーシング / AIMD):
+    cabanavi は nginx の limit_req が極端に厳しく、バーストを使い切ると HTTP 429 を返す
+    (バースト容量〜10・補充レートは極遅)。重要なのは「補充レートに合わせて一定間隔で
+    リクエストし続ければ 429 をほぼ踏まない」点。
+
+    旧実装は _fetch_soup() の度に backoff を初期値(1.5秒)へ毎回リセットしていたため、
+    新しい URL ごとに高速で投げて → バースト枯渇 → 429 → 3,6,12,24,48,60秒の長大バックオフ、
+    を「1件ごとに」繰り返していた。学習したレートが次の URL に引き継がれず、1件あたり
+    数分かかっていた。
+
+    本実装ではペース秒数 self._delay をインスタンスに保持し、リクエスト間で共有する:
+      - 通常時: 毎リクエスト前に self._delay だけ待機 (補充レートへの追従)
+      - 429/503: self._delay を乗算で引き上げ (Retry-After があれば尊重) てから再試行
+      - 成功時: self._delay を徐々に減衰 (floor=_BASE_DELAY) し、安全な範囲で再加速を試す
+    これで全体が「持続可能なレート」へ収束し、429 の連発と長大待機を回避して全国 8 地方を
+    効率良く巡回する。limit_req は同時接続に弱いため、並列化はせず逐次のまま据え置く。
 
 実行方法:
     # ローカルテスト
@@ -63,9 +74,14 @@ _TEL_PATTERN = re.compile(r"\d{2,4}-\d{2,4}-\d{4}")
 _TOTAL_PATTERN = re.compile(r"(\d+)件")
 
 
-_REQUEST_DELAY = 1.5   # 全 HTTP リクエスト前の基本待機秒数 (手動管理)
-_MAX_RETRIES = 6       # 429/503 リトライ回数の上限
-_MAX_BACKOFF = 60.0    # 指数バックオフの待機秒数の上限
+# 適応ペーシング (AIMD) パラメータ。self._delay をリクエスト間で共有し、
+# nginx limit_req の補充レートへ収束させる。
+_BASE_DELAY = 2.0      # 通常時の最小ペース秒数 (= self._delay の floor / 初期値)
+_MAX_DELAY = 30.0      # ペース秒数の上限 (これ以上は引き上げない)
+_DELAY_GROWTH = 1.6    # 429/503 のたびにペースを乗算で引き上げる係数 (additive-ish increase)
+_DELAY_DECAY = 0.85    # 成功のたびにペースを乗算で戻す係数 (multiplicative decrease)
+_MAX_RETRIES = 6       # 同一 URL に対する 429/503 再試行回数の上限
+_RETRY_AFTER_CAP = 60.0  # Retry-After ヘッダを尊重する際の一回あたり待機上限
 
 # 全国を網羅する 8 地方ブロックの slug。ルート url (/shops/tohoku/) の親 /shops/ を
 # 基点に urljoin で各地方の一覧 url を派生させる (ルート url 自体もこの中に含まれる)。
@@ -95,6 +111,8 @@ class CabanaviScraper(StaticCrawler):
         # 引数 url を唯一の起点とし、その親 /shops/ から全国 8 地方の一覧 url を派生。
         self.total_items = 0
         self._seen_urls: set[str] = set()
+        # リクエスト間で共有する適応ペース秒数。429 のたびに上げ、成功のたびに下げる。
+        self._delay = _BASE_DELAY
         for region_url in self._region_urls(url):
             yield from self._parse_listing(region_url)
 
@@ -104,32 +122,44 @@ class CabanaviScraper(StaticCrawler):
         return [urljoin(base, f"{slug}/") for slug in _REGION_SLUGS]
 
     def _fetch_soup(self, url: str) -> BeautifulSoup | None:
-        """全 HTTP 取得の単一窓口。各リクエスト前に必ず待機し、429/503 は指数バックオフで再試行。
+        """全 HTTP 取得の単一窓口。適応ペース (self._delay) で待機し、429/503 を再試行。
 
-        フレームワークの get_soup() は 429 をリトライせず None を返すため、429 が出た
-        地方/ページが丸ごと欠落して「東北しか取れない」状態になる。ここで 429/503 を
-        明示的にリトライすることで全国 8 地方を確実に巡回できる。
+        self._delay はインスタンス属性でリクエスト間に共有される。429/503 のたびに乗算で
+        引き上げ、成功のたびに乗算で引き下げる (AIMD) ことで、nginx limit_req の持続可能な
+        レートへ収束させる。旧実装のように毎リクエストで初期値へリセットしないため、一度
+        レートを学習すれば次以降の URL では 429 をほぼ踏まず、長大バックオフを繰り返さない。
         """
-        backoff = _REQUEST_DELAY
-        for _ in range(_MAX_RETRIES):
-            time.sleep(backoff)  # 全リクエスト前に待機 (limit_req 対策)
+        # parse() を経由しない直接呼び出し (テスト等) でも安全に動くよう遅延初期化。
+        if not hasattr(self, "_delay"):
+            self._delay = _BASE_DELAY
+
+        for attempt in range(_MAX_RETRIES + 1):
+            time.sleep(self._delay)  # 全リクエスト前に現在のペースで待機 (limit_req 追従)
             try:
                 resp = self.session.get(url, timeout=self.TIMEOUT)
             except requests.exceptions.RequestException as e:
-                self.logger.warning("通信エラー (再試行): url=%s (%s)", url, e)
-                backoff = min(backoff * 2, _MAX_BACKOFF)
+                self._delay = min(self._delay * _DELAY_GROWTH, _MAX_DELAY)
+                self.logger.warning(
+                    "通信エラー (再試行 ペース%.1fs): url=%s (%s)", self._delay, url, e,
+                )
                 continue
 
             if resp.status_code in (429, 503):
-                backoff = min(backoff * 2, _MAX_BACKOFF)
+                # レート超過: 次回以降のペースを引き上げ、今回は追加で待ってから再試行。
+                self._delay = min(self._delay * _DELAY_GROWTH, _MAX_DELAY)
+                wait = self._retry_after(resp, default=self._delay)
                 self.logger.info(
-                    "レート制限 HTTP %s — %.1f秒待機して再試行: %s",
-                    resp.status_code, backoff, url,
+                    "レート制限 HTTP %s — ペースを%.1fsへ引き上げ、%.1f秒待機して再試行: %s",
+                    resp.status_code, self._delay, wait, url,
                 )
+                time.sleep(wait)
                 continue
             if resp.status_code >= 400:
                 self.logger.warning("HTTP %s (スキップ): %s", resp.status_code, url)
                 return None
+
+            # 成功: ペースを少し戻し (floor=_BASE_DELAY)、安全な範囲で再加速を試す。
+            self._delay = max(self._delay * _DELAY_DECAY, _BASE_DELAY)
 
             content_type = resp.headers.get("Content-Type", "")
             if "charset=" not in content_type.lower():
@@ -138,6 +168,16 @@ class CabanaviScraper(StaticCrawler):
 
         self.logger.warning("リトライ上限に到達、スキップ: %s", url)
         return None
+
+    def _retry_after(self, resp: requests.Response, default: float) -> float:
+        """Retry-After ヘッダ (秒数指定) があれば尊重。無ければ default を返す。"""
+        raw = resp.headers.get("Retry-After", "")
+        if raw:
+            try:
+                return min(float(raw), _RETRY_AFTER_CAP)
+            except ValueError:
+                pass  # HTTP-date 形式は無視し default を使う
+        return default
 
     def _parse_listing(self, region_url: str) -> Generator[dict, None, None]:
         first_soup = self._fetch_soup(region_url)
