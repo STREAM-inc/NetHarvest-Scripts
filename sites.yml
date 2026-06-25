@@ -2987,3 +2987,10 @@ sites:
     url: "https://benriya-paradise.com/"
     schedule: null
     enabled: true
+
+  - site_id: navi_3
+    name: "便利屋さん NAVI"
+    module: "service.navi_3"
+    url: "https://benriyanavi.com/?utm_source=chatgpt.com"
+    schedule: null
+    enabled: true
