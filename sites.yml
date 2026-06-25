@@ -3001,3 +3001,10 @@ sites:
     url: "https://helper.kokoroegao.com/?post_type=helperinfo"
     schedule: null
     enabled: true
+
+  - site_id: jobmake
+    name: "ジョブメイク"
+    module: "jobs.jobmake"
+    url: "https://www.jobmake.jp/48/search?gf=f&kt=t"
+    schedule: null
+    enabled: true
