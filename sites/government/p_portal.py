@@ -19,34 +19,27 @@ URL: https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103
     5. 基本情報・統一資格情報・落札実績件数を抽出して yield
        進捗は10件刻みではなく、検索単位で「フェッチ累計 / 取得累計」を突合ログ出力する。
 
-大量取得戦略 (段階的に絞り込む = 必要な時だけ深掘りしリクエスト数を最小化):
-    - 1回の検索で最大500件のサーバー制限を回避するため検索条件を段階的に分割する。
-    - 第1レベル: 都道府県 (01〜47) × 市区町村 で分割。
+大量取得戦略 (本社住所 × 営業品目 × 企業規模 のパターン組み合わせ):
+    - 1回の検索で最大500件のサーバー制限があるため、検索条件を組み合わせて
+      各バケットを500件以下に収める。500件超のバケットは先頭500件のみ取得して
+      次のパターンへ進む (追加の細分化はしない = ユーザー方針)。
+    - 第1レベル: 本社住所 = 都道府県 (01〜47) × 市区町村。
                 市区町村リストは都道府県選択時の AJAX 応答から動的に取得する。
-    - 第2レベル: ある市区町村が500件超に達した場合のみ、以下2方式を併用して網羅する
-                (両者は共通の seen で重複排除・自動マージ)。
-                  (a) 「資格の種類・営業品目」(営業品目コード) で分割
-                      → 統一資格保有者をカテゴリ別に取得。英数字始まり等かな分割で
-                        当たらない商号も拾える。
-                  (b) 市区町村 × 商号 (かな頭文字) で分割
-                      → 無資格事業者を含む全事業者を網羅する。
-    - 第3レベル: (市区町村 × 営業品目) でも500件超の場合のみ、商号 (かな頭文字1文字) で分割する。
-    - 第4レベル: (市区町村 × かな1文字) でも500件超の場合のみ、商号を2文字
-                (アア, アイ, …) に細分化する (_KANA_MAX_DEPTH=2)。
-                商号プレフィックスは統一資格の有無に関わらず効くため無資格事業者も割れる。
-    - 法人番号による重複排除を実施。
+                500件以下ならそのまま全件取得 (無資格事業者を含む全事業者が対象)。
+    - 第2レベル: 市区町村が500件超の場合のみ「資格の種類・営業品目」(営業品目コード75種)
+                で分割する。
+    - 第3レベル: (市区町村 × 営業品目) でも500件超の場合のみ「企業規模」
+                (大企業/中小企業/小規模企業/その他の4区分) で分割する。
+    - 第4レベル以降は行わない。(市区町村 × 営業品目 × 企業規模) でもなお500件超なら
+      先頭500件のみ取得してスルーする (取りこぼしの可能性あり)。
+    - 法人番号による重複排除を実施 (共通の seen で各パターンを自動マージ)。
 
     ⚠ 完全性の注意:
-        (a) の「営業品目」フィルタは "統一資格から検索する場合のみ" の条件であり統一資格
-        保有者のみを返すが、(b) の市区町村かな分割で無資格事業者も併せて取得するため、
-        両方式の併用で取りこぼしを最小化している。
-        企業規模・資格等級・競争参加地域も統一資格条件のため無資格事業者の超過分を
-        割れない (実機検証で札幌市中央区×かな「ア」は500超でも統一資格保有者は計50件のみ)。
-        そのため無資格を含む超過分は商号2文字分割で割る方針とした。
-        なお商号2文字でもなお500件超のケース (超過分は先頭500件のみ取得しスルー)、
-        または商号がかな頭文字に当たらない事業者 (英数字始まり等) は依然取りこぼす
-        可能性がある (ベストエフォート方針)。
-        WARNING ログ "取りこぼしの可能性あり" を監視のこと。
+        「営業品目」「企業規模」フィルタは "統一資格から検索する場合のみ" の条件であり
+        統一資格保有者のみを返す。したがって500件超の市区町村については無資格事業者の
+        超過分を取りこぼす (本方針では統一資格保有者の網羅を優先する)。
+        また (市区町村 × 営業品目 × 企業規模) でもなお500件超のバケットは先頭500件のみ
+        取得する。WARNING ログ "取りこぼしの可能性あり" を監視のこと。
 
 設計メモ:
     - OAB0103/OAB0108 は直打ちアクセス不可 (JSESSIONID + CSRFトークン必須)。
@@ -58,6 +51,9 @@ URL: https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103
       DOM に常在し name 属性を持つため、モーダルを開かずに JS で値を設定し change
       イベントを発火するだけで検索条件として送信される (DOM調査で確認済み)。
       市区町村セレクトは都道府県の change で AJAX 補充されるため待機が必要。
+      営業品目はモーダルのため「選択」確定ボタン (#qualificationKindBizItemSelected)
+      の click が必要だが、企業規模はアコーディオン内のチェックボックスで確定ボタンは
+      不要 (チェック + change 発火のみで送信される。実機検証済)。
     - 件数判定: "N件見つかりました" = 実件数 / "500件を超え" = 上限到達(500扱い) /
       "合致する事業者情報がありません" = 0件。
     - 統一資格情報・落札実績情報が存在しない事業者は対応フィールドを空文字で返す。
@@ -99,22 +95,17 @@ _QUAL_CATEGORIES = ["物品の製造", "物品の販売", "役務の提供等", 
 # 都道府県コード 01〜47 (検索第1レベル分割)
 _PREF_CODES = [f"{i:02d}" for i in range(1, 48)]
 
-# 商号 (かな) 頭文字。市区町村が500件超のとき商号頭文字で分割する。
-# なお (市区町村 × かな1文字) でも500件超の場合は、これらを2文字目として連結し
-# 「アア」「アイ」… の2文字プレフィックスでさらに分割する (KANA_MAX_DEPTH=2)。
-_KANA_PREFIXES = list(
-    "アイウエオカキクケコサシスセソタチツテトナニヌネノ"
-    "ハヒフヘホマミムメモヤユヨラリルレロワヲン"
-    "ガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポ"
-)
-
-# 商号プレフィックス分割の最大文字数 (2 = 「ア」で割れなければ「アア」「アイ」…で割る)。
-# 統一資格条件 (企業規模/資格等級/競争参加地域) は統一資格保有者しか返さず無資格事業者
-# の超過分を割れないため、無資格も含めて割れる商号プレフィックスで分割する方針。
-_KANA_MAX_DEPTH = 2
+# 企業規模 (検索第3レベル分割)。値はフォームの companyScale チェックボックスの value。
+# 大企業/中小企業/小規模企業/その他 の4区分で全事業者を分割する。
+# (新規中小企業者=5 は中小/小規模の部分集合のため除外し、重複検索を避ける)
+_COMPANY_SCALES = [
+    ("1", "大企業"),
+    ("2", "中小企業"),
+    ("4", "小規模企業"),
+    ("3", "その他"),
+]
 
 # --- フォーム要素セレクタ (2025年DOM調査で確定) ---
-_NAME_FIELD = 'input[name="inputSearchCondtionBean.tradeName"]'  # 商号又は名称
 _CITY_READY_JS = (
     "() => { const s = document.querySelector('#city_select');"
     " return s && s.options.length > 1; }"
@@ -150,6 +141,16 @@ _JS_SET_BIZ = """
     if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change', {bubbles:true})); }
     const ok = document.querySelector('#qualificationKindBizItemSelected');
     if (ok) ok.click();
+}
+"""
+
+# 企業規模チェックを ON にする JS。アコーディオン内だが確定ボタンは無く、
+# チェック + change 発火のみで検索条件として送信される (実機検証済)。
+_JS_SET_SCALE = """
+(value) => {
+    const cb = [...document.querySelectorAll('input[name="inputSearchCondtionBean.companyScale"]')]
+        .find(c => c.value === value);
+    if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change', {bubbles:true})); }
 }
 """
 
@@ -257,15 +258,16 @@ class PPortalScraper(DynamicCrawler):
         pref_code: str,
         city_code: str,
         biz_item: str | None = None,
-        name_prefix: str | None = None,
+        company_scale: str | None = None,
     ) -> tuple[BeautifulSoup, int, bool, str]:
         """検索条件を設定して検索を実行し、(soup, 件数, 上限超フラグ, 実 URL) を返す。
 
-        本社住所・営業品目モーダルの入力要素は DOM に常在し name 属性を持つため、
+        本社住所・営業品目・企業規模の入力要素は DOM に常在し name 属性を持つため、
         モーダルを開かずに JS で値を設定して change を発火するだけで検索条件として
         送信される。市区町村は都道府県の change で AJAX 補充されるため待機する。
 
-        name_prefix: 商号 (tradeName) の頭文字。1〜2文字のかなプレフィックスを渡す。
+        biz_item     : 営業品目コード (第2レベル分割時のみ)。
+        company_scale: 企業規模の value (第3レベル分割時のみ。1/2/4/3)。
 
         戻り値の result_url はフォーム送信後にブラウザが表示した実 URL。
         これをベースにページネーションすることで検索コンテキストを維持する。
@@ -288,12 +290,10 @@ class PPortalScraper(DynamicCrawler):
             self.page.evaluate(_JS_SET_BIZ, biz_item)
             self.page.wait_for_timeout(300)
 
-        # --- 商号 かなプレフィックス (1〜2文字。第3レベル以降の分割時のみ) ---
-        if name_prefix:
-            try:
-                self.page.fill(_NAME_FIELD, name_prefix)
-            except Exception as e:
-                self.logger.debug("商号入力失敗 %s: %s", name_prefix, e)
+        # --- 企業規模 (第3レベル分割時のみ) ---
+        if company_scale:
+            self.page.evaluate(_JS_SET_SCALE, company_scale)
+            self.page.wait_for_timeout(300)
 
         # --- 検索送信 (フォーム POST → OAB0103 へ遷移) ---
         try:
@@ -301,8 +301,8 @@ class PPortalScraper(DynamicCrawler):
                 self.page.evaluate(_JS_CLICK_SEARCH)
         except Exception as e:
             self.logger.warning(
-                "検索送信失敗 (pref=%s city=%s biz=%s kana=%s): %s",
-                pref_code, city_code, biz_item, name_prefix, e,
+                "検索送信失敗 (pref=%s city=%s biz=%s scale=%s): %s",
+                pref_code, city_code, biz_item, company_scale, e,
             )
             return BeautifulSoup("", "html.parser"), 0, False, self.page.url
         self.page.wait_for_timeout(1200)
@@ -339,7 +339,7 @@ class PPortalScraper(DynamicCrawler):
 
         result_url: _do_search() が返したフォーム送信後の実 URL。
                     ページネーション URL の生成に使い、検索コンテキストを維持する。
-        label     : 進捗ログ用の検索ラベル (例 "01 札幌市中央区 商号アイ")。
+        label     : 進捗ログ用の検索ラベル (例 "01 札幌市中央区 品目304 規模中小企業")。
         """
         # === フェッチ相: 全ページの一覧から新規法人番号を収集 ===
         # サーバーは1ページ50件固定で、範囲外の page= は page0 にクランプされ
@@ -459,8 +459,8 @@ class PPortalScraper(DynamicCrawler):
         self.logger.info("営業品目コード %d件 を検出", len(self._biz_items))
         if not self._biz_items:
             self.logger.warning(
-                "営業品目コードを検出できませんでした。営業品目分割をスキップします "
-                "(商号かな分割でのみ網羅)"
+                "営業品目コードを検出できませんでした。500件超の市区町村は"
+                "先頭500件のみ取得します (取りこぼしの可能性あり)"
             )
 
         # 第1レベル: 都道府県 (01〜47) × 市区町村
@@ -487,19 +487,20 @@ class PPortalScraper(DynamicCrawler):
                         result_url, soup, total, size, detail_url, seen,
                         label=f"{pref_code} {cname}",
                     )
+                elif not self._biz_items:
+                    # 営業品目未検出で細分化不可 → 先頭500件のみ取得しスルー。
+                    self.logger.warning(
+                        "%s %s: 500件超だが営業品目未検出 → 先頭500件のみ (取りこぼしの可能性あり)",
+                        pref_code, cname,
+                    )
+                    yield from self._paginate_and_yield(
+                        result_url, soup, total, size, detail_url, seen,
+                        label=f"{pref_code} {cname}",
+                    )
                 else:
-                    # 第2レベル: 500件超 → 営業品目 と 商号かな を併用して網羅。
-                    #   - 営業品目分割: 統一資格保有者をカテゴリ別に取得 (英数字始まりの
-                    #     商号などかな分割で当たらない事業者も拾える)。
-                    #   - 市区町村かな分割: 無資格事業者を含む全事業者を商号頭文字で取得。
-                    #   両者は共通の seen で自動マージ・重複排除される。
-                    self.logger.info(
-                        "%s %s: 500件超 → 営業品目 + 商号かな を併用して細分化", pref_code, cname
-                    )
+                    # 第2レベル: 500件超 → 営業品目で細分化 (統一資格保有者が対象)。
+                    self.logger.info("%s %s: 500件超 → 営業品目で細分化", pref_code, cname)
                     yield from self._split_by_bizitem(
-                        search_url, pref_code, ccode, cname, size, detail_url, seen
-                    )
-                    yield from self._split_by_kana(
                         search_url, pref_code, ccode, cname, size, detail_url, seen
                     )
 
@@ -517,7 +518,7 @@ class PPortalScraper(DynamicCrawler):
     ) -> Generator[dict, None, None]:
         """市区町村 × 営業品目で検索を細分化する (第2レベル)。
 
-        営業品目でも500件超の場合はさらに商号かな頭文字で分割する (第3レベル)。
+        営業品目でも500件超の場合はさらに企業規模で分割する (第3レベル)。
         """
         for biz in self._biz_items:
             try:
@@ -537,86 +538,54 @@ class PPortalScraper(DynamicCrawler):
                     label=f"{pref_code} {city_name} 品目{biz}",
                 )
             else:
-                # 第3レベル: (市区町村 × 営業品目) でも500件超 → 商号かな分割
+                # 第3レベル: (市区町村 × 営業品目) でも500件超 → 企業規模で分割
                 self.logger.info(
-                    "%s %s 品目%s: 500件超 → 仮名で細分化", pref_code, city_name, biz
+                    "%s %s 品目%s: 500件超 → 企業規模で細分化", pref_code, city_name, biz
                 )
-                yield from self._split_by_kana(
+                yield from self._split_by_scale(
                     search_url, pref_code, city_code, city_name,
-                    size, detail_url, seen, biz_item=biz,
+                    biz, size, detail_url, seen,
                 )
 
-    def _split_by_kana(
+    def _split_by_scale(
         self,
         search_url: str,
         pref_code: str,
         city_code: str,
         city_name: str,
+        biz_item: str,
         size: int,
         detail_url: str,
         seen: set[str],
-        biz_item: str | None = None,
-        prefix: str = "",
-        depth: int = 1,
     ) -> Generator[dict, None, None]:
-        """商号 (かな) プレフィックスで検索を分割する。再帰で文字数を深くする。
+        """市区町村 × 営業品目 × 企業規模で検索を細分化する (第3レベル / 最終)。
 
-        biz_item=None : 市区町村全体 (無資格事業者を含む全事業者) を対象に分割。
-        biz_item 指定: (市区町村 × 営業品目) が500件超だった場合の第3レベル分割。
-
-        prefix : これまでの商号プレフィックス。各かなを連結して1文字深くする。
-        depth  : 現在のプレフィックス文字数。
-
-        あるプレフィックスでなお500件超なら、_KANA_MAX_DEPTH まで1文字深い
-        プレフィックス (例: ア→アア,アイ,…) で再帰分割する。最大文字数でもなお
-        500件超の場合は先頭500件のみ取得し取りこぼし警告を出す (スルー方針)。
-
-        商号プレフィックスは統一資格の有無に関わらず効くため、無資格事業者を含めて
-        分割できる (企業規模等の統一資格条件では無資格の超過分を割れない)。
+        企業規模 (大企業/中小企業/小規模企業/その他) の4区分で分割する。
+        この区分でもなお500件超のバケットは先頭500件のみ取得し、追加の細分化は
+        行わずに次のパターンへ進む (取りこぼしの可能性あり = ユーザー方針)。
         """
-        for kana in _KANA_PREFIXES:
-            np = prefix + kana
+        for scale_val, scale_name in _COMPANY_SCALES:
             try:
-                k_soup, k_total, k_overflow, k_url = self._do_search(
-                    search_url, pref_code, city_code, biz_item=biz_item, name_prefix=np
+                soup, total, overflow, result_url = self._do_search(
+                    search_url, pref_code, city_code,
+                    biz_item=biz_item, company_scale=scale_val,
                 )
             except Exception as e:
-                self.logger.warning("%s %s 商号%s: 検索失敗のためスキップ: %s",
-                                    pref_code, city_name, np, e)
+                self.logger.warning("%s %s 品目%s 規模%s: 検索失敗のためスキップ: %s",
+                                    pref_code, city_name, biz_item, scale_name, e)
                 continue
-            if k_total == 0 and not k_overflow:
+            if total == 0 and not overflow:
                 continue
-            lbl = f"{pref_code} {city_name} 商号{np}"
-            if biz_item:
-                lbl = f"{pref_code} {city_name} 品目{biz_item} 商号{np}"
-            if not k_overflow:
-                yield from self._paginate_and_yield(
-                    k_url, k_soup, k_total, size, detail_url, seen, label=lbl
-                )
-            elif depth < _KANA_MAX_DEPTH:
-                # 500件超 → 商号をもう1文字深く分割。
-                # 併せて現プレフィックスの先頭500件も取得する (商号が prefix と完全一致
-                # する1文字社名など、深い分割で当たらない事業者の保険。seen で重複排除)。
-                self.logger.info(
-                    "%s %s 商号%s: 500件超 → 商号%d文字目で細分化",
-                    pref_code, city_name, np, depth + 1,
-                )
-                yield from self._paginate_and_yield(
-                    k_url, k_soup, k_total, size, detail_url, seen, label=lbl
-                )
-                yield from self._split_by_kana(
-                    search_url, pref_code, city_code, city_name,
-                    size, detail_url, seen, biz_item=biz_item,
-                    prefix=np, depth=depth + 1,
-                )
-            else:
-                # 最大文字数でもなお500件超 → 先頭500件のみ取得しスルー。
+
+            lbl = f"{pref_code} {city_name} 品目{biz_item} 規模{scale_name}"
+            yield from self._paginate_and_yield(
+                result_url, soup, total, size, detail_url, seen, label=lbl
+            )
+            if overflow:
+                # 最終分割でもなお500件超 → 先頭500件のみ取得してスルー。
                 self.logger.warning(
-                    "%s %s 商号%s: 商号%d文字でも500件超 → 先頭500件のみ (取りこぼしの可能性あり)",
-                    pref_code, city_name, np, _KANA_MAX_DEPTH,
-                )
-                yield from self._paginate_and_yield(
-                    k_url, k_soup, k_total, size, detail_url, seen, label=lbl
+                    "%s %s 品目%s 規模%s: 500件超 → 先頭500件のみ (取りこぼしの可能性あり)",
+                    pref_code, city_name, biz_item, scale_name,
                 )
 
     def _scrape_detail(self, soup: BeautifulSoup, source_url: str) -> dict | None:
