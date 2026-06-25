@@ -2994,3 +2994,10 @@ sites:
     url: "https://benriyanavi.com/?utm_source=chatgpt.com"
     schedule: null
     enabled: true
+
+  - site_id: helper_2
+    name: "便利屋お助け ナビ"
+    module: "service.helper_2"
+    url: "https://helper.kokoroegao.com/?post_type=helperinfo"
+    schedule: null
+    enabled: true
