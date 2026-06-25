@@ -2980,3 +2980,10 @@ sites:
     url: "https://helper.kokoroegao.com/"
     schedule: "0 1 8 * *"
     enabled: true
+
+  - site_id: benriya_paradise_2
+    name: "便利屋 パラダイス"
+    module: "service.benriya_paradise_2"
+    url: "https://benriya-paradise.com/"
+    schedule: null
+    enabled: true
