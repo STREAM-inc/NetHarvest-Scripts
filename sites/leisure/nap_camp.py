@@ -69,6 +69,12 @@ _PROSE_EXCLUDE = {
 _LABEL_HOLIDAY = "定休日"
 _LABEL_PAYMENTS = "カード決済"
 
+# 電話番号は構造化テーブルには無く、本文の「お問い合わせ」自由記述ブロック内に
+# 「tel:090-7431-1140」のような形で混在する。まず tel: プレフィックス付きを優先し、
+# 無ければ日本の電話番号パターン(市外局番始まり)を fallback で拾う。
+_TEL_PREFIX_PATTERN = re.compile(r"tel[:：\s]*([0０][\d０-９][\d０-９\-－\s]{6,12}[\d０-９])", re.IGNORECASE)
+_TEL_FALLBACK_PATTERN = re.compile(r"(?<![\d\-])(0\d{1,4}-\d{1,4}-\d{3,4})(?![\d\-])")
+
 # EXTRA_COLUMNS として保持する構造化ラベル (短い・列挙形式)
 _EXTRA_LABELS = [
     "乗り入れ可能車両",
@@ -128,6 +134,7 @@ class NapCampScraper(StaticCrawler):
             Schema.NAME: name,
             Schema.URL: detail_url,
             Schema.CAT_SITE: "キャンプ場",
+            Schema.TEL: self._extract_tel(soup),
             Schema.HOLIDAY: fields.get(_LABEL_HOLIDAY, ""),
             Schema.PAYMENTS: fields.get(_LABEL_PAYMENTS, ""),
         }
@@ -147,6 +154,31 @@ class NapCampScraper(StaticCrawler):
             item[label] = fields.get(label, "")
 
         return item
+
+    @staticmethod
+    def _extract_tel(soup) -> str:
+        """ページ本文から電話番号を抽出する。
+
+        電話番号は構造化テーブルには無く「お問い合わせ」自由記述ブロック内に
+        「tel:090-7431-1140」のような形で含まれる。この自由記述は Next.js の
+        <script> ペイロード(JSON)に格納され get_text() では拾えないため、
+        tel: プレフィックス付きはレンダリング済みマークアップ全体を対象に抽出する。
+        無ければ可視テキストから一般的な電話番号パターンを fallback で拾う。
+        記載が無いページも多いため、見つからなければ空文字を返す。
+        """
+        # tel: 付きは <script> JSON 内にもあるためマークアップ全体を対象にする
+        m = _TEL_PREFIX_PATTERN.search(str(soup))
+        if not m:
+            # fallback は誤検出を避けるため可視テキストのみを対象にする
+            m = _TEL_FALLBACK_PATTERN.search(soup.get_text(" ", strip=True))
+        if not m:
+            return ""
+
+        # 全角→半角、区切りをハイフンへ正規化
+        tel = m.group(1).translate(str.maketrans("０１２３４５６７８９－", "0123456789-"))
+        tel = re.sub(r"\s+", "-", tel.strip())
+        tel = re.sub(r"-+", "-", tel).strip("-")
+        return tel
 
     @staticmethod
     def _extract_fields(soup) -> dict:
