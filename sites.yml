@@ -3022,3 +3022,10 @@ sites:
     url: "https://builders-ranking.com/"
     schedule: "0 12 25 * *"
     enabled: true
+
+  - site_id: nap_camp
+    name: "なっぷ"
+    module: "leisure.nap_camp"
+    url: "https://www.nap-camp.com/"
+    schedule: null
+    enabled: true
