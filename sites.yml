@@ -3036,3 +3036,10 @@ sites:
     url: "https://nextinjapan.com/jobs"
     schedule: null
     enabled: true
+
+  - site_id: q_jinkun
+    name: "求人君"
+    module: "jobs.q_jinkun"
+    url: "https://www.q-jinkun.com/?mode=ds"
+    schedule: null
+    enabled: true
