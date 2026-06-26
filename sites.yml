@@ -3043,3 +3043,10 @@ sites:
     url: "https://www.q-jinkun.com/?mode=ds"
     schedule: null
     enabled: true
+
+  - site_id: workinfree
+    name: "WorkinFree"
+    module: "jobs.workinfree"
+    url: "https://workin.jp/"
+    schedule: null
+    enabled: true
