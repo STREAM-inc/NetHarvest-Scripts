@@ -3029,3 +3029,10 @@ sites:
     url: "https://www.nap-camp.com/"
     schedule: null
     enabled: true
+
+  - site_id: nextinjapan
+    name: "nextinjapan"
+    module: "jobs.nextinjapan"
+    url: "https://nextinjapan.com/jobs"
+    schedule: null
+    enabled: true
