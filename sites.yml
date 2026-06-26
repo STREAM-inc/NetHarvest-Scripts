@@ -3008,3 +3008,10 @@ sites:
     url: "https://www.jobmake.jp/48/search?gf=f&kt=t"
     schedule: null
     enabled: true
+
+  - site_id: mycareer_jp
+    name: "mitsukeru"
+    module: "jobs.mycareer_jp"
+    url: "https://mycareer-jp.com/area/FW"
+    schedule: null
+    enabled: true
