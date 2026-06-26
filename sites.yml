@@ -3010,7 +3010,7 @@ sites:
     enabled: true
 
   - site_id: mycareer_jp
-    name: "mitsukeru"
+    name: "ミツケル"
     module: "jobs.mycareer_jp"
     url: "https://mycareer-jp.com/area/FW"
     schedule: null
