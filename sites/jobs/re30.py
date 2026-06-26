@@ -1,12 +1,31 @@
 """
 Re就活30 — 30代向け転職・求人情報 (re-katsu30.jp)
 
-取得対象（すべて一覧ページから取得）:
-    検索結果一覧の各カードに 会社名・業種カテゴリ・雇用形態・年収範囲・勤務地 が
-    揃っているため、詳細ページは開かない（高速・タイムアウト回避）。
-    勤務地テキストからは都道府県・住所を best-effort で抽出する。
-    ※ 代表者・設立・従業員数・資本金・売上高・郵便番号・HP は一覧には無く
-      詳細ページ専用のため、本実装では取得しない（取得には別途詳細巡回が必要）。
+取得方針:
+    一覧（検索結果）の各カードから「会社名・職種/業種カテゴリ・雇用形態・年収範囲・勤務地」を
+    取得したうえで、各求人の詳細ページ /recruit/{id} を開いて会社情報を補完する。
+        詳細ページ専用カラム:
+            設立 / 代表者 / 従業員数 / 資本金 / 売上高 / 本社所在地(郵便番号) /
+            事業所 / 事業内容 / ホームページ / 掲載更新日 / 掲載終了日
+    これらは一覧には無いため、詳細巡回が必須（本実装で対応済み）。
+
+    詳細ページ構造（要点 / 2026-06 時点で確認済み）:
+        <section id="company">           企業情報
+            <h3 class="recruitDetail__sectionSubTitle">設立</h3>
+            <p  class="recruitDetail__sectionText">2003年11月</p>
+            … 代表者 / 従業員数 / 資本金 / 売上高 / 本社所在地 / 事業所 / ホームページ
+        <section id="business">          事業内容（p.recruitDetail__sectionText）
+        <section class="recruitDetail__info">
+            <p class="recruitDetail__infoHeadEndDate">最終更新日：YYYY/MM/DD(曜)</p>
+            <p class="recruitDetail__infoHeadEndDate">掲載終了日：YYYY/MM/DD(曜)</p>
+            <ul class="scoutDetail__info__tagList">
+                <li class="-condition">正社員</li>      ← 雇用形態
+                <li class="-condition">450万円〜600万円</li> ← 年収範囲
+        ※ サイト上に「掲載開始日」の明示項目は無い。指示の「掲載懇親部」は
+          発音由来の表記ゆれで「掲載更新日(=最終更新日)」を指すと解釈し、
+          最終更新日を「掲載更新日」カラムに格納する。
+        ※ 業種・職種の明示ラベルも詳細には無いため、一覧カードの
+          featuredJob__item__categories（このサイトの定義業種・職種ジャンル）を流用する。
 
 ★ WAF について（重要 / 切り分け済み）
     re-katsu30.jp は AWS WAF が「送信元 IP」でブロックする（IP 起因）。
@@ -45,12 +64,13 @@ _PREF_PATTERN = re.compile(
     r"|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県"
     r"|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
 )
+_POSTCODE_PATTERN = re.compile(r"〒?\s*(\d{3}-\d{4})")
 # 正常時は ~74 ページ (全1107件 / 15件)。next リンク消失で自然終端するが、保険の上限。
 _MAX_PAGES = 200
 
 
 def _parse_location(text: str) -> tuple[str, str]:
-    """一覧カードの「勤務地」テキストから (都道府県, 住所) を best-effort で抽出する。
+    """住所/勤務地テキストから (都道府県, 住所) を best-effort で抽出する。
 
     例:
         「本社（東京都練馬区）／西武池袋線…」 → ("東京都", "練馬区")
@@ -84,16 +104,113 @@ def _looks_waf_blocked(soup) -> bool:
 class Re30Crawler(DynamicCrawler):
     """Re就活30 クローラー"""
 
-    DELAY = 2.0
-    # 業種カテゴリは Schema.CAT_SITE (標準カラム) に格納するため EXTRA には含めない。
-    # Schema に無い 雇用形態・年収範囲、および勤務地の原文を追加する。
-    EXTRA_COLUMNS = ["雇用形態", "年収範囲", "勤務地"]
+    DELAY = 1.5
+    # Schema に当てはまらないサイト固有カラム。
+    #   業種/職種/雇用形態/年収範囲/勤務地 … 求人属性
+    #   事業所 … 本社以外の所在地（複数行）
+    #   掲載更新日(=最終更新日)/掲載終了日 … 掲載期間
+    EXTRA_COLUMNS = [
+        "業種", "職種", "雇用形態", "年収範囲", "勤務地",
+        "事業所", "掲載更新日", "掲載終了日",
+    ]
 
     # ★ WAF は IP 起因。クリーン IP の egress をプロキシで与えると成功する。
-    #   DynamicCrawler 側が PROXY 属性を読んで Playwright 起動時に渡す想定。
-    #   もし基底が別名（PROXIES 等）なら 1 行合わせるだけ。
     PROXY = os.environ.get("RE30_PROXY")
 
+    def _setup(self):
+        """Playwright 起動。RE30_PROXY があれば Chromium 起動時にプロキシを渡す。"""
+        import logging as _logging
+        from playwright.sync_api import sync_playwright
+
+        log = _logging.getLogger(__name__)
+        self.playwright = sync_playwright().start()
+        launch_kwargs: dict = {"headless": True}
+        if self.PROXY:
+            launch_kwargs["proxy"] = {"server": self.PROXY}
+            log.info("RE30_PROXY を Playwright に適用します。")
+        self.browser = self.playwright.chromium.launch(**launch_kwargs)
+        self.context = self.browser.new_context(user_agent=self.USER_AGENT)
+        self.page = self.context.new_page()
+
+    # ------------------------------------------------------------------ #
+    # 詳細ページ解析
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _detail_value(h3) -> str:
+        """h3.sectionSubTitle に続く p.sectionText を（複数あれば連結して）返す。"""
+        parts = []
+        for sib in h3.find_next_siblings():
+            name = getattr(sib, "name", None)
+            if name == "h3":
+                break  # 次の項目に到達
+            if name == "p" and "recruitDetail__sectionText" in (sib.get("class") or []):
+                txt = sib.get_text("\n", strip=True)
+                if txt:
+                    parts.append(txt)
+        return "\n".join(parts).strip()
+
+    def _parse_detail(self, soup) -> dict:
+        """詳細ページ /recruit/{id} から会社情報・掲載期間を抽出する。"""
+        data: dict = {}
+
+        # --- 企業情報・募集要項の「見出し → 本文」マップ ---
+        labels: dict[str, str] = {}
+        for h3 in soup.select("h3.recruitDetail__sectionSubTitle"):
+            key = h3.get_text(strip=True)
+            if key and key not in labels:
+                labels[key] = self._detail_value(h3)
+
+        def pick(*keys):
+            for k in keys:
+                if labels.get(k):
+                    return labels[k]
+            return ""
+
+        data["設立"] = pick("設立", "設立年月", "創業")
+        data["代表者"] = pick("代表者", "代表者名", "代表取締役")
+        data["従業員数"] = pick("従業員数", "社員数", "従業員")
+        data["資本金"] = pick("資本金")
+        data["売上高"] = pick("売上高", "売上", "業績")
+        data["事業内容_label"] = pick("事業内容")
+        data["事業所"] = pick("事業所", "支社", "支店", "営業所")
+        data["本社所在地"] = pick("本社所在地", "所在地", "本社")
+        data["ホームページ"] = pick("ホームページ", "URL", "ＨＰ", "HP")
+
+        # --- 事業内容（section#business の本文。labels に無い場合の保険） ---
+        if not data["事業内容_label"]:
+            biz = soup.select_one("#business .recruitDetail__sectionText")
+            if biz:
+                data["事業内容_label"] = biz.get_text("\n", strip=True)
+
+        # --- ホームページ（リンク優先） ---
+        hp_link = soup.select_one("#company a[href^='http'], .recruitDetail__sectionCompany a[href^='http']")
+        if hp_link and hp_link.get("href"):
+            data["ホームページ"] = hp_link.get("href").strip()
+
+        # --- 会社名（詳細の正） ---
+        name_el = soup.select_one(".recruitDetail__sectionCompanyName, h1.recruitDetail__headTitle")
+        data["名称"] = name_el.get_text(strip=True) if name_el else ""
+
+        # --- 雇用形態・年収範囲（条件タグ） ---
+        conditions = soup.select("ul.scoutDetail__info__tagList li.-condition")
+        data["雇用形態"] = conditions[0].get_text(strip=True) if len(conditions) > 0 else ""
+        data["年収範囲"] = conditions[1].get_text(strip=True) if len(conditions) > 1 else ""
+
+        # --- 掲載更新日(=最終更新日) / 掲載終了日 ---
+        for p in soup.select("p.recruitDetail__infoHeadEndDate"):
+            txt = p.get_text(strip=True)
+            label, _, value = txt.partition("：")
+            value = value.strip()
+            if "更新" in label:
+                data["掲載更新日"] = value
+            elif "終了" in label or "掲載" in label:
+                data["掲載終了日"] = value
+
+        return data
+
+    # ------------------------------------------------------------------ #
+    # メイン巡回
+    # ------------------------------------------------------------------ #
     def parse(self, url: str):
         page_url = url
         page_no = 1
@@ -137,8 +254,14 @@ class Re30Crawler(DynamicCrawler):
                     name_el = item.select_one("p.featuredJob__item__company")
                     name = name_el.get_text(strip=True) if name_el else ""
 
+                    # 一覧カードの categories はこのサイトの定義業種・職種ジャンル。
                     cats = item.select("ul.featuredJob__item__categories li")
-                    cat_site = "/".join(c.get_text(strip=True) for c in cats)
+                    cat_list = [c.get_text(strip=True) for c in cats if c.get_text(strip=True)]
+                    cat_site = "/".join(cat_list)
+                    # 詳細ページに業種/職種の明示ラベルが無いため、ここを正とする。
+                    # 先頭=職種、残り=業種（単一なら両方に同値）として best-effort 分配。
+                    shokushu = cat_list[0] if cat_list else ""
+                    gyoshu = "/".join(cat_list[1:]) if len(cat_list) > 1 else (cat_list[0] if cat_list else "")
 
                     conditions = item.select("ul.scoutDetail__info__tagList li.-condition")
                     employ_type = conditions[0].get_text(strip=True) if len(conditions) > 0 else ""
@@ -159,15 +282,66 @@ class Re30Crawler(DynamicCrawler):
                             break
 
                     pref, addr = _parse_location(work_location)
+                    post_code = ""
+
+                    # --- 詳細ページを開いて会社情報を補完する ---
+                    rep = emp = cap = sales = lob = office = founded = hp = ""
+                    pub_update = pub_end = ""
+                    if detail_url:
+                        time.sleep(self.DELAY)
+                        detail_soup = self.get_soup(detail_url)
+                        if detail_soup is not None:
+                            d = self._parse_detail(detail_soup)
+                            if d.get("名称"):
+                                name = d["名称"]
+                            rep = d.get("代表者", "")
+                            emp = d.get("従業員数", "")
+                            cap = d.get("資本金", "")
+                            sales = d.get("売上高", "")
+                            lob = d.get("事業内容_label", "")
+                            office = d.get("事業所", "")
+                            founded = d.get("設立", "")
+                            hp = d.get("ホームページ", "")
+                            pub_update = d.get("掲載更新日", "")
+                            pub_end = d.get("掲載終了日", "")
+                            if d.get("雇用形態"):
+                                employ_type = d["雇用形態"]
+                            if d.get("年収範囲"):
+                                salary_range = d["年収範囲"]
+                            # 本社所在地から 郵便番号 / 都道府県 / 住所 を上書き取得（詳細が正）。
+                            honsha = d.get("本社所在地", "")
+                            if honsha:
+                                pc = _POSTCODE_PATTERN.search(honsha)
+                                if pc:
+                                    post_code = pc.group(1)
+                                    honsha_addr = _POSTCODE_PATTERN.sub("", honsha)
+                                else:
+                                    honsha_addr = honsha
+                                d_pref, d_addr = _parse_location(honsha_addr)
+                                if d_pref:
+                                    pref, addr = d_pref, d_addr
 
                     row = {
                         Schema.NAME: name,
                         Schema.CAT_SITE: cat_site,
+                        "業種": gyoshu,
+                        "職種": shokushu,
                         "雇用形態": employ_type,
                         "年収範囲": salary_range,
                         "勤務地": work_location,
+                        Schema.REP_NM: rep,
+                        Schema.EMP_NUM: emp,
+                        Schema.CAP: cap,
+                        Schema.SALES: sales,
+                        Schema.LOB: lob,
+                        "事業所": office,
+                        Schema.OPEN_DATE: founded,
+                        Schema.HP: hp,
                         Schema.PREF: pref,
+                        Schema.POST_CODE: post_code,
                         Schema.ADDR: addr,
+                        "掲載更新日": pub_update,
+                        "掲載終了日": pub_end,
                         Schema.URL: detail_url,
                     }
 
