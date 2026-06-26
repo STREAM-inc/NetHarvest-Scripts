@@ -3015,3 +3015,10 @@ sites:
     url: "https://mycareer-jp.com/area/FW"
     schedule: null
     enabled: true
+
+  - site_id: builders_ranking
+    name: "ビルダーランキング"
+    module: "construction.builders_ranking"
+    url: "https://builders-ranking.com/"
+    schedule: "0 12 25 * *"
+    enabled: true
