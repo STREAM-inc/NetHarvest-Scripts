@@ -3092,3 +3092,10 @@ sites:
     url: "https://cabasite.com/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: pokepara
+    name: "ポケパラ"
+    module: "nightlife.pokepara"
+    url: "https://www.pokepara.jp/"
+    schedule: "0 9 1 * *"
+    enabled: true
