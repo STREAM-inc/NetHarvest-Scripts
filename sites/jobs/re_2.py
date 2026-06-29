@@ -88,7 +88,11 @@ class Re2Scraper(StaticCrawler):
             else:
                 list_url = f"{search_base}?p0=1&search_from=top&pagCnt={page}"
 
-            soup = self.get_soup(list_url)
+            try:
+                soup = self.get_soup(list_url)
+            except Exception:
+                # 最終ページの次で 404 等が返った場合は正常終了
+                break
             if not soup:
                 self.logger.warning("一覧ページを取得できませんでした: %s", list_url)
                 break
