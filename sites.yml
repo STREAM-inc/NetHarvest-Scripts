@@ -3141,3 +3141,10 @@ sites:
     url: "https://www.jobway.jp/index/current"
     schedule: "0 9 9 * *"
     enabled: true
+
+  - site_id: bizreach_2
+    name: "ビズリーチ"
+    module: "corporate.bizreach_2"
+    url: "https://www.bizreach.jp/"
+    schedule: "0 17 28 * *"
+    enabled: true
