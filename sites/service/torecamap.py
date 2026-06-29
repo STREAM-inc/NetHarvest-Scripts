@@ -253,7 +253,7 @@ if __name__ == "__main__":
     )
 
     scraper = TorecamapScraper()
-    scraper.execute("https://torecamap.co.jp/shops/")
+    scraper.execute("https://torecamap.co.jp/")
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
     print(f"取得件数: {scraper.item_count}")
