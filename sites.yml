@@ -3064,3 +3064,10 @@ sites:
     url: "https://k-navi.happyjob.jp/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: guide_jp
+    name: "浜松ナイトガイド"
+    module: "nightlife.guide_jp"
+    url: "https://guide-jp.com/hamamatsu-night/"
+    schedule: "0 9 1 * *"
+    enabled: true
