@@ -3071,3 +3071,10 @@ sites:
     url: "https://guide-jp.com/hamamatsu-night/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: matsumoto_angel
+    name: "長野ナイトナビ"
+    module: "nightlife.matsumoto_angel"
+    url: "https://www.matsumoto-angel.net/night/"
+    schedule: "0 9 1 * *"
+    enabled: true
