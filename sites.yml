@@ -3120,3 +3120,10 @@ sites:
     url: "https://shigoto100.com/job"
     schedule: "0 14 19 * *"
     enabled: true
+
+  - site_id: myhome
+    name: "ニフティ不動産（不動産会社・不動産屋を探す）"
+    module: "realestate.myhome"
+    url: "https://myhome.nifty.com/shop/"
+    schedule: null
+    enabled: true
