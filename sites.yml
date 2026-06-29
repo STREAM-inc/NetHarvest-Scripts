@@ -3106,3 +3106,10 @@ sites:
     url: "https://good-staff-recruit.jp/-/top/index.html"
     schedule: "0 9 17 * *"
     enabled: true
+
+  - site_id: bizcomm
+    name: "ビズコミ"
+    module: "jobs.bizcomm"
+    url: "https://bizcomm.net/"
+    schedule: null
+    enabled: true
