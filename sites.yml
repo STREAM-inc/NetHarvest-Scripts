@@ -3099,3 +3099,10 @@ sites:
     url: "https://www.pokepara.jp/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: good_staff
+    name: "Good Staff"
+    module: "jobs.good_staff"
+    url: "https://good-staff-recruit.jp/-/top/index.html"
+    schedule: "0 9 17 * *"
+    enabled: true
