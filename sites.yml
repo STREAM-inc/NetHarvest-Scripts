@@ -3163,3 +3163,10 @@ sites:
     enabled: true
     terms_url: "https://baito.mynavi.jp/static/terms.html"
     enabled: true
+
+  - site_id: froma
+    name: "フロムエーナビ"
+    module: "jobs.froma"
+    url: "https://www.froma.com/?red=0"
+    schedule: "0 9 11 * *"
+    enabled: true
