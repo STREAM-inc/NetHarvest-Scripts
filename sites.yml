@@ -3113,3 +3113,10 @@ sites:
     url: "https://bizcomm.net/"
     schedule: null
     enabled: true
+
+  - site_id: shigoto100
+    name: "日本仕事百貨"
+    module: "jobs.shigoto100"
+    url: "https://shigoto100.com/job"
+    schedule: "0 14 19 * *"
+    enabled: true
