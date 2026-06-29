@@ -3050,3 +3050,10 @@ sites:
     url: "https://workin.jp/"
     schedule: null
     enabled: true
+
+  - site_id: re_2
+    name: "Re就活（やり直し）"
+    module: "jobs.re_2"
+    url: "https://re-katsu.jp/career/"
+    schedule: null
+    enabled: true
