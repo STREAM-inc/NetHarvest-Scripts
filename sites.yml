@@ -3134,3 +3134,10 @@ sites:
     url: "https://kyujin-saitama.com/2026-2027list/"
     schedule: "0 9 29 * *"
     enabled: true
+
+  - site_id: jobway
+    name: "Jobway"
+    module: "corporate.jobway"
+    url: "https://www.jobway.jp/index/current"
+    schedule: "0 9 9 * *"
+    enabled: true
