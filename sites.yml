@@ -3057,3 +3057,10 @@ sites:
     url: "https://re-katsu.jp/career/"
     schedule: null
     enabled: true
+
+  - site_id: navi_4
+    name: "片町ナイトNAVI"
+    module: "nightlife.navi_4"
+    url: "https://k-navi.happyjob.jp/"
+    schedule: "0 9 1 * *"
+    enabled: true
