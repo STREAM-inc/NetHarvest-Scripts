@@ -3148,3 +3148,10 @@ sites:
     url: "https://www.bizreach.jp/"
     schedule: "0 17 28 * *"
     enabled: true
+
+  - site_id: paiza
+    name: "paiza"
+    module: "jobs.paiza"
+    url: "https://paiza.jp/career/job_offers"
+    schedule: "0 17 10 * *"
+    enabled: true
