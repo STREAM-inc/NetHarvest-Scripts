@@ -34,6 +34,18 @@ _POSTAL_PATTERN = re.compile(r"〒?\s*(\d{3}[-－]\d{4})\s*")
 _TEL_PATTERN = re.compile(r"(?:TEL|Tel|tel)[\/：:\s]*([0-9０-９(（)）\-－‐‑–]+)")
 _OFFICE_HEADER = re.compile(r"^[■▶▼●◆□▷▽○◇★☆・【]")
 
+# 雇用形態として採用するラベル集合（.tag-list は重複表示・他種タグも混在するため絞り込む）
+_EMP_TYPES = {
+    "正社員", "契約社員", "派遣社員", "紹介予定派遣", "アルバイト",
+    "パート", "業務委託", "嘱託社員", "嘱託", "新卒", "中途",
+}
+
+
+def _id_re(base: str) -> "re.Pattern":
+    """ASP.NET の span id 照合用。実機は base に接尾連番が付く（例: lblEstablishment2）。
+    旧 `ctl00_..._lblXxx` プレフィックス形式と接尾連番形式の双方に一致させる。"""
+    return re.compile(rf"(?:^|_){re.escape(base)}\d*$")
+
 
 def _filter_bullet_only(text: str) -> str:
     """文章(散文)の場合は空文字を返す。箇条書き・1単語のみ許可。"""
@@ -107,28 +119,37 @@ class ReScraper(StaticCrawler):
         soup = self.get_soup(url)
 
         # キャッチコピーをDOMから除去（名称への混入を防ぐ）
-        catchcopy_el = soup.select_one("span#lblWorkTypeCopy")
+        catchcopy_el = soup.find("span", id=_id_re("lblWorkTypeCopy"))
         if catchcopy_el:
             catchcopy_el.decompose()
 
-        def txt(selector: str) -> str:
-            el = soup.select_one(selector)
+        def txt(base: str) -> str:
+            """span id を接尾連番込みの正規表現で照合してテキスト取得。"""
+            el = soup.find("span", id=_id_re(base))
             return el.get_text(" ", strip=True) if el else ""
 
-        # 会社名
-        company_name = txt("span#lblCompanyName")
-        job_title = txt("span#lnkComnm") or txt(".company-name") or txt("h1.company")
-        if not job_title and not company_name:
+        # 会社名 — lblCompanyName が無ければ lblFixCompanyName（接尾辞なし）
+        company_name = txt("lblCompanyName") or txt("lblFixCompanyName")
+        if not company_name:
             return None
-        name = f"{company_name}{job_title}" if company_name else job_title
+        # 末尾の【上場】等の注記を除去
+        name = re.sub(r"\s*【[^】]*】\s*$", "", company_name).strip()
 
-        # 本社所在地 — 【XX本社】/■XX本社 見出し行を除去し、残る行を結合（郵便番号・住所・建物名が複数行に分かれる）
-        addr_el = soup.select_one("span#lblHeadofficelocation")
+        # 本社所在地 — 【本社】【大阪本社】… と複数ブロックが並ぶので最初のブロックのみ採用
+        addr_el = soup.find("span", id=_id_re("lblHeadofficelocation"))
         address_raw = ""
         if addr_el:
             lines = [l.strip() for l in addr_el.get_text("\n", strip=True).splitlines() if l.strip()]
-            clean = [l for l in lines if not _OFFICE_HEADER.match(l)]
-            address_raw = " ".join(clean) if clean else ""
+            block = []
+            started = False
+            for l in lines:
+                if _OFFICE_HEADER.match(l):
+                    if started:  # 2番目の見出し（別事業所）に到達したら打ち切り
+                        break
+                    started = True
+                    continue
+                block.append(l)
+            address_raw = " ".join(block) if block else " ".join(lines)
 
         # 郵便番号を住所から切り出す
         postal = ""
@@ -139,45 +160,17 @@ class ReScraper(StaticCrawler):
                 postal = pm.group(1)
                 addr = (address_raw[:pm.start()] + address_raw[pm.end():]).strip()
 
-        # 連絡先テキストからTELを抽出（lblContactInfo → lblTel の順で試みる）
+        # TEL/問い合わせ欄・企業HP欄は詳細ページに存在しないため空が正常
         tel = ""
-        for tel_src in ["span#lblContactInfo", "span#lblTel", "span#lblPhone"]:
-            raw = txt(tel_src)
-            if not raw:
-                continue
-            m = _TEL_PATTERN.search(raw)
-            if m:
-                tel = m.group(1)
-                break
-            # "TEL" ラベルなしで数字のみ記載されている場合
-            m2 = re.search(r"(0\d{1,4}[\-－‐‑–]\d{1,4}[\-－‐‑–]\d{4})", raw)
-            if m2:
-                tel = m2.group(1)
-                break
-
-        # 企業ホームページ URL
         homepage = ""
-        for sel in ["span#lblHomeUrl a", "a#lnkHomeUrl", "span#lblCompanyUrl a",
-                    "span#lblHomepage a", "span#lblWebsite a"]:
-            el = soup.select_one(sel)
-            if el and el.get("href", "").startswith("http"):
-                homepage = el["href"].strip()
-                break
-        if not homepage:
-            # テキストに URL が直書きされているケース
-            for span_id in ["lblHomeUrl", "lblCompanyUrl", "lblHomepage", "lblWebsite"]:
-                raw = txt(f"span#{span_id}")
-                m = re.search(r"https?://[^\s　「」【】]+", raw)
-                if m:
-                    homepage = m.group(0).rstrip("。、")
-                    break
 
-        # 雇用形態タグ（data-color="sky"）
-        emp_tags = soup.select(".tag-list li[data-color='sky']")
-        employment = "、".join(t.get_text(strip=True) for t in emp_tags)
-
-        # 職種 — ヘッダー業種アイコン優先、なければ募集職種テキスト
-        job_type = txt("span#lblServIcon") or txt("span#lblWantedJobType")
+        # 雇用形態 — .tag-list は重複表示・他種タグ混在のため既知ラベルのみ抽出
+        emp = []
+        for li in soup.select(".tag-list li"):
+            t = li.get_text(strip=True)
+            if t in _EMP_TYPES and t not in emp:
+                emp.append(t)
+        employment = "、".join(emp)
 
         return {
             Schema.NAME: name,
@@ -186,18 +179,18 @@ class ReScraper(StaticCrawler):
             "郵便番号": postal,
             Schema.TEL: tel,
             Schema.HP: homepage,
-            Schema.REP_NM: txt("span#lblRepresentative"),
-            Schema.EMP_NUM: txt("span#lblEmployeesCount"),
-            Schema.CAP: txt("span#lblCapital"),
-            Schema.CAT_SITE: _filter_bullet_only(txt("span#lblIndustryIcon")),
-            Schema.OPEN_DATE: txt("span#lblEstablishment"),
-            Schema.LOB: _filter_bullet_only(txt("span#lblBusinessContents")),
-            "売上高": txt("span#lblAmountSales"),
-            "事業所": txt("span#lblOfficePoint"),
-            "職種": job_type,
+            Schema.REP_NM: txt("lblRepresentative"),
+            Schema.EMP_NUM: txt("lblEmployeesCount"),
+            Schema.CAP: txt("lblCapital"),
+            Schema.CAT_SITE: _filter_bullet_only(txt("lblIndustryIcon")),
+            Schema.OPEN_DATE: txt("lblEstablishment"),
+            Schema.LOB: _filter_bullet_only(txt("lblBusinessContents")),
+            "売上高": txt("lblAmountSales"),
+            "事業所": txt("lblOfficePoint"),
+            "職種": txt("lblWantedJobType"),
             "雇用形態": employment,
-            "掲載終了予定日": txt("span#lblPublishedEnddate"),
-            "最終更新日": txt("span#lblPublishedLastdate"),
+            "掲載終了予定日": txt("lblPublishedLastdate"),
+            "最終更新日": txt("lblLastUpdate"),
         }
 
 
