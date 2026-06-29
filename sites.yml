@@ -3085,3 +3085,10 @@ sites:
     url: "https://www.kofu-angel.net/night/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: cabasite_2
+    name: "キャバサイト"
+    module: "nightlife.cabasite_2"
+    url: "https://cabasite.com/"
+    schedule: "0 9 1 * *"
+    enabled: true
