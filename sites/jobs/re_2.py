@@ -10,9 +10,9 @@ Re就活（やり直し版） — 求人・企業情報スクレイパー
     求人詳細 URL を列挙・重複排除 → 詳細ページを即scrape → 即yield
 
 実装メモ（旧 jobs/re.py からの修正点）:
-    - 詳細ページは ASP.NET 製で、ID が `ctl00_ContentPlaceHolder1_lblXxx` のように
-      プレフィックス付き。旧コードの `span#lblXxx` は一切ヒットせず会社名も空→全件 None→0件
-      だった。本版は後方一致セレクタ `span[id$='_lblXxx']` を使う。
+    - 詳細ページの span ID は `lblCompanyName` のようにプレフィックスなし。
+      `span[id='lblXxx']` で直接取得する（ASP.NET プレフィックス付き環境にも
+      フォールバックするため `span[id$='_lblXxx']` も OR 条件に含む）。
     - 掲載終了予定日／最終更新日のマッピングを修正
       （掲載終了予定日=lblPublishedLastdate, 最終更新日=lblLastUpdate）。
     - 雇用形態タグは data-color='sky'(正社員) と 'mazarine'(契約社員) 等を取りこぼしていたため、
@@ -20,8 +20,8 @@ Re就活（やり直し版） — 求人・企業情報スクレイパー
     - sitemap（recruit_sitemap.xml / end_sitemap.xml）経由では実行時 0 件だったため、
       詳細 URL の列挙を検索結果ページ（sch_result）ベースに変更した。
       検索フォームで勤務地を全選択した状態の URL（p3 に全勤務地コードを指定）を起点に、
-      `p0`（ページ番号）を 1 から順に送って一覧の `/company/recruit/{id}/` リンクを収集する。
-      勤務地全選択で約 1,094 件が列挙できる（該当数表示で確認）。
+      ページ送りは `pagCnt=N`（p0 は 1 固定）。`pagCnt` なし→1ページ目、`pagCnt=2`→2ページ目。
+      条件なし検索で全国約 1,099 件が列挙できる（p3 勤務地指定は不要・URL 長過ぎで非推奨）。
       一覧の求人リンクは `?b1=...` 等のクエリ付きで出るため、求人 ID で正規化・重複排除する。
 
 実行方法:
@@ -67,31 +67,27 @@ class Re2Scraper(StaticCrawler):
     """Re就活（やり直し版） スクレイパー"""
 
     DELAY = 1.0
-    EXTRA_COLUMNS = ["事業所", "職種", "雇用形態", "掲載終了予定日", "最終更新日"]
+    EXTRA_COLUMNS = ["売上高", "メール", "事業所", "職種", "雇用形態", "掲載終了予定日", "最終更新日"]
 
-    # 検索フォームで勤務地を全選択した状態の p3（全勤務地コード）。
-    # これを指定すると全国の求人が該当し、約 1,094 件が列挙できる。
-    ALL_LOCATIONS = (
-        "1-0001-2-3-4-0002-5-6-7-8-9-10-11-0014-12-0013-13-0003-0004-0005-0006-0007-"
-        "0008-0009-14-0010-0011-0012-15-16-17-18-19-20-21-22-0016-0017-23-0015-24-25-"
-        "26-0020-27-0018-0019-28-0021-29-30-31-32-33-0023-34-0022-35-36-37-38-39-40-"
-        "0024-0025-41-42-43-0026-44-45-46-47-89-90-99"
-    )
-    # ページ送りの暴走防止上限（1 ページ約 30 件 → 1,094 件で 40 ページ弱。十分な余裕を持たせる）
-    MAX_PAGES = 200
+    # ページ送りの暴走防止上限（1 ページ約 20 件・全55ページ程度。余裕を持たせる）
+    MAX_PAGES = 100
 
     def parse(self, url: str):
         # 検索結果 URL を引数 url（SSOT = sites.yml の url）から派生させる
         root = url if url.endswith("/") else url + "/"
         search_base = urljoin(root, "search/sch_result")
 
-        # 検索結果ページを p0=1,2,... と送って詳細 URL を収集（求人 ID で重複排除）
+        # ページ送りは pagCnt=N（p0 は常に 1 固定）
+        # page=1 → ?p0=1&search_from=top
+        # page=N → ?p0=1&search_from=top&pagCnt=N
         seen_ids: set[str] = set()
         locs: list[str] = []
         for page in range(1, self.MAX_PAGES + 1):
-            list_url = (
-                f"{search_base}?p0={page}&p3={self.ALL_LOCATIONS}&search_from=top"
-            )
+            if page == 1:
+                list_url = f"{search_base}?p0=1&search_from=top"
+            else:
+                list_url = f"{search_base}?p0=1&search_from=top&pagCnt={page}"
+
             soup = self.get_soup(list_url)
             if not soup:
                 self.logger.warning("一覧ページを取得できませんでした: %s", list_url)
@@ -110,7 +106,7 @@ class Re2Scraper(StaticCrawler):
                 new_count += 1
 
             self.logger.info(
-                "p0=%d: 新規 %d 件（累計 %d）", page, new_count, len(locs)
+                "pagCnt=%d: 新規 %d 件（累計 %d）", page, new_count, len(locs)
             )
             # 新規リンクが無い＝最終ページを超えたとみなして打ち切る
             if new_count == 0:
@@ -137,8 +133,8 @@ class Re2Scraper(StaticCrawler):
             return None
 
         def txt(suffix: str) -> str:
-            """ASP.NET の id プレフィックスを後方一致で吸収して取得する。"""
-            el = soup.select_one(f"span[id$='_{suffix}']")
+            """span id で直接取得。プレフィックス付き (ASP.NET) にも対応。"""
+            el = soup.select_one(f"span[id='{suffix}'], span[id$='_{suffix}']")
             return el.get_text(" ", strip=True) if el else ""
 
         # 会社名（末尾の【東証プライム上場】等の注記は除去）
@@ -185,18 +181,17 @@ class Re2Scraper(StaticCrawler):
         return {
             Schema.NAME: name,
             Schema.URL: url,
-            Schema.POST_CODE: postal,
-            Schema.ADDR: addr,
+            Schema.ADDR: f"〒{postal} {addr}".strip() if postal else addr,
             Schema.TEL: tel,
-            Schema.EMAIL: email,
             Schema.HP: homepage,
             Schema.REP_NM: txt("lblRepresentative"),
             Schema.EMP_NUM: txt("lblEmployeesCount"),
             Schema.CAP: txt("lblCapital"),
-            Schema.SALES: txt("lblAmountSales"),
             Schema.CAT_SITE: txt("lblIndustryIcon"),
             Schema.OPEN_DATE: txt("lblEstablishment"),
             Schema.LOB: txt("lblBusinessContents"),
+            "売上高": txt("lblAmountSales"),
+            "メール": email,
             "事業所": txt("lblOfficePoint"),
             "職種": job_type,
             "雇用形態": employment,
@@ -207,7 +202,7 @@ class Re2Scraper(StaticCrawler):
     @staticmethod
     def _parse_address(soup) -> tuple[str, str]:
         """本社所在地から「最初の事業所ブロック」の住所と郵便番号を切り出す。"""
-        el = soup.select_one("span[id$='_lblHeadofficelocation']")
+        el = soup.select_one("span[id='lblHeadofficelocation'], span[id$='_lblHeadofficelocation']")
         if not el:
             return "", ""
         lines = [l.strip() for l in el.get_text("\n", strip=True).splitlines() if l.strip()]
