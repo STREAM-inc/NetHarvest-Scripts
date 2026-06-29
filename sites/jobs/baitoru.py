@@ -5,6 +5,15 @@ ver 1.1.0 20260526 kanda TELカラム追加し、住所から都道府県を抽�
 ver 1.2.0 20260529 全企業網羅対応。旧 /search/list/(404) を廃止し、地域別
                    求人一覧(/{region}/jlist/{pref}/)をサイトマップから自動探索。
                    全ページをページネーション巡回し、掲載企業を取りこぼさず収集。
+ver 1.3.0 20260629 全国全求人(約300万件)網羅対応。
+                   - parse() 引数 url を唯一のルートとし、配信元(origin)・
+                     サイトマップ・各URLを url から派生(URL一貫性ルール準拠)。
+                   - sitemap_ba_area.xml の「葉(leaf)」エリア一覧(市区町村粒度)
+                     のみを巡回起点に採用。各エリアのページ送りはその総件数を
+                     完全に網羅する(例: 新宿区=14,842件=400ページ)ため、
+                     全エリアの和集合で全国の全求人を取りこぼさず収集できる。
+                   - 重複排除キーを「企業」から「求人(求人詳細URL)」へ変更。
+                     1求人=1行で出力し、約300万件の想定規模に一致させる。
 ---------------------------------------------------------------------------
 """
 
@@ -12,6 +21,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Generator
+from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -22,18 +32,18 @@ if str(_project_root) not in sys.path:
 from src.framework.dynamic import DynamicCrawler
 from src.const.schema import Schema
 
-BASE_URL = "https://www.baitoru.com"
+# 正規ルートURL（sites.yml 登録値）。コンテナ実行・テスト実行ともに parse() へ
+# この URL が渡される。__main__ の execute() にも必ずこの文字列を渡すこと。
+ROOT_URL = "https://baitoru.com/search/list/"
 
-# 地域別求人一覧の探索元サイトマップ
-AREA_SITEMAP = f"{BASE_URL}/sitemap_ba_area.xml"
-
-# サイトマップ取得に失敗した場合のフォールバック（地域トップを丸ごと巡回）
+# サイトマップ取得に失敗した場合のフォールバック（地域トップを丸ごと巡回）。
 REGIONS = [
     "kanto", "tohoku", "tokai", "kansai",
     "koshinetsu", "chushikoku", "kyushu",
 ]
 
-# 1都道府県あたりの巡回上限ページ数（暴走防止のセーフティ）
+# 1エリアあたりの巡回上限ページ数（暴走防止のセーフティ）。
+# 市区町村粒度では最大でも数百ページ（新宿区=400ページ）に収まる。
 MAX_PAGES = 1000
 
 # 都道府県スラッグ → 日本語名（住所から取れない場合のデフォルト用）。
@@ -56,8 +66,9 @@ PREF_JA = {
 
 # 求人詳細ページのURL（…/job123456/）にマッチ。応募フォーム(/entry/)は除外する。
 _JOB_DETAIL_RE = re.compile(r"/job\d+/?$")
-# 地域別求人一覧の都道府県トップ（…/{region}/jlist/{pref}/）を抽出する
-_PREF_LIST_RE = re.compile(r"https://www\.baitoru\.com/([a-z]+)/jlist/([a-z0-9]+)/")
+# 地域別求人一覧エリアURL（…/{region}/jlist/{pref}/…/）を抽出する。
+# 末尾が job\d は求人詳細なので、後段で別途除外する。
+_AREA_LIST_RE = re.compile(r"https?://[^/]+/[a-z]+/jlist/[a-z0-9/]+/")
 
 
 def _clean(s) -> str:
@@ -66,113 +77,118 @@ def _clean(s) -> str:
     return re.sub(r"\s+", " ", str(s)).strip()
 
 
-def _abs_url(href: str) -> str:
-    href = (href or "").strip()
-    if not href:
-        return ""
-    return href if href.startswith("http") else BASE_URL + href
+def _norm_area(u: str) -> str:
+    """エリア一覧URLを正規化（フラグメント/クエリ除去・末尾スラッシュ付与）。"""
+    u = (u or "").split("#")[0].split("?")[0].strip()
+    if u and not u.endswith("/"):
+        u += "/"
+    return u
 
 
 class BaitoruScraper(DynamicCrawler):
-    """バイトル 求人企業情報スクレイパー（baitoru.com）
+    """バイトル 全国求人スクレイパー（baitoru.com）
 
-    地域別求人一覧(/{region}/jlist/{pref}/)をサイトマップから自動探索し、
-    全ページをページネーション巡回。各求人詳細から企業情報を抽出し、
-    企業ページ(/cjlist:id/)を重複排除キーにして全掲載企業を収集する。
+    sitemap_ba_area.xml から市区町村粒度の「葉」エリア一覧を自動探索し、
+    各エリアを全ページ巡回。各求人詳細から企業情報を抽出し、求人詳細URLを
+    重複排除キーにして全国の全求人（約300万件想定）を取りこぼさず収集する。
     """
 
     DELAY = 1.0
     EXTRA_COLUMNS = ["業種", "代表者", "採用人数"]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        seen_companies: set[str] = set()   # 収集済み企業URL（/cjlist:id/）
-        seen_jobs: set[str] = set()        # 訪問済み求人詳細URL
+        # URL一貫性ルール: 引数 url を唯一のルートとし、配信元を派生させる。
+        self.root = url
+        parsed = urlparse(url)
+        self.origin = f"{parsed.scheme}://{parsed.netloc}"
 
-        pref_lists = self._discover_pref_lists()
-        self.logger.info("巡回対象の都道府県一覧: %d件", len(pref_lists))
+        seen_jobs: set[str] = set()  # 訪問済み求人詳細URL（重複排除キー）
 
-        for base in pref_lists:
+        area_lists = self._discover_area_lists()
+        self.logger.info("巡回対象の葉エリア一覧: %d件", len(area_lists))
+
+        for base in area_lists:
             slug = self._pref_slug(base)
             pref_ja = PREF_JA.get(slug, "")
             self.logger.info("一覧巡回: %s (%s)", base, pref_ja or slug)
-            yield from self._scrape_list(base, pref_ja, seen_companies, seen_jobs)
+            yield from self._scrape_list(base, pref_ja, seen_jobs)
 
-        self.logger.info("収集企業数: %d社", len(seen_companies))
+        self.logger.info("収集求人数: %d件", len(seen_jobs))
 
     # ------------------------------------------------------------------ #
     # 巡回対象URLの探索
     # ------------------------------------------------------------------ #
-    def _discover_pref_lists(self) -> list[str]:
-        """サイトマップから都道府県別一覧URL(/{region}/jlist/{pref}/)を取得。
+    def _discover_area_lists(self) -> list[str]:
+        """サイトマップから市区町村粒度の「葉」エリア一覧URLを取得する。
+
+        sitemap_ba_area.xml には地域>都道府県>市区町村 の各階層URLが含まれる。
+        他URLの接頭辞になっていない（=より深い子を持たない）URL＝葉のみを採用
+        することで、親子の重複巡回を避けつつ全エリアを網羅する。
+        各エリアのページ送りはその総件数を完全にカバーするため、葉エリアの
+        和集合で全国の全求人を取りこぼさない。
 
         取得できなければ地域トップ(/{region}/jlist/)へフォールバックする。
-        いずれも全件をページ送りで巡回するので網羅性は保たれる。
         """
         try:
-            self.page.goto(AREA_SITEMAP, wait_until="domcontentloaded")
+            sitemap = urljoin(self.origin + "/", "sitemap_ba_area.xml")
+            self.page.goto(sitemap, wait_until="domcontentloaded")
             content = self.page.content()
         except Exception as e:  # noqa: BLE001
             self.logger.warning("サイトマップ取得失敗(%s)。地域トップで巡回します。", e)
             content = ""
 
-        bases: list[str] = []
-        seen: set[str] = set()
-        for region, pref in _PREF_LIST_RE.findall(content):
-            base = f"{BASE_URL}/{region}/jlist/{pref}/"
-            if base not in seen:
-                seen.add(base)
-                bases.append(base)
+        locs: set[str] = set()
+        for m in _AREA_LIST_RE.findall(content):
+            u = _norm_area(m)
+            # 求人詳細URL(…/jobNNN/)が紛れ込んだ場合は除外する。
+            if _JOB_DETAIL_RE.search(u):
+                continue
+            locs.add(u)
 
-        if not bases:
-            bases = [f"{BASE_URL}/{r}/jlist/" for r in REGIONS]
-        return bases
+        if not locs:
+            return [urljoin(self.origin + "/", f"{r}/jlist/") for r in REGIONS]
+
+        # 葉抽出: 他のどのURLの真の接頭辞にもなっていないURLだけを残す。
+        loc_list = sorted(locs)
+        leaves = [
+            u for u in loc_list
+            if not any(o != u and o.startswith(u) for o in loc_list)
+        ]
+        return leaves
 
     @staticmethod
     def _pref_slug(base: str) -> str:
-        parts = [p for p in base.replace(BASE_URL, "").split("/") if p]
-        # ['{region}', 'jlist', '{pref}']
+        parts = [p for p in urlparse(base).path.split("/") if p]
+        # ['{region}', 'jlist', '{pref}', ...]
         return parts[2] if len(parts) >= 3 else ""
 
     # ------------------------------------------------------------------ #
     # 一覧ページのページネーション巡回
     # ------------------------------------------------------------------ #
-    def _scrape_list(self, base: str, pref_ja: str, seen_companies: set,
+    def _scrape_list(self, base: str, pref_ja: str,
                      seen_jobs: set) -> Generator[dict, None, None]:
         page_no = 1
         while page_no <= MAX_PAGES:
-            url = base if page_no == 1 else f"{base}page{page_no}/"
+            list_url = base if page_no == 1 else f"{base}page{page_no}/"
             try:
-                self.page.goto(url, wait_until="domcontentloaded")
-                self.page.wait_for_selector("a[href*='job']", timeout=8000)
+                self.page.goto(list_url, wait_until="domcontentloaded")
+                self.page.wait_for_selector("a[href*='/job']", timeout=8000)
             except Exception:
                 break  # ページ無し or 取得失敗 → このエリアの巡回終了
 
+            page_url = self.page.url
             soup = BeautifulSoup(self.page.content(), "html.parser")
-            cards = soup.select("article") or [soup]
 
             found_new = False
-            for card in cards:
-                job_url = self._card_job_url(card)
-                if not job_url or job_url in seen_jobs:
+            for job_url in self._page_job_urls(soup, page_url):
+                if job_url in seen_jobs:
                     continue
                 seen_jobs.add(job_url)
                 found_new = True
 
-                # カードに企業ページ(/cjlist:id/)リンクがあり収集済みなら詳細を省略
-                cj = card.select_one("a[href*='cjlist']")
-                if cj:
-                    cj_url = _abs_url(cj.get("href", "")).split("#")[0].rstrip("/")
-                    if cj_url in seen_companies:
-                        continue
-
                 item = self._scrape_detail(job_url, pref_ja)
                 if not item or not item.get(Schema.NAME):
                     continue
-
-                company_url = item.get(Schema.URL, job_url)
-                if company_url in seen_companies:
-                    continue
-                seen_companies.add(company_url)
                 yield item
 
             if not found_new:
@@ -180,15 +196,21 @@ class BaitoruScraper(DynamicCrawler):
             page_no += 1
 
     @staticmethod
-    def _card_job_url(card) -> str:
-        """求人カードから求人詳細URL(…/job123456/)を取り出す。"""
-        for a in card.select("a[href*='job']"):
-            href = (a.get("href", "") or "").split("?")[0]
+    def _page_job_urls(soup, page_url: str) -> list[str]:
+        """一覧ページから求人詳細URL(…/jobNNN/)を抽出（ページ内重複排除）。"""
+        urls: list[str] = []
+        seen: set[str] = set()
+        for a in soup.select("a[href*='/job']"):
+            href = (a.get("href", "") or "").split("?")[0].split("#")[0]
             if "/entry/" in href:
                 continue
-            if _JOB_DETAIL_RE.search(href):
-                return _abs_url(href.rstrip("/") + "/")
-        return ""
+            if not _JOB_DETAIL_RE.search(href):
+                continue
+            full = urljoin(page_url, href).rstrip("/") + "/"
+            if full not in seen:
+                seen.add(full)
+                urls.append(full)
+        return urls
 
     # ------------------------------------------------------------------ #
     # 求人詳細ページから企業情報を抽出
@@ -201,17 +223,11 @@ class BaitoruScraper(DynamicCrawler):
             return None
         soup = BeautifulSoup(self.page.content(), "html.parser")
 
+        # 重複排除キー兼出力URLは求人詳細URL（1求人=1行）。
         data = {Schema.URL: url, Schema.PREF: pref_ja}
 
         company_info = soup.find("div", class_="detail-companyInfo")
         if company_info:
-            # 企業ページURL（/cjlist:id/）を取得して重複排除に使う
-            link01 = company_info.find("a", class_="link01")
-            if link01:
-                cj_href = link01.get("href", "").split("#")[0].rstrip("/")
-                if cj_href:
-                    data[Schema.URL] = _abs_url(cj_href)
-
             pt02 = company_info.find("div", class_="pt02")
             if pt02:
                 p = pt02.find("p")
@@ -273,4 +289,5 @@ class BaitoruScraper(DynamicCrawler):
 if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.INFO)
-    BaitoruScraper().execute(BASE_URL)
+    # ローカル実行とコンテナ実行を一致させるため、必ず正規ルートURLを渡す。
+    BaitoruScraper().execute(ROOT_URL)
