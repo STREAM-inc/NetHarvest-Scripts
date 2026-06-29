@@ -3078,3 +3078,10 @@ sites:
     url: "https://www.matsumoto-angel.net/night/"
     schedule: "0 9 1 * *"
     enabled: true
+
+  - site_id: kofu_angel
+    name: "山梨ナイトナビ"
+    module: "nightlife.kofu_angel"
+    url: "https://www.kofu-angel.net/night/"
+    schedule: "0 9 1 * *"
+    enabled: true
