@@ -3183,3 +3183,10 @@ sites:
     url: "https://job.career-tasu.jp/condition-search/result/?keyword="
     schedule: null
     enabled: true
+
+  - site_id: bunnabi
+    name: "ブンナビ(2027)"
+    module: "corporate.bunnabi"
+    url: "https://bunnabi.jp/2027/sh_result.php"
+    schedule: null
+    enabled: true
