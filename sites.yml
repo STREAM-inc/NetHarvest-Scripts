@@ -3246,3 +3246,10 @@ sites:
     url: "https://www.e-sogi.com/"
     schedule: null
     enabled: true
+
+  - site_id: osohshiki
+    name: "小さなお葬式"
+    module: "service.osohshiki"
+    url: "https://www.osohshiki.jp/area/"
+    schedule: null
+    enabled: true
