@@ -3288,3 +3288,10 @@ sites:
     url: "https://crowdworks.jp/public/jobs?ref=public_header"
     schedule: null
     enabled: true
+
+  - site_id: zexy
+    name: "ゼクシィ"
+    module: "service.zexy"
+    url: "https://zexy.net/"
+    schedule: null
+    enabled: true
