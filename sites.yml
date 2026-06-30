@@ -3211,3 +3211,10 @@ sites:
     url: "https://app.mitsu-ri.net/pblc/suppliers?_gl=1*wczuq3*_ga*MTg0MTM0NDU5MS4xNzgyNzg2NDg5*_ga_SQCQZHNTCS*czE3ODI3ODY0ODgkbzEkZzEkdDE3ODI3ODgyMTckajMyJGwwJGgw"
     schedule: null
     enabled: true
+
+  - site_id: town_life
+    name: "タウンライフリフォーム"
+    module: "construction.town_life"
+    url: "https://www.town-life.jp/home/main/chatform.php"
+    schedule: null
+    enabled: true
