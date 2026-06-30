@@ -3218,3 +3218,10 @@ sites:
     url: "https://www.town-life.jp/home/main/chatform.php"
     schedule: null
     enabled: true
+
+  - site_id: lifull_home_s
+    name: "LIFULL HOME'S 注文住宅(ライフルホームズ)"
+    module: "realestate.lifull_home_s"
+    url: "https://www.homes.co.jp/realtor/"
+    schedule: null
+    enabled: true
