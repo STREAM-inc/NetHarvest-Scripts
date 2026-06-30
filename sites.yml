@@ -3274,3 +3274,10 @@ sites:
     url: "https://hana-yume.net/search/hallList/?sg_hs%5Barea%5D=&sg_hs%5Border%5D=&sg_hs%5BsearchKind%5D="
     schedule: null
     enabled: true
+
+  - site_id: eslove
+    name: "エステラブ"
+    module: "nightlife.eslove"
+    url: "https://eslove.jp"
+    schedule: "0 9 7 * *"
+    enabled: true
