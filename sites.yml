@@ -3204,3 +3204,10 @@ sites:
     url: "https://metoree.com/companies/"
     schedule: null
     enabled: true
+
+  - site_id: mitsuri
+    name: "Mitsuri(ミツリ)"
+    module: "factory.mitsuri"
+    url: "https://app.mitsu-ri.net/pblc/suppliers?_gl=1*wczuq3*_ga*MTg0MTM0NDU5MS4xNzgyNzg2NDg5*_ga_SQCQZHNTCS*czE3ODI3ODY0ODgkbzEkZzEkdDE3ODI3ODgyMTckajMyJGwwJGgw"
+    schedule: null
+    enabled: true
