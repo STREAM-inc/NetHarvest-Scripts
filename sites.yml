@@ -3239,3 +3239,10 @@ sites:
     url: "https://relax-job.com/"
     schedule: "0 17 19 * *"
     enabled: true
+
+  - site_id: e_sogi
+    name: "いい葬儀"
+    module: "service.e_sogi"
+    url: "https://www.e-sogi.com/"
+    schedule: null
+    enabled: true
