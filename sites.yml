@@ -3190,3 +3190,10 @@ sites:
     url: "https://bunnabi.jp/2027/sh_result.php"
     schedule: null
     enabled: true
+
+  - site_id: emeao
+    name: "エミーオ(EMEAO)"
+    module: "corporate.emeao"
+    url: "https://emeao.jp/search/"
+    schedule: null
+    enabled: true
