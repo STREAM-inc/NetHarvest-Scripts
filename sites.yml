@@ -3260,3 +3260,10 @@ sites:
     url: "https://www.zeiri4.com/firm/search/?FirmSearchForm%5BPrefecture_id%5D=&FirmSearchForm%5BAutonomy_id%5D="
     schedule: null
     enabled: true
+
+  - site_id: bengo4
+    name: "弁護士ドットコム"
+    module: "service.bengo4"
+    url: "https://www.bengo4.com/search/result/"
+    schedule: null
+    enabled: true
