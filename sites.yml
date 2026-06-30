@@ -3169,3 +3169,10 @@ sites:
     url: "https://www.froma.com/?red=0"
     schedule: "0 9 11 * *"
     enabled: true
+
+  - site_id: 01intern
+    name: "ゼロワンインターン"
+    module: "jobs.01intern"
+    url: "https://01intern.com/job/list.html?areas=999999999&areas=13&areas=14&areas=12&areas=11&areas=27&areas=26&areas=28&areas=8&areas=1&areas=3&areas=4&areas=10&areas=9&areas=19&areas=15&areas=20&areas=16&areas=17&areas=21&areas=22&areas=23&areas=24&areas=25&areas=29&areas=30&areas=32&areas=33&areas=34&areas=35&areas=37&areas=38&areas=39&areas=40&areas=41&areas=42&areas=43&areas=44&areas=46&areas=47&areas=48"
+    schedule: null
+    enabled: true
