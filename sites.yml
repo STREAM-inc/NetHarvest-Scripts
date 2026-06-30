@@ -3225,3 +3225,10 @@ sites:
     url: "https://www.homes.co.jp/realtor/"
     schedule: null
     enabled: true
+
+  - site_id: hikkoshizamurai
+    name: "引越し侍"
+    module: "service.hikkoshizamurai"
+    url: "https://hikkoshizamurai.com/company"
+    schedule: null
+    enabled: true
