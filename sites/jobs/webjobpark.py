@@ -19,6 +19,9 @@ import re
 import sys
 from pathlib import Path
 from typing import Generator
+from urllib.parse import urljoin
+
+import urllib3
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -27,10 +30,12 @@ if str(_project_root) not in sys.path:
 from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
-BASE_URL = "https://webjobpark.kyoto.jp"
-LIST_API = f"{BASE_URL}/rest/kyoto-v1/com/get_list"
-DETAIL_API = f"{BASE_URL}/rest/kyoto-v1/com/get"
-DETAIL_PAGE = f"{BASE_URL}/com/detail/?id={{id}}"
+# sites.yml 登録の正規ルート URL (コンテナ実行・テスト実行ともにこの URL が parse へ渡る)
+ROOT_URL = "https://webjobpark.kyoto.jp/"
+# 企業ID列挙 / 詳細取得の REST エンドポイント (パスは ROOT_URL から派生させる)
+LIST_API_PATH = "rest/kyoto-v1/com/get_list"
+DETAIL_API_PATH = "rest/kyoto-v1/com/get"
+DETAIL_PAGE_PATH = "com/detail/?id={id}"
 PAGE_SIZE = 50
 
 _PREF_PATTERN = re.compile(
@@ -103,13 +108,27 @@ class WebJobParkScraper(StaticCrawler):
         "更新日時",
     ]
 
+    def _setup(self):
+        super()._setup()
+        # webjobpark.kyoto.jp は中間証明書が欠落しており、標準の検証では
+        # CERTIFICATE_VERIFY_FAILED となる。検証を無効化しないと全 POST が
+        # 例外で握りつぶされ list_data=None → 即 break → 0 件になる。
+        self.session.verify = False
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
     def parse(self, url: str) -> Generator[dict, None, None]:
+        # 引数 url を唯一のルートとし、各エンドポイントを派生させる
+        root = url if url.endswith("/") else url + "/"
+        list_api = urljoin(root, LIST_API_PATH)
+        self._detail_api = urljoin(root, DETAIL_API_PATH)
+        self._detail_page = urljoin(root, DETAIL_PAGE_PATH)
+
         seen_ids: set[int] = set()
         page = 1
 
         while True:
             list_data = self._post_json(
-                LIST_API,
+                list_api,
                 {"page_per_count": PAGE_SIZE, "current_page": page},
             )
             if not list_data:
@@ -170,7 +189,7 @@ class WebJobParkScraper(StaticCrawler):
             return None
 
     def _fetch_detail(self, com_id: int) -> dict | None:
-        data = self._post_json(DETAIL_API, {"id": com_id})
+        data = self._post_json(self._detail_api, {"id": com_id})
         if not data:
             return None
         result = data.get("result") or []
@@ -192,7 +211,7 @@ class WebJobParkScraper(StaticCrawler):
         return {
             Schema.NAME: _clean(d.get("company_name")),
             Schema.NAME_KANA: _clean(d.get("company_name_kana")),
-            Schema.URL: DETAIL_PAGE.format(id=com_id),
+            Schema.URL: self._detail_page.format(id=com_id),
             Schema.PREF: pref,
             Schema.POST_CODE: _clean(d.get("head_office_zip")),
             Schema.ADDR: addr,
@@ -236,7 +255,7 @@ if __name__ == "__main__":
     )
 
     scraper = WebJobParkScraper()
-    scraper.execute(BASE_URL)
+    scraper.execute(ROOT_URL)
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
     print(f"取得件数: {scraper.item_count}")
