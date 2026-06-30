@@ -3229,6 +3229,6 @@ sites:
   - site_id: hikkoshizamurai
     name: "引越し侍"
     module: "service.hikkoshizamurai"
-    url: "https://hikkoshizamurai.com/company"
+    url: "https://hikkoshizamurai.jp/company/"
     schedule: null
     enabled: true
