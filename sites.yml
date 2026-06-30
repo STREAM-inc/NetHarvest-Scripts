@@ -3197,3 +3197,10 @@ sites:
     url: "https://emeao.jp/search/"
     schedule: null
     enabled: true
+
+  - site_id: metoree
+    name: "Metoree（メトリー）"
+    module: "corporate.metoree"
+    url: "https://metoree.com/companies/"
+    schedule: null
+    enabled: true
