@@ -3267,3 +3267,10 @@ sites:
     url: "https://www.bengo4.com/search/result/"
     schedule: null
     enabled: true
+
+  - site_id: hanayume
+    name: "HANAYUME(ハナユメ)"
+    module: "service.hanayume"
+    url: "https://hana-yume.net/search/hallList/?sg_hs%5Barea%5D=&sg_hs%5Border%5D=&sg_hs%5BsearchKind%5D="
+    schedule: null
+    enabled: true
