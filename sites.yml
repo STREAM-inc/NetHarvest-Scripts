@@ -3295,3 +3295,10 @@ sites:
     url: "https://zexy.net/"
     schedule: null
     enabled: true
+
+  - site_id: baitoru_5
+    name: "バイトル関西"
+    module: "jobs.baitoru_5"
+    url: "https://www.baitoru.com/kansai/jlist/"
+    schedule: "0 9 * * 1"
+    enabled: true
