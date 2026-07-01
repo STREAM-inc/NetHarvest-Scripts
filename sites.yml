@@ -3302,3 +3302,10 @@ sites:
     url: "https://www.baitoru.com/kansai/jlist/"
     schedule: "0 9 * * 1"
     enabled: true
+
+  - site_id: sumitec_kanto_2
+    name: "リンクスアシスト"
+    module: "construction.sumitec_kanto_2"
+    url: "https://sumitec-kanto.com/page/1?s"
+    schedule: "0 9 * * 1"
+    enabled: true
