@@ -208,3 +208,9 @@ __marimo__/
 
 # ignore .cursor file
 .cursor/
+
+# Whitelist: only track sites/ and sites.yml
+/*
+!/.gitignore
+!/sites/
+!/sites.yml
