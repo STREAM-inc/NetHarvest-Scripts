@@ -96,6 +96,8 @@ class Zeiri4(StaticCrawler):
         while True:
             list_url = f"{url}&page={page}"
             soup = self.get_soup(list_url)
+            if soup is None:  # 取得失敗 (WAF/タイムアウト等) は末尾扱いで停止
+                break
             panels = soup.select("li.b-firmlistPanel")
             if not panels:
                 break
@@ -118,6 +120,8 @@ class Zeiri4(StaticCrawler):
 
     def _scrape_detail(self, url: str, name: str) -> dict | None:
         soup = self.get_soup(url)
+        if soup is None:  # 詳細取得失敗時は最低限 名前・URL のみ返す
+            return {Schema.NAME: name, Schema.URL: url}
 
         # プロフィール dl からラベル→値を先勝ちで収集
         fields: dict[str, str] = {}
