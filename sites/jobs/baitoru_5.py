@@ -10,6 +10,12 @@ ver 1.0.0 20260701 新規作成（バイトル関西）。
                      ページ送りはその総件数を完全にカバーするため、関西の全求人を
                      取りこぼさず収集できる。
                    - 重複排除キーは求人詳細URL（1求人=1行）。
+ver 1.1.0 20260701 「工場だけ」に絞り込み（追加指示）。
+                   - クロール対象を工場(production)カテゴリのみへ限定。
+                   - parse() 引数 url（=…/kansai/jlist/）を唯一のルートとし、そこから
+                     工場一覧 …/kansai/jlist/production/ を urljoin で派生させて起点
+                     とする（URL一貫性ルール準拠：ルートURL自体は変更しない）。
+                   - 工場一覧をページ送りで全ページ巡回し、関西の工場求人を網羅収集。
 ---------------------------------------------------------------------------
 """
 
@@ -28,20 +34,14 @@ if str(_project_root) not in sys.path:
 from src.framework.dynamic import DynamicCrawler
 from src.const.schema import Schema
 
-# 1エリアあたりの巡回上限ページ数（暴走防止のセーフティ）。
+# 巡回上限ページ数（暴走防止のセーフティ）。
 MAX_PAGES = 1000
 
-# 都道府県スラッグ → 日本語名（住所から取れない場合のデフォルト用）。
-# バイトルのURLスラッグは標準ローマ字と一部異なるため別名も登録する。
-PREF_JA = {
-    "osaka": "大阪府", "hyogo": "兵庫県", "kyoto": "京都府", "shiga": "滋賀県",
-    "nara": "奈良県", "wakayama": "和歌山県", "mie": "三重県",
-}
+# 工場(production)カテゴリのスラッグ。url 配下に付与して工場一覧を派生させる。
+PRODUCTION_SLUG = "production"
 
 # 求人詳細ページのURL（…/job123456/）にマッチ。応募フォーム(/entry/)は除外する。
 _JOB_DETAIL_RE = re.compile(r"/job\d+/?$")
-# 地域別求人一覧エリアURL（…/{region}/jlist/{pref}/…/）を抽出する。
-_AREA_LIST_RE = re.compile(r"https?://[^/]+/[a-z]+/jlist/[a-z0-9/]+/")
 
 
 def _clean(s) -> str:
@@ -59,11 +59,12 @@ def _norm_area(u: str) -> str:
 
 
 class Baitoru5Scraper(DynamicCrawler):
-    """バイトル関西 求人スクレイパー（baitoru.com /kansai/jlist/）
+    """バイトル関西 工場求人スクレイパー（baitoru.com /kansai/jlist/production/）
 
-    引数 url の地域(kansai)配下の市区町村粒度エリアを sitemap_ba_area.xml から
-    自動探索し、各エリアを全ページ巡回。各求人詳細から企業情報を抽出し、
-    求人詳細URLを重複排除キーにして関西の全求人を取りこぼさず収集する。
+    引数 url（=…/kansai/jlist/）を唯一のルートとし、そこから工場(production)
+    カテゴリの一覧 …/kansai/jlist/production/ を派生させて全ページ巡回する。
+    各求人詳細から企業情報を抽出し、求人詳細URLを重複排除キーにして関西の
+    工場求人を取りこぼさず収集する。
     """
 
     DELAY = 1.0
@@ -71,72 +72,19 @@ class Baitoru5Scraper(DynamicCrawler):
     EXTRA_COLUMNS = ["求人タイトル", "派遣許可番号", "有料職業紹介事業許可番号"]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        # URL一貫性ルール: 引数 url を唯一のルートとし、配信元・地域を派生させる。
+        # URL一貫性ルール: 引数 url を唯一のルートとし、配信元・工場一覧を派生させる。
         self.root = _norm_area(url)
         parsed = urlparse(self.root)
         self.origin = f"{parsed.scheme}://{parsed.netloc}"
 
+        # 工場だけが対象: ルート配下に production/ を付与して工場一覧を起点にする。
+        production_list = _norm_area(urljoin(self.root, f"{PRODUCTION_SLUG}/"))
+        self.logger.info("工場求人一覧を巡回: %s", production_list)
+
         seen_jobs: set[str] = set()  # 訪問済み求人詳細URL（重複排除キー）
-
-        area_lists = self._discover_area_lists()
-        self.logger.info("巡回対象の関西エリア一覧: %d件", len(area_lists))
-
-        for base in area_lists:
-            slug = self._pref_slug(base)
-            pref_ja = PREF_JA.get(slug, "")
-            self.logger.info("一覧巡回: %s (%s)", base, pref_ja or slug)
-            yield from self._scrape_list(base, pref_ja, seen_jobs)
+        yield from self._scrape_list(production_list, "", seen_jobs)
 
         self.logger.info("収集求人数: %d件", len(seen_jobs))
-
-    # ------------------------------------------------------------------ #
-    # 巡回対象URLの探索（引数 url の地域配下に限定）
-    # ------------------------------------------------------------------ #
-    def _discover_area_lists(self) -> list[str]:
-        """サイトマップから、引数 url 配下の「葉」エリア一覧URLを取得する。
-
-        sitemap_ba_area.xml には全国の地域>都道府県>市区町村 の各階層URLが
-        含まれる。ここでは引数 url（=関西トップ）を接頭辞に持つURLだけに絞り、
-        さらに他URLの接頭辞になっていない（=より深い子を持たない）葉のみを採用
-        することで、関西エリアを親子重複なく網羅する。
-
-        取得できなければ引数 url そのものを巡回起点にフォールバックする。
-        """
-        try:
-            sitemap = urljoin(self.origin + "/", "sitemap_ba_area.xml")
-            self.page.goto(sitemap, wait_until="domcontentloaded")
-            content = self.page.content()
-        except Exception as e:  # noqa: BLE001
-            self.logger.warning("サイトマップ取得失敗(%s)。url を直接巡回します。", e)
-            content = ""
-
-        locs: set[str] = set()
-        for m in _AREA_LIST_RE.findall(content):
-            u = _norm_area(m)
-            # 求人詳細URL(…/jobNNN/)が紛れ込んだ場合は除外する。
-            if _JOB_DETAIL_RE.search(u):
-                continue
-            # 引数 url（関西トップ）配下のエリアだけに限定する。
-            if not u.startswith(self.root):
-                continue
-            locs.add(u)
-
-        if not locs:
-            return [self.root]
-
-        # 葉抽出: 他のどのURLの真の接頭辞にもなっていないURLだけを残す。
-        loc_list = sorted(locs)
-        leaves = [
-            u for u in loc_list
-            if not any(o != u and o.startswith(u) for o in loc_list)
-        ]
-        return leaves
-
-    @staticmethod
-    def _pref_slug(base: str) -> str:
-        parts = [p for p in urlparse(base).path.split("/") if p]
-        # ['{region}', 'jlist', '{pref}', ...]
-        return parts[2] if len(parts) >= 3 else ""
 
     # ------------------------------------------------------------------ #
     # 一覧ページのページネーション巡回

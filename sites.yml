@@ -3297,7 +3297,7 @@ sites:
     enabled: true
 
   - site_id: baitoru_5
-    name: "バイトル関西"
+    name: "バイトル関西_工場"
     module: "jobs.baitoru_5"
     url: "https://www.baitoru.com/kansai/jlist/"
     schedule: "0 9 * * 1"
