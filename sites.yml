@@ -3323,3 +3323,10 @@ sites:
     url: "https://hapisumu.jp/"
     schedule: "0 20 13 * *"
     enabled: true
+
+  - site_id: gaiheki_madoguchi
+    name: "外壁塗装の窓口"
+    module: "construction.gaiheki_madoguchi"
+    url: "https://gaiheki-madoguchi.com/"
+    schedule: null
+    enabled: true
