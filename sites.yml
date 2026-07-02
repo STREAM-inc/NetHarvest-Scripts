@@ -3310,6 +3310,13 @@ sites:
     schedule: "0 9 * * 1"
     enabled: true
 
+  - site_id: ciic
+    name: "CIIC"
+    module: "government.ciic"
+    url: "https://www.ciic.or.jp/"
+    schedule: "0 9 24 * 0"
+    enabled: true
+
   - site_id: hapisumu
     name: "ハピすむ（リフォーム加盟店）"
     module: "construction.hapisumu"
