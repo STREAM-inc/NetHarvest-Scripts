@@ -3309,3 +3309,10 @@ sites:
     url: "https://sumitec-kanto.com/page/1?s"
     schedule: "0 9 * * 1"
     enabled: true
+
+  - site_id: hapisumu
+    name: "ハピすむ（リフォーム加盟店）"
+    module: "construction.hapisumu"
+    url: "https://hapisumu.jp/"
+    schedule: "0 20 13 * *"
+    enabled: true
