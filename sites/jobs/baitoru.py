@@ -14,6 +14,16 @@ ver 1.3.0 20260629 全国全求人(約300万件)網羅対応。
                      全エリアの和集合で全国の全求人を取りこぼさず収集できる。
                    - 重複排除キーを「企業」から「求人(求人詳細URL)」へ変更。
                      1求人=1行で出力し、約300万件の想定規模に一致させる。
+ver 1.4.0 20260702 各地区の2ページ目以降が取得できない不具合を修正。
+                   - 原因: ページ送りの継続判定に「新規求人の有無(found_new)」を
+                     使っていたが、seen_jobs はエリア横断で共有されるため、後続
+                     エリアの1ページ目が既取得求人と重複すると found_new=False と
+                     なり 2ページ目へ進む前に巡回が打ち切られていた。
+                   - 対処: ページ送りの継続はページ自体の有効性で判定する。
+                     範囲外ページは HTTP 404 を返す(実測)ので、goto の応答
+                     ステータスと求人リンクの有無で最終ページ超えを検出し、
+                     それ以外は最大ページまで無条件に page{N}/ を辿る。
+                     seen_jobs は出力の重複排除にのみ使用する。
 ---------------------------------------------------------------------------
 """
 
@@ -167,32 +177,47 @@ class BaitoruScraper(DynamicCrawler):
     # ------------------------------------------------------------------ #
     def _scrape_list(self, base: str, pref_ja: str,
                      seen_jobs: set) -> Generator[dict, None, None]:
+        # ページ送りの継続はページ自体の有効性で判定する（新規求人の有無では
+        # 判定しない）。範囲外ページ(最終ページ超え)はバイトルが HTTP 404 を
+        # 返すため、goto の応答ステータスと求人リンクの有無で終端を検出し、
+        # それ以外は最大ページまで無条件に page{N}/ を辿る。seen_jobs は
+        # エリア横断で共有され、重複求人の「出力」抑止にのみ用いる。
         page_no = 1
         while page_no <= MAX_PAGES:
             list_url = base if page_no == 1 else f"{base}page{page_no}/"
             try:
-                self.page.goto(list_url, wait_until="domcontentloaded")
+                resp = self.page.goto(list_url, wait_until="domcontentloaded")
+            except Exception:
+                break  # 取得失敗 → このエリアの巡回終了
+
+            # 範囲外ページ(最終ページ超え)は 404。8秒待たず即終了する。
+            if resp is not None and resp.status >= 400:
+                break
+
+            try:
                 self.page.wait_for_selector("a[href*='/job']", timeout=8000)
             except Exception:
-                break  # ページ無し or 取得失敗 → このエリアの巡回終了
+                break  # 求人リンクが無い＝実質的に最終ページ超え
 
             page_url = self.page.url
             soup = BeautifulSoup(self.page.content(), "html.parser")
 
-            found_new = False
-            for job_url in self._page_job_urls(soup, page_url):
+            job_urls = self._page_job_urls(soup, page_url)
+            if not job_urls:
+                break  # このページに求人が無い → 巡回終了
+
+            for job_url in job_urls:
                 if job_url in seen_jobs:
-                    continue
+                    continue  # 別エリアで取得済みの求人は出力しない（重複排除）
                 seen_jobs.add(job_url)
-                found_new = True
 
                 item = self._scrape_detail(job_url, pref_ja)
                 if not item or not item.get(Schema.NAME):
                     continue
                 yield item
 
-            if not found_new:
-                break  # 新規求人が無い（最終ページを越えた等）→ 終了
+            # ページ内の求人が全て既取得(seen_jobs)でも、次ページは無条件に辿る。
+            # ここで打ち切ると重複エリアで2ページ目以降が取得できなくなる。
             page_no += 1
 
     @staticmethod
