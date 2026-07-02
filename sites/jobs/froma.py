@@ -57,7 +57,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Generator
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlencode
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -147,7 +147,12 @@ class FromaScraper(StaticCrawler):
                            seen: set) -> Generator[dict, None, None]:
         cursor = None
         for _ in range(MAX_PAGES):
-            page_url = list_url if cursor is None else f"{list_url}?cursor={cursor}"
+            # カーソルには + / = % 等が含まれるため必ず URL エンコードする。
+            # 生のまま ?cursor= に埋め込むと froma は HTTP 400 を返し、get_soup が
+            # None を返して1ページ目 (先頭100件) だけで打ち切られる (=各地区の
+            # 2ページ目以降が丸ごと欠落する) ため、urlencode で確実に符号化する。
+            page_url = (list_url if cursor is None
+                        else f"{list_url}?{urlencode({'cursor': cursor})}")
             data = self._get_page_data(page_url)
             if not data:
                 break
