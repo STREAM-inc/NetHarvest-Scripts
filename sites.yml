@@ -3309,3 +3309,10 @@ sites:
     url: "https://sumitec-kanto.com/page/1?s"
     schedule: "0 9 * * 1"
     enabled: true
+
+  - site_id: ciic
+    name: "CIIC"
+    module: "government.ciic"
+    url: "https://www.ciic.or.jp/"
+    schedule: "0 9 24 * 0"
+    enabled: true
