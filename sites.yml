@@ -3337,3 +3337,10 @@ sites:
     url: "https://www.lancers.jp/"
     schedule: null
     enabled: true
+
+  - site_id: jfnet
+    name: "日本フードサービス協会"
+    module: "corporate.jfnet"
+    url: "https://www.jfnet.or.jp/"
+    schedule: null
+    enabled: true
