@@ -3330,3 +3330,10 @@ sites:
     url: "https://gaiheki-madoguchi.com/"
     schedule: null
     enabled: true
+
+  - site_id: lancers
+    name: "サンラーズ"
+    module: "service.lancers"
+    url: "https://www.lancers.jp/"
+    schedule: null
+    enabled: true
