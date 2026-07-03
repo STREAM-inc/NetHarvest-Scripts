@@ -12,15 +12,27 @@ ver 1.0.0 20260701 新規作成（バイトル関西）。
                    - 重複排除キーは求人詳細URL（1求人=1行）。
 ver 1.1.0 20260701 「工場だけ」に絞り込み（追加指示）。
                    - クロール対象を工場(production)カテゴリのみへ限定。
-                   - parse() 引数 url（=…/kansai/jlist/）を唯一のルートとし、そこから
-                     工場一覧 …/kansai/jlist/production/ を urljoin で派生させて起点
-                     とする（URL一貫性ルール準拠：ルートURL自体は変更しない）。
-                   - 工場一覧をページ送りで全ページ巡回し、関西の工場求人を網羅収集。
+ver 1.2.0 20260703 取りこぼし修正（追加指示：234,929件あるはずが約6,046件しか
+                   取れていない）。
+                   - 【真因】baitoru はどの一覧でもページ送りが page400 で頭打ち
+                     （約20件/頁＝1リストあたり最大約8,000件しか到達不可）。旧版は
+                     単一の一覧をそのままページ送りしていたため、総数の大部分に
+                     到達できず約6,000件で頭打ちになっていた（「最初のページ付近
+                     でしか取れない」の正体はこのページ送り上限）。
+                   - 【方針】関西全域（=引数 url の /kansai/jlist/ 全カテゴリ、
+                     総数234,929件）を対象に戻し、工場(production)限定を解除。
+                   - sitemap_ba_area.xml の「葉(leaf)」エリア（市区町村・区の最深
+                     粒度）へ分割し、各エリアを個別にページ送りで巡回。各葉エリアは
+                     概ね8,000件未満に収まるため page400 上限に阻まれず全件到達できる。
+                   - サイトマップURL・エリアURL・ページURLはすべて引数 url から派生
+                     （URL一貫性ルール準拠：ルートURL自体は変更しない）。
+                   - 重複排除キーは求人詳細URL（1求人=1行）。
 ---------------------------------------------------------------------------
 """
 
 import re
 import sys
+import urllib.request
 from pathlib import Path
 from typing import Generator
 from urllib.parse import urljoin, urlparse
@@ -34,11 +46,12 @@ if str(_project_root) not in sys.path:
 from src.framework.dynamic import DynamicCrawler
 from src.const.schema import Schema
 
-# 巡回上限ページ数（暴走防止のセーフティ）。
-MAX_PAGES = 1000
+# 巡回上限ページ数。baitoru はどの一覧でもページ送りが page400 で頭打ちになる
+# （それ以降は表示されない）ため、1エリアあたりの上限を実サイトの上限に合わせる。
+MAX_PAGES = 400
 
-# 工場(production)カテゴリのスラッグ。url 配下に付与して工場一覧を派生させる。
-PRODUCTION_SLUG = "production"
+# エリア一覧サイトマップのファイル名。origin 配下に付与して取得する。
+AREA_SITEMAP = "sitemap_ba_area.xml"
 
 # 求人詳細ページのURL（…/job123456/）にマッチ。応募フォーム(/entry/)は除外する。
 _JOB_DETAIL_RE = re.compile(r"/job\d+/?$")
@@ -59,12 +72,14 @@ def _norm_area(u: str) -> str:
 
 
 class Baitoru5Scraper(DynamicCrawler):
-    """バイトル関西 工場求人スクレイパー（baitoru.com /kansai/jlist/production/）
+    """バイトル関西 求人スクレイパー（baitoru.com /kansai/jlist/）
 
-    引数 url（=…/kansai/jlist/）を唯一のルートとし、そこから工場(production)
-    カテゴリの一覧 …/kansai/jlist/production/ を派生させて全ページ巡回する。
-    各求人詳細から企業情報を抽出し、求人詳細URLを重複排除キーにして関西の
-    工場求人を取りこぼさず収集する。
+    引数 url（=…/kansai/jlist/）を唯一のルートとし、sitemap_ba_area.xml から
+    その配下の「葉(leaf)」エリア（市区町村・区の最深粒度）を抽出して、各エリアを
+    個別にページ送りで巡回する。単一一覧をそのまま辿ると baitoru のページ送り
+    上限(page400≒8,000件)に阻まれて総数234,929件の大部分を取りこぼすため、
+    エリア分割によって各リストを上限内に収め、関西全域を網羅収集する。
+    各求人詳細から企業情報を抽出し、求人詳細URLを重複排除キー(1求人=1行)にする。
     """
 
     DELAY = 1.0
@@ -72,19 +87,76 @@ class Baitoru5Scraper(DynamicCrawler):
     EXTRA_COLUMNS = ["求人タイトル", "派遣許可番号", "有料職業紹介事業許可番号"]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        # URL一貫性ルール: 引数 url を唯一のルートとし、配信元・工場一覧を派生させる。
+        # URL一貫性ルール: 引数 url を唯一のルートとし、配信元・サイトマップ・
+        # 各エリア/ページURLをすべて url から派生させる（ルートURL自体は変えない）。
         self.root = _norm_area(url)
         parsed = urlparse(self.root)
         self.origin = f"{parsed.scheme}://{parsed.netloc}"
+        # ルートのパス接頭辞（例: /kansai/jlist/）。この配下のエリアのみ巡回対象。
+        self.region_prefix = parsed.path if parsed.path.endswith("/") else parsed.path + "/"
 
-        # 工場だけが対象: ルート配下に production/ を付与して工場一覧を起点にする。
-        production_list = _norm_area(urljoin(self.root, f"{PRODUCTION_SLUG}/"))
-        self.logger.info("工場求人一覧を巡回: %s", production_list)
+        seen_jobs: set[str] = set()  # 訪問済み求人詳細URL（重複排除キー・1求人=1行）
 
-        seen_jobs: set[str] = set()  # 訪問済み求人詳細URL（重複排除キー）
-        yield from self._scrape_list(production_list, "", seen_jobs)
+        # ── 取りこぼし対策 ──────────────────────────────────────────────
+        # baitoru はどの一覧でもページ送りが page400 で頭打ち（約20件/頁≒8,000件）。
+        # 単一の /kansai/jlist/ を素直に辿っても総数234,929件のうち約8,000件しか
+        # 到達できない（旧版が約6,000件で止まっていた真因）。そこで
+        # sitemap_ba_area.xml の「葉(leaf)」エリアへ分割し、各エリアを個別に巡回する。
+        leaf_areas = self._fetch_leaf_areas()
+        if leaf_areas:
+            self.logger.info("巡回対象の葉エリア数: %d件（root=%s）", len(leaf_areas), self.root)
+            for area in leaf_areas:
+                self.logger.info("エリア巡回開始: %s", area)
+                yield from self._scrape_list(area, "", seen_jobs)
+        else:
+            # サイトマップ取得失敗時のフォールバック（少なくとも先頭～page400は巡回）。
+            self.logger.warning("サイトマップ取得に失敗。ルート一覧のみ巡回します: %s", self.root)
+            yield from self._scrape_list(self.root, "", seen_jobs)
 
         self.logger.info("収集求人数: %d件", len(seen_jobs))
+
+    # ------------------------------------------------------------------ #
+    # サイトマップから「葉(leaf)」エリア一覧を取得
+    # ------------------------------------------------------------------ #
+    def _fetch_leaf_areas(self) -> list[str]:
+        """sitemap_ba_area.xml を取得し、root 配下(region_prefix)の最深エリアを返す。
+
+        あるエリアURLが別のエリアURLの接頭辞になっている場合（例: 市 ⊃ 区）、
+        その親エリアは非葉とみなして除外する。残った最深粒度のエリアだけを巡回
+        起点にすることで、各エリアの件数が page400 上限内に収まり全件へ到達できる。
+        エリアURL・サイトマップURLはいずれも引数 url 由来の origin から派生させる。
+        """
+        sitemap_url = urljoin(self.origin + "/", AREA_SITEMAP)
+        try:
+            req = urllib.request.Request(
+                sitemap_url, headers={"User-Agent": self.USER_AGENT}
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                xml = resp.read().decode("utf-8", errors="ignore")
+        except Exception as e:
+            self.logger.warning("サイトマップ取得失敗: %s — %s", sitemap_url, e)
+            return []
+
+        # <loc> を名前空間非依存で抽出し、root 配下（region_prefix より深い）だけに絞る。
+        host = urlparse(self.origin).netloc
+        areas: set[str] = set()
+        for loc in re.findall(r"<loc>\s*(.*?)\s*</loc>", xml, flags=re.IGNORECASE | re.DOTALL):
+            loc = _norm_area(loc)
+            p = urlparse(loc)
+            if p.netloc and p.netloc != host:
+                continue
+            path = p.path if p.path.endswith("/") else p.path + "/"
+            if path.startswith(self.region_prefix) and path != self.region_prefix:
+                areas.add(f"{self.origin}{path}")
+
+        if not areas:
+            return []
+
+        # 葉判定: 自分を接頭辞に持つ別エリアが存在しないものが葉（末尾スラッシュ付き
+        # のため、兄弟スラッグ同士の誤検知は起きない）。
+        leaves = [a for a in areas
+                  if not any(b != a and b.startswith(a) for b in areas)]
+        return sorted(leaves)
 
     # ------------------------------------------------------------------ #
     # 一覧ページのページネーション巡回
