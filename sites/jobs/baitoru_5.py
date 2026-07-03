@@ -35,6 +35,24 @@ ver 1.3.0 20260703 求人明細カラムの追加取得（追加指示）。
                    - basicInfo が見つからない場合はページ全体の dl をフォールバック
                      対象にする（構造差異への耐性）。
                    - URL一貫性・エリア分割巡回・重複排除方針は 1.2.0 のまま。
+ver 1.4.0 20260703 フリーワード「工場」で絞り込み（追加指示：フリーワードに
+                   「工場」を入れると 14,856件ヒットする、このぶんだけ取得したい）。
+                   - baitoru のフリーワード検索はクエリ(?fw= 等)ではなくパス
+                     セグメント「wrd<キーワード>/」で表現される（検索フォーム→
+                     /noscreen/createurl/ が生成する正規URLで確認）。例:
+                     /kansai/jlist/wrd工場/ = 14,856件。
+                   - このセグメントは市区町村エリアのパスにも合成でき
+                     （例 /kansai/jlist/osaka/osakashi/wrd工場/ = 1,951件）、
+                     page送りは /…/wrd工場/pageN/ で辿れる。
+                   - 【page400 上限対策の維持】単一の /kansai/jlist/wrd工場/ を
+                     20件/頁で辿ると約743頁必要だが baitoru は page400 で頭打ち
+                     （≒8,000件）のため約半分を取りこぼす。そこで 1.2.0 以来の
+                     葉(leaf)エリア分割巡回はそのまま維持し、各エリアURLに
+                     フリーワードセグメントを付与して巡回する（各エリアは
+                     page400 上限内に収まる）。総和が関西の工場求人 14,856件。
+                   - URL一貫性ルール準拠：ルートURL(/kansai/jlist/)自体は変更せず、
+                     フリーワードURL・エリアURL・ページURLはすべて引数 url から派生。
+                   - 重複排除キーは求人詳細URL（1求人=1行）。
 ---------------------------------------------------------------------------
 """
 
@@ -43,7 +61,7 @@ import sys
 import urllib.request
 from pathlib import Path
 from typing import Generator
-from urllib.parse import urljoin, urlparse
+from urllib.parse import quote, urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -64,6 +82,14 @@ AREA_SITEMAP = "sitemap_ba_area.xml"
 # 求人詳細ページのURL（…/job123456/）にマッチ。応募フォーム(/entry/)は除外する。
 _JOB_DETAIL_RE = re.compile(r"/job\d+/?$")
 
+# 追加指示: フリーワード検索キーワード。baitoru のフリーワードはクエリではなく
+# パスセグメント「wrd<キーワード>/」で表現される（/noscreen/createurl/ が生成する
+# 正規URLで確認済み）。ルートやエリアのURL末尾にこのセグメントを付与すると
+# フリーワード絞り込み一覧になる（例: /kansai/jlist/wrd工場/ = 14,856件）。
+FREEWORD = "工場"
+# URLエンコード済みのフリーワードセグメント（末尾スラッシュ付き）。
+FREEWORD_SEG = "wrd" + quote(FREEWORD) + "/"
+
 
 def _clean(s) -> str:
     if s is None:
@@ -83,10 +109,11 @@ class Baitoru5Scraper(DynamicCrawler):
     """バイトル関西 求人スクレイパー（baitoru.com /kansai/jlist/）
 
     引数 url（=…/kansai/jlist/）を唯一のルートとし、sitemap_ba_area.xml から
-    その配下の「葉(leaf)」エリア（市区町村・区の最深粒度）を抽出して、各エリアを
-    個別にページ送りで巡回する。単一一覧をそのまま辿ると baitoru のページ送り
-    上限(page400≒8,000件)に阻まれて総数234,929件の大部分を取りこぼすため、
-    エリア分割によって各リストを上限内に収め、関西全域を網羅収集する。
+    その配下の「葉(leaf)」エリア（市区町村・区の最深粒度）を抽出して、各エリアに
+    フリーワード「工場」セグメント(wrd工場/)を付与し、個別にページ送りで巡回する。
+    単一の /kansai/jlist/wrd工場/（14,856件）をそのまま辿ると baitoru のページ送り
+    上限(page400≒8,000件)に阻まれて約半分を取りこぼすため、エリア分割によって
+    各リストを上限内に収め、関西の工場求人 14,856件を網羅収集する。
     各求人詳細から企業情報を抽出し、求人詳細URLを重複排除キー(1求人=1行)にする。
     """
 
@@ -114,21 +141,27 @@ class Baitoru5Scraper(DynamicCrawler):
 
         seen_jobs: set[str] = set()  # 訪問済み求人詳細URL（重複排除キー・1求人=1行）
 
-        # ── 取りこぼし対策 ──────────────────────────────────────────────
-        # baitoru はどの一覧でもページ送りが page400 で頭打ち（約20件/頁≒8,000件）。
-        # 単一の /kansai/jlist/ を素直に辿っても総数234,929件のうち約8,000件しか
-        # 到達できない（旧版が約6,000件で止まっていた真因）。そこで
-        # sitemap_ba_area.xml の「葉(leaf)」エリアへ分割し、各エリアを個別に巡回する。
+        # ── フリーワード「工場」絞り込み + 取りこぼし対策 ──────────────────
+        # フリーワード検索はパスセグメント wrd工場/ で表現される。ルート/エリアの
+        # URL末尾に付与すると工場求人だけの一覧になる（/kansai/jlist/wrd工場/=14,856件）。
+        # ただし baitoru はどの一覧でもページ送りが page400 で頭打ち（約20件/頁≒
+        # 8,000件）。14,856件を単一一覧(約743頁)で辿ると約半分を取りこぼすため、
+        # sitemap_ba_area.xml の「葉(leaf)」エリアへ分割し、各エリアに wrd工場/ を
+        # 付与して個別に巡回する（各エリアは page400 上限内に収まる）。
         leaf_areas = self._fetch_leaf_areas()
         if leaf_areas:
-            self.logger.info("巡回対象の葉エリア数: %d件（root=%s）", len(leaf_areas), self.root)
+            self.logger.info("巡回対象の葉エリア数: %d件（root=%s, freeword=%s）",
+                             len(leaf_areas), self.root, FREEWORD)
             for area in leaf_areas:
-                self.logger.info("エリア巡回開始: %s", area)
-                yield from self._scrape_list(area, "", seen_jobs)
+                # エリアURL末尾にフリーワードセグメントを付与（URLは引数 url 由来）。
+                fw_area = _norm_area(area) + FREEWORD_SEG
+                self.logger.info("エリア巡回開始: %s", fw_area)
+                yield from self._scrape_list(fw_area, "", seen_jobs)
         else:
             # サイトマップ取得失敗時のフォールバック（少なくとも先頭～page400は巡回）。
-            self.logger.warning("サイトマップ取得に失敗。ルート一覧のみ巡回します: %s", self.root)
-            yield from self._scrape_list(self.root, "", seen_jobs)
+            fw_root = self.root + FREEWORD_SEG
+            self.logger.warning("サイトマップ取得に失敗。ルートのフリーワード一覧のみ巡回します: %s", fw_root)
+            yield from self._scrape_list(fw_root, "", seen_jobs)
 
         self.logger.info("収集求人数: %d件", len(seen_jobs))
 
