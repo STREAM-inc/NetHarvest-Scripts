@@ -27,6 +27,14 @@ ver 1.2.0 20260703 取りこぼし修正（追加指示：234,929件あるはず
                    - サイトマップURL・エリアURL・ページURLはすべて引数 url から派生
                      （URL一貫性ルール準拠：ルートURL自体は変更しない）。
                    - 重複排除キーは求人詳細URL（1求人=1行）。
+ver 1.3.0 20260703 求人明細カラムの追加取得（追加指示）。
+                   - 会社情報に加え、求人詳細の基本情報セクション
+                     （div.detail-basicInfo）から「職種／給与／勤務時間／勤務地／
+                     仕事内容」を dt/dd 照合で抽出し EXTRA カラムへ格納する。
+                   - 値は dd テキスト。UI用の「もっと見る」等の展開ボタン文言は除去。
+                   - basicInfo が見つからない場合はページ全体の dl をフォールバック
+                     対象にする（構造差異への耐性）。
+                   - URL一貫性・エリア分割巡回・重複排除方針は 1.2.0 のまま。
 ---------------------------------------------------------------------------
 """
 
@@ -83,8 +91,17 @@ class Baitoru5Scraper(DynamicCrawler):
     """
 
     DELAY = 1.0
-    # 構造化された短いラベル/コードのみを EXTRA に採用（自由記述プロースは除外）。
-    EXTRA_COLUMNS = ["求人タイトル", "派遣許可番号", "有料職業紹介事業許可番号"]
+    # 会社情報（Schema.NAME 等）に加え、求人明細の基本情報カラムを EXTRA へ格納する。
+    # 職種/給与/勤務時間/勤務地/仕事内容 は求人ごとの自由記述を含むが、追加指示により
+    # 必要カラムとして取得する。派遣/紹介の許可番号は構造化ラベル。
+    EXTRA_COLUMNS = [
+        "求人タイトル", "職種", "給与", "勤務時間", "勤務地", "仕事内容",
+        "派遣許可番号", "有料職業紹介事業許可番号",
+    ]
+
+    # 求人明細の基本情報セクションから取得するラベル（サイト定義ラベル＝出力カラム名）。
+    # 「勤務時間」を「勤務地」より先に並べ、接頭辞一致の取り違えを防ぐ。
+    _BASIC_LABELS = ["職種", "給与", "勤務時間", "勤務地", "仕事内容"]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         # URL一貫性ルール: 引数 url を唯一のルートとし、配信元・サイトマップ・
@@ -209,6 +226,34 @@ class Baitoru5Scraper(DynamicCrawler):
         return urls
 
     # ------------------------------------------------------------------ #
+    # 求人明細の基本情報（職種/給与/勤務時間/勤務地/仕事内容）を抽出
+    # ------------------------------------------------------------------ #
+    def _extract_job_basics(self, soup, data: dict) -> None:
+        """div.detail-basicInfo の dt/dd から求人明細の基本情報を抽出する。
+
+        ラベル(dt)が _BASIC_LABELS のいずれかで始まる dl を対象に、対応する値(dd)を
+        同名の EXTRA カラムへ格納する。値の「もっと見る」等の展開ボタン文言は除去する。
+        basicInfo が見つからない環境ではページ全体の dl をフォールバック対象にする。
+        文書順で走査するため、外側のセクション dl（例:勤務地）が先に確定し、内側の
+        入れ子 dl（勤務先/最寄駅/住所 等）は既取得キーとして無視される。
+        """
+        scope = soup.select_one("div.detail-basicInfo") or soup
+        for dl in scope.find_all("dl"):
+            dt = dl.find("dt")
+            dd = dl.find("dd")
+            if not dt or not dd:
+                continue
+            label = dt.get_text(strip=True)
+            for key in self._BASIC_LABELS:
+                if key in data:
+                    continue  # 既に取得済み（外側 dl 優先）
+                if label.startswith(key):
+                    val = _clean(dd.get_text(" ").replace("もっと見る", " "))
+                    if val:
+                        data[key] = val
+                    break
+
+    # ------------------------------------------------------------------ #
     # 求人詳細ページから企業情報を抽出
     # ------------------------------------------------------------------ #
     def _scrape_detail(self, url: str, pref_ja: str) -> dict | None:
@@ -226,6 +271,9 @@ class Baitoru5Scraper(DynamicCrawler):
         h1 = soup.select_one("h1")
         if h1:
             data["求人タイトル"] = _clean(h1.get_text())
+
+        # 求人明細の基本情報（職種/給与/勤務時間/勤務地/仕事内容）を抽出。
+        self._extract_job_basics(soup, data)
 
         company_info = soup.find("div", class_="detail-companyInfo")
         if company_info:
