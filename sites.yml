@@ -3344,3 +3344,10 @@ sites:
     url: "https://www.jfnet.or.jp/"
     schedule: null
     enabled: true
+
+  - site_id: soumu_2
+    name: "電気通信事業者 登録・届出一覧"
+    module: "government.soumu_2"
+    url: "https://www.soumu.go.jp/johotsusintokei/field/tsuushin04.html"
+    schedule: null
+    enabled: true
