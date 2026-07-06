@@ -3391,7 +3391,7 @@ sites:
     url: "https://crowdworks.jp/public/jobs?ref=public_header"
     schedule: "40 23 1-7 * SAT"
     enabled: true
-    terms_url: ""
+    terms_url: "https://crowdworks.jp/pages/agreement"
 
   - site_id: zexy
     name: "ゼクシィ"
