@@ -1,28 +1,36 @@
 """
-HOTWORKS（山口）ホットワークス — 山口県のナイトスポット店舗情報スクレイパー
+HOTWORKS ホットワークス — ナイトスポット店舗情報スクレイパー (全エリア対応)
 
 取得対象:
-    - 山口県 (/yamaguchi/) の「ナイトスポットナビ」(shop/) に掲載中の店舗一覧
-      (ラウンジ / スナック / バー / クラブ等、約 41 店舗)
+    - サイトが掲載する全エリアの「ナイトスポットナビ」(shop/) 店舗一覧
+      (ラウンジ / スナック / バー / クラブ等)
+      ※ 起点は引数 url (= /yamaguchi/) だが、そのページのエリアナビゲーション
+        (山口県 / 福岡エリア / 佐賀県 / … など) から他都道府県・エリアの root URL を
+        動的に発見し、同様に巡回する。
     - 店舗名 / 都道府県 / 住所 / TEL / 営業時間 / 店休日 / 業種(サイト定義) / 取得URL
     - サイト固有(EXTRA): アクセス
 
-    ※ トップページの「新着求人情報」カード (job/{id}) は 4 件しか無く網羅的でないため、
-      店舗ディレクトリ (shop/) を巡回する。店舗詳細ページには職種 / 給与 / 勤務時間 等の
-      求人固有項目は存在しない。
+    ※ トップページの「新着求人情報」カード (job/{id}) は少数で網羅的でないため、
+      各エリアの店舗ディレクトリ (shop/) を巡回する。店舗詳細ページには職種 / 給与 /
+      勤務時間 等の求人固有項目は存在しない。
 
 取得フロー:
-    1. 引数 url (= /yamaguchi/) を起点に、店舗一覧 (url + "shop/") を ?p=N でページ送りし、
+    1. 引数 url を起点にエリアナビゲーションを解析し、他エリア (都道府県) の root URL を
+       発見する (アンカーテキストが「県 / 府 / 都 / 道 / エリア」で終わる単一セグメント
+       リンクのみをエリアとみなし、リゾートバイト / shop / job / 各種 .php は除外)。
+       起点 url 自身も対象に含める。
+    2. 各エリア root を起点に、店舗一覧 (root + "shop/") を ?p=N でページ送りし、
        店舗詳細への相対リンク (shop/{id}) を収集する。誤検出防止のため <article> カード内の
        ID のみリンク (例 href="700") を店舗詳細とみなす。
-    2. 各店舗詳細ページ (shop/{id}) の <dl> の dt→dd からラベル→値を辞書化し、
+    3. 各店舗詳細ページ (shop/{id}) の <dl> の dt→dd からラベル→値を辞書化し、
        Schema / EXTRA へ展開する。お店からのメッセージ等の自由記述プロースは
        著作権配慮のため取得しない。
-    3. 詳細 1 件を取得するごとに即 yield する (Pattern B / 早期 yield)。
+    4. 詳細 1 件を取得するごとに即 yield する (Pattern B / 早期 yield)。
 
 備考のフィルタ方針:
     呼び出し時の備考は掲載店舗全般を尊重する指示であり、地域や期間の絞り込み条件は含まれない。
-    対象地域は引数 url (/yamaguchi/) 自体で確定するため、parse() 内での追加フィルタは実装しない。
+    「ほかの都道府県も同様に取得」という指示に従い、起点 url に加え他エリアも巡回する。
+    parse() 内での追加フィルタは実装しない。
 
 実行方法:
     # ローカルテスト
@@ -65,6 +73,12 @@ _PREF_PATTERN = re.compile(
 #   - ".../shop/{id}" 形式の絶対/相対リンクにも対応 (_SHOP_HREF_RE)。
 _SHOP_HREF_RE = re.compile(r"(?:^|/)shop/(\d+)/?$")
 _SHOP_ID_RE = re.compile(r"^(\d+)/?$")
+# エリア (都道府県) root リンク。エリアナビゲーションから他エリアを動的発見するために使用。
+#   - 単一セグメントの相対/絶対リンク (例 "/fukuoka/", "https://www.hotworks.jp/saga/")。
+#   - アンカーテキストが「県/府/都/道/エリア」で終わるものだけをエリアとみなし、
+#     リゾートバイト (/resort/) や /shop/ /job/ /*.php は除外する (_REGION_TEXT_RE)。
+_REGION_HREF_RE = re.compile(r"^(?:https?://[^/]*hotworks\.jp)?/([a-z][a-z0-9-]*)/$")
+_REGION_TEXT_RE = re.compile(r"(?:県|府|都|道|エリア)$")
 # 固定電話・携帯番号 (最初の 1 本を代表 TEL に採用)
 _TEL_PATTERN = re.compile(r"0\d{1,4}-?\d{1,4}-?\d{3,4}")
 
@@ -86,7 +100,19 @@ class HotworksScraper(StaticCrawler):
     # ------------------------------------------------------------------ #
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        shop_urls = self._collect_shop_urls(url)
+        # 起点 url のエリアナビゲーションから他エリア (都道府県) の root URL を発見し、
+        # 起点自身と合わせて全エリアを巡回する。
+        region_roots = self._collect_region_roots(url)
+        self.logger.info("対象エリア: %d件 %s", len(region_roots), region_roots)
+
+        seen_shops: set[str] = set()
+        shop_urls: list[str] = []
+        for region_root in region_roots:
+            for shop_url in self._collect_shop_urls(region_root):
+                if shop_url not in seen_shops:
+                    seen_shops.add(shop_url)
+                    shop_urls.append(shop_url)
+
         self.total_items = len(shop_urls)
         self.logger.info("対象店舗URL: %d件", len(shop_urls))
 
@@ -103,6 +129,36 @@ class HotworksScraper(StaticCrawler):
                     record.get(Schema.ADDR) or "",
                 )
                 yield record
+
+    # ------------------------------------------------------------------ #
+    # エリア (都道府県) root URL の収集 (起点ページのエリアナビゲーション)
+    # ------------------------------------------------------------------ #
+
+    def _collect_region_roots(self, root_url: str) -> list[str]:
+        """起点ページのエリアナビゲーションから全エリア root URL を発見する。
+
+        起点 url 自身は必ず先頭に含める (ナビ解析が失敗しても最低限起点は巡回する)。
+        """
+        roots: list[str] = [root_url]
+        seen: set[str] = {root_url}
+
+        soup = self.get_soup(root_url)
+        if soup is None:
+            return roots
+
+        for a in soup.find_all("a", href=True):
+            text = a.get_text(strip=True)
+            if not _REGION_TEXT_RE.search(text):
+                continue
+            m = _REGION_HREF_RE.match(a["href"].strip())
+            if not m:
+                continue
+            region_url = urljoin(root_url, f"/{m.group(1)}/")
+            if region_url not in seen:
+                seen.add(region_url)
+                roots.append(region_url)
+
+        return roots
 
     # ------------------------------------------------------------------ #
     # 店舗詳細URLの収集 (shop/ 一覧のページ送り)
