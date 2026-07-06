@@ -53,6 +53,13 @@ ver 1.4.0 20260703 フリーワード「工場」で絞り込み（追加指示�
                    - URL一貫性ルール準拠：ルートURL(/kansai/jlist/)自体は変更せず、
                      フリーワードURL・エリアURL・ページURLはすべて引数 url から派生。
                    - 重複排除キーは求人詳細URL（1求人=1行）。
+ver 1.5.0 20260706 応募電話ボタンの電話番号も取得（追加指示）。
+                   - 求人詳細の「電話番号を表示する」ボタン(a.tel-entry)には
+                     data-obo_tel 属性に募集先の電話番号（例: 0120-340-104）が
+                     埋め込まれている。会社情報(pt03)側で TEL が取得できなかった
+                     場合はこの data-obo_tel を Schema.TEL に採用する。
+                   - 値は末尾に空白パディングを含むため _clean で整形する。
+                   - URL一貫性・エリア分割巡回・重複排除方針は 1.4.0 のまま。
 ---------------------------------------------------------------------------
 """
 
@@ -361,6 +368,16 @@ class Baitoru5Scraper(DynamicCrawler):
                     elif "有料職業紹介事業許可番号" in key:
                         data["有料職業紹介事業許可番号"] = val
                     # 「拠点」「応募プロセス」等は自由記述プロースのため取得しない。
+
+        # 追加指示: 「電話番号を表示する」ボタン(a.tel-entry)の data-obo_tel 属性にも
+        # 募集先の電話番号（例: 0120-340-104）が埋め込まれている。会社情報側で TEL が
+        # 取得できなかった場合はこれを採用する（値は末尾空白パディングを含むため整形）。
+        if not data.get(Schema.TEL):
+            tel_entry = soup.select_one("a.tel-entry[data-obo_tel]")
+            if tel_entry:
+                obo_tel = _clean(tel_entry.get("data-obo_tel"))
+                if obo_tel:
+                    data[Schema.TEL] = obo_tel
 
         if not data.get(Schema.NAME) and h1:
             data[Schema.NAME] = _clean(h1.get_text())
