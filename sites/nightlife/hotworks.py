@@ -1,24 +1,28 @@
 """
-HOTWORKS（山口）ホットワークス — 山口県のナイトワーク求人情報スクレイパー
+HOTWORKS（山口）ホットワークス — 山口県のナイトスポット店舗情報スクレイパー
 
 取得対象:
-    - 山口県 (/yamaguchi/) に掲載中のナイトワーク求人 (フロアレディ / コンパニオン等)
+    - 山口県 (/yamaguchi/) の「ナイトスポットナビ」(shop/) に掲載中の店舗一覧
+      (ラウンジ / スナック / バー / クラブ等、約 41 店舗)
     - 店舗名 / 都道府県 / 住所 / TEL / 営業時間 / 店休日 / 業種(サイト定義) / 取得URL
-    - サイト固有(EXTRA): 職種 / 給与 / 勤務地 / 勤務時間 / 休日休暇 / 応募資格 / 待遇 /
-      アクセス / 座席数
+    - サイト固有(EXTRA): アクセス
+
+    ※ トップページの「新着求人情報」カード (job/{id}) は 4 件しか無く網羅的でないため、
+      店舗ディレクトリ (shop/) を巡回する。店舗詳細ページには職種 / 給与 / 勤務時間 等の
+      求人固有項目は存在しない。
 
 取得フロー:
-    1. 引数 url (= /yamaguchi/) を起点に、求人一覧 (url + "job/") を ?p=N でページ送りし、
-       求人詳細への相対リンク (job/{id}) を収集する (トップページ url 上の求人カードも併合)。
-    2. 各求人詳細ページ (job/{id}) の 3 つの <dl>
-       (募集情報 / 応募アピール / 店舗情報) からラベル→値を辞書化し、Schema / EXTRA へ展開。
-       応募アピール本文・お客様へのメッセージ等の自由記述プロースは著作権配慮のため取得しない。
+    1. 引数 url (= /yamaguchi/) を起点に、店舗一覧 (url + "shop/") を ?p=N でページ送りし、
+       店舗詳細への相対リンク (shop/{id}) を収集する。誤検出防止のため <article> カード内の
+       ID のみリンク (例 href="700") を店舗詳細とみなす。
+    2. 各店舗詳細ページ (shop/{id}) の <dl> の dt→dd からラベル→値を辞書化し、
+       Schema / EXTRA へ展開する。お店からのメッセージ等の自由記述プロースは
+       著作権配慮のため取得しない。
     3. 詳細 1 件を取得するごとに即 yield する (Pattern B / 早期 yield)。
 
 備考のフィルタ方針:
-    呼び出し時の備考は「募集情報」全般 (求人の掲載内容) を尊重する指示であり、地域や期間の
-    絞り込み条件は含まれない。対象地域は引数 url (/yamaguchi/) 自体で確定するため、
-    parse() 内での追加フィルタは実装しない。
+    呼び出し時の備考は掲載店舗全般を尊重する指示であり、地域や期間の絞り込み条件は含まれない。
+    対象地域は引数 url (/yamaguchi/) 自体で確定するため、parse() 内での追加フィルタは実装しない。
 
 実行方法:
     # ローカルテスト
@@ -55,23 +59,19 @@ _PREF_PATTERN = re.compile(
     r"徳島県|香川県|愛媛県|高知県|"
     r"福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
 )
-# 求人詳細への相対リンク (例: job/1051)
-_JOB_HREF_RE = re.compile(r"(?:^|/)job/(\d+)$")
+# 店舗詳細へのリンク。
+#   - 一覧 (shop/) のカードは href が ID のみの相対リンク (例 href="700")。
+#     誤検出防止のため <article> カード内のもののみ店舗詳細とみなす (_SHOP_ID_RE)。
+#   - ".../shop/{id}" 形式の絶対/相対リンクにも対応 (_SHOP_HREF_RE)。
+_SHOP_HREF_RE = re.compile(r"(?:^|/)shop/(\d+)/?$")
+_SHOP_ID_RE = re.compile(r"^(\d+)/?$")
 # 固定電話・携帯番号 (最初の 1 本を代表 TEL に採用)
 _TEL_PATTERN = re.compile(r"0\d{1,4}-?\d{1,4}-?\d{3,4}")
 
 # 詳細ページの <dl> ラベル → EXTRA カラム名
-# (Schema に該当しない、構造化された短い求人・店舗情報のみ。自由記述プロースは含めない)
+# (Schema に該当しない、構造化された短い店舗情報のみ。自由記述プロースは含めない)
 _EXTRA_LABELS = {
-    "職種": "職種",
-    "給与": "給与",
-    "勤務地": "勤務地",
-    "勤務時間": "勤務時間",
-    "休日休暇": "休日休暇",
-    "応募資格": "応募資格",
-    "待遇": "待遇",
     "アクセス": "アクセス",
-    "座席数": "座席数",
 }
 
 
@@ -86,15 +86,15 @@ class HotworksScraper(StaticCrawler):
     # ------------------------------------------------------------------ #
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        job_urls = self._collect_job_urls(url)
-        self.total_items = len(job_urls)
-        self.logger.info("対象求人URL: %d件", len(job_urls))
+        shop_urls = self._collect_shop_urls(url)
+        self.total_items = len(shop_urls)
+        self.logger.info("対象店舗URL: %d件", len(shop_urls))
 
-        for job_url in job_urls:
+        for shop_url in shop_urls:
             try:
-                record = self._scrape_detail(job_url)
-            except Exception as e:  # 個別求人の失敗は握りつぶして続行
-                self.logger.warning("詳細取得失敗: %s (%s)", job_url, e)
+                record = self._scrape_detail(shop_url)
+            except Exception as e:  # 個別店舗の失敗は握りつぶして続行
+                self.logger.warning("詳細取得失敗: %s (%s)", shop_url, e)
                 continue
             if record:
                 self.logger.info(
@@ -105,33 +105,35 @@ class HotworksScraper(StaticCrawler):
                 yield record
 
     # ------------------------------------------------------------------ #
-    # 求人詳細URLの収集 (トップページ + job/ 一覧のページ送り)
+    # 店舗詳細URLの収集 (shop/ 一覧のページ送り)
     # ------------------------------------------------------------------ #
 
-    def _collect_job_urls(self, root_url: str) -> list[str]:
+    def _collect_shop_urls(self, root_url: str) -> list[str]:
         seen: set[str] = set()
         ordered: list[str] = []
 
         def _absorb(soup: BeautifulSoup) -> int:
             added = 0
             for a in soup.find_all("a", href=True):
-                m = _JOB_HREF_RE.search(a["href"])
-                if not m:
-                    continue
-                detail_url = urljoin(root_url, f"job/{m.group(1)}")
+                href = a["href"].strip()
+                m = _SHOP_HREF_RE.search(href)
+                if m:
+                    shop_id = m.group(1)
+                else:
+                    m = _SHOP_ID_RE.match(href)
+                    # ID のみのリンクはカード (<article>) 内のもののみ店舗詳細とみなす
+                    if not (m and a.find_parent("article")):
+                        continue
+                    shop_id = m.group(1)
+                detail_url = urljoin(root_url, f"shop/{shop_id}")
                 if detail_url not in seen:
                     seen.add(detail_url)
                     ordered.append(detail_url)
                     added += 1
             return added
 
-        # 1) トップページ (= 引数 url) 上の求人カード
-        top = self.get_soup(root_url)
-        if top is not None:
-            _absorb(top)
-
-        # 2) 求人一覧 job/ を ?p=N でページ送り (新規リンクが無くなるまで)
-        list_url = urljoin(root_url, "job/")
+        # 店舗一覧 shop/ を ?p=N でページ送り (新規リンクが無くなるまで)
+        list_url = urljoin(root_url, "shop/")
         page = 1
         while True:
             soup = self.get_soup(f"{list_url}?p={page}")
@@ -145,7 +147,7 @@ class HotworksScraper(StaticCrawler):
         return ordered
 
     # ------------------------------------------------------------------ #
-    # 求人詳細ページの解析
+    # 店舗詳細ページの解析
     # ------------------------------------------------------------------ #
 
     def _scrape_detail(self, url: str) -> dict | None:
@@ -167,9 +169,9 @@ class HotworksScraper(StaticCrawler):
         if labels.get("業種"):
             item[Schema.CAT_SITE] = labels["業種"]
 
-        # 住所: 所在地 (店舗情報) を採用。都道府県は勤務地 (山口県…) から抽出しフォールバックに所在地
+        # 住所: 所在地 (店舗情報) を採用。都道府県は所在地 (山口県…) から抽出
         addr = labels.get("所在地", "")
-        pref = self._extract_pref(labels.get("勤務地", "")) or self._extract_pref(addr)
+        pref = self._extract_pref(addr)
         if pref:
             item[Schema.PREF] = pref
         if addr:
@@ -186,7 +188,7 @@ class HotworksScraper(StaticCrawler):
         if labels.get("店休日"):
             item[Schema.HOLIDAY] = labels["店休日"]
 
-        # EXTRA (構造化された求人・店舗情報)
+        # EXTRA (構造化された店舗情報: アクセス)
         for label, col in _EXTRA_LABELS.items():
             if labels.get(label):
                 item[col] = labels[label]
