@@ -3448,3 +3448,24 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.lancers.jp/help/terms?ref=footer"
+
+  - site_id: jfnet
+    name: "日本フードサービス協会"
+    module: "corporate.jfnet"
+    url: "https://www.jfnet.or.jp/"
+    schedule: null
+    enabled: true
+
+  - site_id: soumu_2
+    name: "電気通信事業者 登録・届出一覧"
+    module: "government.soumu_2"
+    url: "https://www.soumu.go.jp/johotsusintokei/field/tsuushin04.html"
+    schedule: null
+    enabled: true
+
+  - site_id: hotworks
+    name: "HOTWORKS（山口）ホットワークス"
+    module: "nightlife.hotworks"
+    url: "https://www.hotworks.jp/yamaguchi/"
+    schedule: null
+    enabled: true
