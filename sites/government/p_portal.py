@@ -9,7 +9,7 @@ URL: https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103
 
 取得フロー:
     1. OAB0101 (事業者情報検索フォーム) へアクセス
-    2. 「本社住所を選択する」モーダルで 都道府県 + 市区町村 を設定して検索送信 → OAB0103
+    2. 「本社住所を選択する」モーダルで 都道府県 + 市区町村 を設定して検索送信 → OAB0104
     3. フォーム送信後の実 URL をベースに ?page=N でページネーション (1ページ50件固定・最大500件/検索)
        ※ size= は無視され常に50件/ページ。範囲外 page= は page0 にクランプされるため
          総件数からページ数を算出して停止する (実機検証済)。
@@ -205,11 +205,11 @@ class PPortalScraper(DynamicCrawler):
     # サーバーは 1ページ50件固定 (size= パラメータは無視される / 実機検証済)。
     PAGE_SIZE = 50
     EXTRA_COLUMNS = [
-        "業者種別",      # 株式会社 / 合同会社 等 (構造化ラベル)
-        "資格番号",      # 例: 0000100505
-        "有効期間",      # 例: 令和07・08・09
-        "企業規模",      # 大企業 / 中小企業 / 小規模企業 / その他
-        "資格等級",      # 例: 役務の提供等:A / 物品の販売:A
+        "業者種別",  # 株式会社 / 合同会社 等 (構造化ラベル)
+        "資格番号",  # 例: 0000100505
+        "有効期間",  # 例: 令和07・08・09
+        "企業規模",  # 大企業 / 中小企業 / 小規模企業 / その他
+        "資格等級",  # 例: 役務の提供等:A / 物品の販売:A
         "競争参加地域",  # 例: 北海道 東北 関東・甲信越 東海・北陸 近畿 中国 四国 九州・沖縄
         "落札実績件数",  # 落札実績の総件数 (整数文字列)
     ]
@@ -253,9 +253,14 @@ class PPortalScraper(DynamicCrawler):
                 )
             except Exception as e:
                 self.logger.warning(
-                    "都道府県%s: 市区町村リスト取得失敗 (試行%d/3): %s", pref_code, attempt, e
+                    "都道府県%s: 市区町村リスト取得失敗 (試行%d/3): %s",
+                    pref_code,
+                    attempt,
+                    e,
                 )
-        self.logger.warning("都道府県%s: 市区町村リスト取得に3回失敗 → スキップ", pref_code)
+        self.logger.warning(
+            "都道府県%s: 市区町村リスト取得に3回失敗 → スキップ", pref_code
+        )
         return []
 
     # ------------------------------------------------------------------ #
@@ -273,7 +278,8 @@ class PPortalScraper(DynamicCrawler):
                 done: set[tuple] = {tuple(k) for k in data.get("done", [])}
                 self.logger.info(
                     "チェックポイント読込: seen=%d件 done=%d件 → 完了済みバケットをスキップします",
-                    len(seen), len(done),
+                    len(seen),
+                    len(done),
                 )
                 return seen, done
             except Exception as e:
@@ -320,11 +326,16 @@ class PPortalScraper(DynamicCrawler):
             if self._load_search_form(search_url):
                 break
             self.logger.warning(
-                "フォーム未確立 (pref=%s city=%s 試行%d/3) → 再取得", pref_code, city_code, _attempt
+                "フォーム未確立 (pref=%s city=%s 試行%d/3) → 再取得",
+                pref_code,
+                city_code,
+                _attempt,
             )
         else:
             self.logger.warning(
-                "フォーム確立失敗 (pref=%s city=%s) → この検索をスキップ", pref_code, city_code
+                "フォーム確立失敗 (pref=%s city=%s) → この検索をスキップ",
+                pref_code,
+                city_code,
             )
             return BeautifulSoup("", "html.parser"), 0, False, self.page.url
 
@@ -349,12 +360,18 @@ class PPortalScraper(DynamicCrawler):
 
         # --- 検索送信 (フォーム POST → OAB0103 へ遷移) ---
         try:
-            with self.page.expect_navigation(wait_until="domcontentloaded", timeout=30000):
+            with self.page.expect_navigation(
+                wait_until="domcontentloaded", timeout=30000
+            ):
                 self.page.evaluate(_JS_CLICK_SEARCH)
         except Exception as e:
             self.logger.warning(
                 "検索送信失敗 (pref=%s city=%s biz=%s scale=%s): %s",
-                pref_code, city_code, biz_item, company_scale, e,
+                pref_code,
+                city_code,
+                biz_item,
+                company_scale,
+                e,
             )
             return BeautifulSoup("", "html.parser"), 0, False, self.page.url
         self.page.wait_for_timeout(1200)
@@ -400,7 +417,9 @@ class PPortalScraper(DynamicCrawler):
         # 念のため直前ページと同一内容になった場合 (クランプ) も打ち切る。
         max_pages = max(1, -(-min(total, 500) // self.PAGE_SIZE))  # ceil
         prev_hrefs: list[str] | None = None
-        entries: list[tuple[str, str, str, str]] = []  # (corp_no, art_qual_id, csrf, page_url)
+        entries: list[tuple[str, str, str, str]] = (
+            []
+        )  # (corp_no, art_qual_id, csrf, page_url)
 
         for page_num in range(max_pages):
             if page_num == 0:
@@ -417,13 +436,17 @@ class PPortalScraper(DynamicCrawler):
 
             corp_links = soup.select("table tbody tr td:nth-child(3) a")
             if not corp_links:
-                self.logger.debug("ページ%d: corp_links 0件 → ページネーション終了", page_num)
+                self.logger.debug(
+                    "ページ%d: corp_links 0件 → ページネーション終了", page_num
+                )
                 break
 
             # クランプ検出: 範囲外ページは直前ページと同一内容になるため打ち切る
             page_hrefs = [link.get("href", "") for link in corp_links]
             if prev_hrefs is not None and page_hrefs == prev_hrefs:
-                self.logger.debug("ページ%d: 直前ページと同一 (クランプ) → 終了", page_num)
+                self.logger.debug(
+                    "ページ%d: 直前ページと同一 (クランプ) → 終了", page_num
+                )
                 break
             prev_hrefs = page_hrefs
 
@@ -437,7 +460,9 @@ class PPortalScraper(DynamicCrawler):
                 if corp_no in seen:
                     continue
                 seen.add(corp_no)
-                entries.append((corp_no, m_art.group(1) if m_art else "", csrf, page_url))
+                entries.append(
+                    (corp_no, m_art.group(1) if m_art else "", csrf, page_url)
+                )
 
         self._fetched_total += len(entries)
 
@@ -454,7 +479,9 @@ class PPortalScraper(DynamicCrawler):
                     },
                 )
                 if resp.status != 200:
-                    self.logger.warning("OAB0108 error for %s: HTTP %d", corp_no, resp.status)
+                    self.logger.warning(
+                        "OAB0108 error for %s: HTTP %d", corp_no, resp.status
+                    )
                     continue
 
                 detail_soup = BeautifulSoup(resp.text(), "html.parser")
@@ -476,8 +503,11 @@ class PPortalScraper(DynamicCrawler):
         if entries:
             self.logger.info(
                 "📥 %s: フェッチ%d件 取得%d件 → 累計 フェッチ%d件 / 取得%d件",
-                label or "(検索)", len(entries), got,
-                self._fetched_total, self._retrieved_total,
+                label or "(検索)",
+                len(entries),
+                got,
+                self._fetched_total,
+                self._retrieved_total,
             )
 
     def parse(self, url: str) -> Generator[dict, None, None]:
@@ -530,7 +560,9 @@ class PPortalScraper(DynamicCrawler):
 
                 # Fix③: 完了済みバケットはスキップ。
                 if bucket in self._done:
-                    self.logger.debug("スキップ (チェックポイント済): %s %s", pref_code, cname)
+                    self.logger.debug(
+                        "スキップ (チェックポイント済): %s %s", pref_code, cname
+                    )
                     continue
 
                 try:
@@ -538,7 +570,9 @@ class PPortalScraper(DynamicCrawler):
                         search_url, pref_code, ccode
                     )
                 except Exception as e:
-                    self.logger.warning("%s %s: 検索失敗のためスキップ: %s", pref_code, cname, e)
+                    self.logger.warning(
+                        "%s %s: 検索失敗のためスキップ: %s", pref_code, cname, e
+                    )
                     continue
 
                 if total == 0 and not overflow:
@@ -551,12 +585,20 @@ class PPortalScraper(DynamicCrawler):
                     # Fix①: ページ処理例外が全体停止に波及しないよう保護。
                     try:
                         yield from self._paginate_and_yield(
-                            result_url, soup, total, size, detail_url, seen,
+                            result_url,
+                            soup,
+                            total,
+                            size,
+                            detail_url,
+                            seen,
                             label=f"{pref_code} {cname}",
                         )
                     except Exception as e:
                         self.logger.warning(
-                            "%s %s: ページ処理失敗のためスキップ: %s", pref_code, cname, e
+                            "%s %s: ページ処理失敗のためスキップ: %s",
+                            pref_code,
+                            cname,
+                            e,
                         )
                         continue
                     self._done.add(bucket)
@@ -566,16 +608,25 @@ class PPortalScraper(DynamicCrawler):
                     # 営業品目未検出で細分化不可 → 先頭500件のみ取得しスルー。
                     self.logger.warning(
                         "%s %s: 500件超だが営業品目未検出 → 先頭500件のみ (取りこぼしの可能性あり)",
-                        pref_code, cname,
+                        pref_code,
+                        cname,
                     )
                     try:
                         yield from self._paginate_and_yield(
-                            result_url, soup, total, size, detail_url, seen,
+                            result_url,
+                            soup,
+                            total,
+                            size,
+                            detail_url,
+                            seen,
                             label=f"{pref_code} {cname}",
                         )
                     except Exception as e:
                         self.logger.warning(
-                            "%s %s: ページ処理失敗のためスキップ: %s", pref_code, cname, e
+                            "%s %s: ページ処理失敗のためスキップ: %s",
+                            pref_code,
+                            cname,
+                            e,
                         )
                         continue
                     self._done.add(bucket)
@@ -583,7 +634,9 @@ class PPortalScraper(DynamicCrawler):
 
                 else:
                     # 第2レベル: 500件超 → 営業品目で細分化 (統一資格保有者が対象)。
-                    self.logger.info("%s %s: 500件超 → 営業品目で細分化", pref_code, cname)
+                    self.logger.info(
+                        "%s %s: 500件超 → 営業品目で細分化", pref_code, cname
+                    )
                     # Fix①: _split_by_bizitem 内の各バケットで個別に保護済み。
                     try:
                         yield from self._split_by_bizitem(
@@ -591,7 +644,10 @@ class PPortalScraper(DynamicCrawler):
                         )
                     except Exception as e:
                         self.logger.warning(
-                            "%s %s: 品目分割処理失敗のためスキップ: %s", pref_code, cname, e
+                            "%s %s: 品目分割処理失敗のためスキップ: %s",
+                            pref_code,
+                            cname,
+                            e,
                         )
 
         self.logger.info(
@@ -618,8 +674,12 @@ class PPortalScraper(DynamicCrawler):
 
             # Fix③: 完了済みバケットはスキップ。
             if bucket in self._done:
-                self.logger.debug("スキップ (チェックポイント済): %s %s 品目%s",
-                                  pref_code, city_name, biz)
+                self.logger.debug(
+                    "スキップ (チェックポイント済): %s %s 品目%s",
+                    pref_code,
+                    city_name,
+                    biz,
+                )
                 continue
 
             try:
@@ -627,8 +687,13 @@ class PPortalScraper(DynamicCrawler):
                     search_url, pref_code, city_code, biz_item=biz
                 )
             except Exception as e:
-                self.logger.warning("%s %s 品目%s: 検索失敗のためスキップ: %s",
-                                    pref_code, city_name, biz, e)
+                self.logger.warning(
+                    "%s %s 品目%s: 検索失敗のためスキップ: %s",
+                    pref_code,
+                    city_name,
+                    biz,
+                    e,
+                )
                 continue
 
             if total == 0 and not overflow:
@@ -640,13 +705,21 @@ class PPortalScraper(DynamicCrawler):
                 # Fix①: ページ処理例外を保護。
                 try:
                     yield from self._paginate_and_yield(
-                        result_url, soup, total, size, detail_url, seen,
+                        result_url,
+                        soup,
+                        total,
+                        size,
+                        detail_url,
+                        seen,
                         label=f"{pref_code} {city_name} 品目{biz}",
                     )
                 except Exception as e:
                     self.logger.warning(
                         "%s %s 品目%s: ページ処理失敗のためスキップ: %s",
-                        pref_code, city_name, biz, e,
+                        pref_code,
+                        city_name,
+                        biz,
+                        e,
                     )
                     continue
                 self._done.add(bucket)
@@ -654,18 +727,30 @@ class PPortalScraper(DynamicCrawler):
             else:
                 # 第3レベル: (市区町村 × 営業品目) でも500件超 → 企業規模で分割
                 self.logger.info(
-                    "%s %s 品目%s: 500件超 → 企業規模で細分化", pref_code, city_name, biz
+                    "%s %s 品目%s: 500件超 → 企業規模で細分化",
+                    pref_code,
+                    city_name,
+                    biz,
                 )
                 # Fix①: _split_by_scale 内の各バケットで個別に保護済み。
                 try:
                     yield from self._split_by_scale(
-                        search_url, pref_code, city_code, city_name,
-                        biz, size, detail_url, seen,
+                        search_url,
+                        pref_code,
+                        city_code,
+                        city_name,
+                        biz,
+                        size,
+                        detail_url,
+                        seen,
                     )
                 except Exception as e:
                     self.logger.warning(
                         "%s %s 品目%s: 規模分割処理失敗のためスキップ: %s",
-                        pref_code, city_name, biz, e,
+                        pref_code,
+                        city_name,
+                        biz,
+                        e,
                     )
 
     def _split_by_scale(
@@ -690,18 +775,32 @@ class PPortalScraper(DynamicCrawler):
 
             # Fix③: 完了済みバケットはスキップ。
             if bucket in self._done:
-                self.logger.debug("スキップ (チェックポイント済): %s %s 品目%s 規模%s",
-                                  pref_code, city_name, biz_item, scale_name)
+                self.logger.debug(
+                    "スキップ (チェックポイント済): %s %s 品目%s 規模%s",
+                    pref_code,
+                    city_name,
+                    biz_item,
+                    scale_name,
+                )
                 continue
 
             try:
                 soup, total, overflow, result_url = self._do_search(
-                    search_url, pref_code, city_code,
-                    biz_item=biz_item, company_scale=scale_val,
+                    search_url,
+                    pref_code,
+                    city_code,
+                    biz_item=biz_item,
+                    company_scale=scale_val,
                 )
             except Exception as e:
-                self.logger.warning("%s %s 品目%s 規模%s: 検索失敗のためスキップ: %s",
-                                    pref_code, city_name, biz_item, scale_name, e)
+                self.logger.warning(
+                    "%s %s 品目%s 規模%s: 検索失敗のためスキップ: %s",
+                    pref_code,
+                    city_name,
+                    biz_item,
+                    scale_name,
+                    e,
+                )
                 continue
 
             if total == 0 and not overflow:
@@ -724,7 +823,10 @@ class PPortalScraper(DynamicCrawler):
                 # 最終分割でもなお500件超 → 先頭500件のみ取得してスルー。
                 self.logger.warning(
                     "%s %s 品目%s 規模%s: 500件超 → 先頭500件のみ (取りこぼしの可能性あり)",
-                    pref_code, city_name, biz_item, scale_name,
+                    pref_code,
+                    city_name,
+                    biz_item,
+                    scale_name,
                 )
 
     def _scrape_detail(self, soup: BeautifulSoup, source_url: str) -> dict | None:
@@ -748,7 +850,7 @@ class PPortalScraper(DynamicCrawler):
         full_addr = basic.get("本社住所", "")
         pref_m = _PREF_PATTERN.match(full_addr)
         pref = pref_m.group(1) if pref_m else ""
-        addr = full_addr[len(pref):].strip() if pref else full_addr
+        addr = full_addr[len(pref) :].strip() if pref else full_addr
 
         # --- 統一資格情報 (Table 1以降を class で分類) ---
         shikaku_bangou = ""
@@ -786,9 +888,15 @@ class PPortalScraper(DynamicCrawler):
                 # 競争参加地域テーブル (2行: ヘッダ行 + ○/ー行)
                 rows = t.find_all("tr")
                 if len(rows) >= 2:
-                    region_hdrs = [th.get_text(strip=True) for th in rows[0].find_all("th")]
-                    region_vals = [td.get_text(strip=True) for td in rows[1].find_all("td")]
-                    chiku = " ".join(rh for rh, rv in zip(region_hdrs, region_vals) if rv == "○")
+                    region_hdrs = [
+                        th.get_text(strip=True) for th in rows[0].find_all("th")
+                    ]
+                    region_vals = [
+                        td.get_text(strip=True) for td in rows[1].find_all("td")
+                    ]
+                    chiku = " ".join(
+                        rh for rh, rv in zip(region_hdrs, region_vals) if rv == "○"
+                    )
 
             else:
                 # 資格基本情報テーブル (class=main-table-pattern1 のみ)
@@ -809,8 +917,7 @@ class PPortalScraper(DynamicCrawler):
         # --- 落札実績件数 (bid-details テーブル) ---
         bid_tables = [t for t in tables if "bid-details" in set(t.get("class", []))]
         rakusatsu_count = sum(
-            max(0, len(t.find_all("tr")) - 1)  # ヘッダ行1行を除く
-            for t in bid_tables
+            max(0, len(t.find_all("tr")) - 1) for t in bid_tables  # ヘッダ行1行を除く
         )
 
         return {
