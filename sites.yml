@@ -2646,6 +2646,7 @@ sites:
     url: "https://nomu.tsuku2.jp/c8"
     schedule: "20 13 1-7 * SAT"
     enabled: true
+    terms_url: "https://home.tsuku2.jp/terms.php"
 
   - site_id: snack_guide
     name: "スナックガイド"
@@ -3231,12 +3232,14 @@ sites:
     url: "https://www.bizreach.jp/"
     schedule: "0 17 28 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: paiza
     name: "paiza"
     module: "jobs.paiza"
     url: "https://paiza.jp/career/job_offers"
     schedule: "0 17 10 * *"
+    terms_url: ""
 
   - site_id: mynavi_baito
     name: "マイナビバイト"
@@ -3252,6 +3255,7 @@ sites:
     url: "https://www.froma.com/?red=0"
     schedule: "0 9 11 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: 01intern
     name: "ゼロワンインターン"
@@ -3259,6 +3263,7 @@ sites:
     url: "https://01intern.com/job/list.html?areas=999999999&areas=13&areas=14&areas=12&areas=11&areas=27&areas=26&areas=28&areas=8&areas=1&areas=3&areas=4&areas=10&areas=9&areas=19&areas=15&areas=20&areas=16&areas=17&areas=21&areas=22&areas=23&areas=24&areas=25&areas=29&areas=30&areas=32&areas=33&areas=34&areas=35&areas=37&areas=38&areas=39&areas=40&areas=41&areas=42&areas=43&areas=44&areas=46&areas=47&areas=48"
     schedule: "0 21 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: job_3
     name: "キャリタス就活"
@@ -3266,6 +3271,7 @@ sites:
     url: "https://job.career-tasu.jp/condition-search/result/?keyword="
     schedule: "0 21 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: bunnabi
     name: "ブンナビ(2027)"
@@ -3273,6 +3279,7 @@ sites:
     url: "https://bunnabi.jp/2027/sh_result.php"
     schedule: "0 21 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: emeao
     name: "エミーオ(EMEAO)"
@@ -3280,6 +3287,7 @@ sites:
     url: "https://emeao.jp/search/"
     schedule: "0 21 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: metoree
     name: "Metoree（メトリー）"
@@ -3287,6 +3295,7 @@ sites:
     url: "https://metoree.com/companies/"
     schedule: "0 21 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: mitsuri
     name: "Mitsuri(ミツリ)"
@@ -3294,6 +3303,7 @@ sites:
     url: "https://app.mitsu-ri.net/pblc/suppliers?_gl=1*wczuq3*_ga*MTg0MTM0NDU5MS4xNzgyNzg2NDg5*_ga_SQCQZHNTCS*czE3ODI3ODY0ODgkbzEkZzEkdDE3ODI3ODgyMTckajMyJGwwJGgw"
     schedule: "0 22 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: town_life
     name: "タウンライフリフォーム"
@@ -3301,6 +3311,7 @@ sites:
     url: "https://www.town-life.jp/home/main/chatform.php"
     schedule: "20 22 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: lifull_home_s
     name: "LIFULL HOME'S 注文住宅(ライフルホームズ)"
@@ -3308,6 +3319,7 @@ sites:
     url: "https://www.homes.co.jp/realtor/"
     schedule: "20 22 1-7 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: hikkoshizamurai
     name: "引越し侍"
@@ -3315,6 +3327,7 @@ sites:
     url: "https://hikkoshizamurai.jp/company/"
     schedule: "20 22 8-14 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: relax_job
     name: "リジョブ"
@@ -3322,6 +3335,7 @@ sites:
     url: "https://relax-job.com/"
     schedule: "0 17 19 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: e_sogi
     name: "いい葬儀"
@@ -3329,6 +3343,7 @@ sites:
     url: "https://www.e-sogi.com/"
     schedule: "20 22 8-14 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: osohshiki
     name: "小さなお葬式"
@@ -3336,6 +3351,7 @@ sites:
     url: "https://www.osohshiki.jp/area/"
     schedule: "20 23 15-21 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: zeiri4
     name: "税理士ドットコム"
@@ -3343,6 +3359,7 @@ sites:
     url: "https://www.zeiri4.com/firm/search/?FirmSearchForm%5BPrefecture_id%5D=&FirmSearchForm%5BAutonomy_id%5D="
     schedule: "20 23 15-21 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: bengo4
     name: "弁護士ドットコム"
@@ -3350,6 +3367,7 @@ sites:
     url: "https://www.bengo4.com/search/result/"
     schedule: "20 23 22-28 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: hanayume
     name: "HANAYUME(ハナユメ)"
@@ -3357,6 +3375,7 @@ sites:
     url: "https://hana-yume.net/search/hallList/?sg_hs%5Barea%5D=&sg_hs%5Border%5D=&sg_hs%5BsearchKind%5D="
     schedule: "20 23 22-28 * SUN"
     enabled: true
+    terms_url: ""
 
   - site_id: eslove
     name: "エステラブ"
@@ -3364,6 +3383,7 @@ sites:
     url: "https://eslove.jp"
     schedule: "0 9 7 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: crowdworks
     name: "クラウドワークス"
@@ -3371,6 +3391,7 @@ sites:
     url: "https://crowdworks.jp/public/jobs?ref=public_header"
     schedule: "40 23 1-7 * SAT"
     enabled: true
+    terms_url: ""
 
   - site_id: zexy
     name: "ゼクシィ"
@@ -3378,6 +3399,7 @@ sites:
     url: "https://zexy.net/"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: baitoru_5
     name: "バイトル関西_工場"
@@ -3385,6 +3407,7 @@ sites:
     url: "https://www.baitoru.com/kansai/jlist/"
     schedule: "0 9 * * 1"
     enabled: true
+    terms_url: ""
 
   - site_id: sumitec_kanto_2
     name: "リンクスアシスト"
@@ -3392,6 +3415,7 @@ sites:
     url: "https://sumitec-kanto.com/page/1?s"
     schedule: "0 9 * * 1"
     enabled: true
+    terms_url: ""
 
   - site_id: ciic
     name: "CIIC"
@@ -3399,6 +3423,7 @@ sites:
     url: "https://www.ciic.or.jp/"
     schedule: "0 9 24 * 0"
     enabled: true
+    terms_url: ""
 
   - site_id: hapisumu
     name: "ハピすむ（リフォーム加盟店）"
@@ -3406,6 +3431,7 @@ sites:
     url: "https://hapisumu.jp/"
     schedule: "0 20 13 * *"
     enabled: true
+    terms_url: ""
 
   - site_id: gaiheki_madoguchi
     name: "外壁塗装の窓口"
@@ -3413,6 +3439,7 @@ sites:
     url: "https://gaiheki-madoguchi.com/"
     schedule: null
     enabled: true
+    terms_url: ""
 
   - site_id: lancers
     name: "サンラーズ"
@@ -3420,3 +3447,4 @@ sites:
     url: "https://www.lancers.jp/"
     schedule: null
     enabled: true
+    terms_url: ""
