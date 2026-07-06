@@ -3351,3 +3351,10 @@ sites:
     url: "https://www.soumu.go.jp/johotsusintokei/field/tsuushin04.html"
     schedule: null
     enabled: true
+
+  - site_id: hotworks
+    name: "HOTWORKS（山口）ホットワークス"
+    module: "nightlife.hotworks"
+    url: "https://www.hotworks.jp/yamaguchi/"
+    schedule: null
+    enabled: true
