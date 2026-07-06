@@ -3483,3 +3483,10 @@ sites:
     url: "https://jobmake.jp/33/"
     schedule: null
     enabled: true
+
+  - site_id: ja
+    name: "しものせきJaナイトリスト"
+    module: "nightlife.ja"
+    url: "https://shimonoseki-ja-night.com/store/"
+    schedule: "0 9 21 * *"
+    enabled: true
