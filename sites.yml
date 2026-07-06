@@ -3490,3 +3490,10 @@ sites:
     url: "https://shimonoseki-ja-night.com/store/"
     schedule: "0 9 21 * *"
     enabled: true
+
+  - site_id: gate2006
+    name: "ゲート"
+    module: "nightlife.gate2006"
+    url: "https://gate2006.jp/"
+    schedule: "0 9 26 * *"
+    enabled: true
