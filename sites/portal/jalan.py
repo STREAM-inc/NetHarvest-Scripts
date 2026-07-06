@@ -52,6 +52,18 @@ _YAD_RE = re.compile(r"/yad\d+/")
 _YAD_AD_RE = re.compile(r"doYadDetail(?:Ad)?\('(\d+)'")
 _SELECT_PAGE_RE = re.compile(r"selectPage\([^,]+,\s*'(\d+)'\)")
 
+# クチコミ評価（詳細ページ下部）: 抽出カラム → 正規表現
+# 値は N.N（1桁小数）または未評価の「-」
+_REVIEW_SCORE_RE = {
+    "総合評価": re.compile(r"総合\s*([0-9]\.[0-9]|-)"),
+    "部屋評価": re.compile(r"部屋\s*([0-9]\.[0-9]|-)"),
+    "風呂評価": re.compile(r"風呂\s*([0-9]\.[0-9]|-)"),
+    "朝食評価": re.compile(r"料理（朝食）\s*([0-9]\.[0-9]|-)"),
+    "夕食評価": re.compile(r"料理（夕食）\s*([0-9]\.[0-9]|-)"),
+    "接客評価": re.compile(r"接客・サービス\s*([0-9]\.[0-9]|-)"),
+    "清潔感評価": re.compile(r"清潔感\s*([0-9]\.[0-9]|-)"),
+}
+
 
 def _abs(href: str) -> str:
     return href if href.startswith("http") else BASE_URL + href
@@ -103,6 +115,12 @@ class JalanScraper(StaticCrawler):
         "エリア", "キャッチフレーズ", "最安値",
         "評価スコア", "口コミ件数", "高評価項目",
         "チェックイン", "チェックアウト", "総部屋数", "施設内容",
+        # 部屋・部屋施設 / アメニティ・施設・サービス
+        "部屋補足", "部屋設備", "インターネット", "温泉",
+        "サービス&レジャー", "クレジットカード", "補足",
+        # クチコミ評価（項目別スコア）
+        "総合評価", "部屋評価", "風呂評価", "朝食評価",
+        "夕食評価", "接客評価", "清潔感評価",
     ]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
@@ -273,6 +291,13 @@ class JalanScraper(StaticCrawler):
         total_rooms = ""
         facility = ""
         addr_full = ""
+        room_note = ""
+        room_equip = ""
+        internet = ""
+        onsen = ""
+        service = ""
+        credit = ""
+        note = ""
 
         for tr in soup.select("table tr"):
             th = tr.select_one("th")
@@ -290,8 +315,24 @@ class JalanScraper(StaticCrawler):
                 checkout = value
             elif label == "施設内容":
                 facility = value
-            elif label == "総部屋数":
-                total_rooms = value
+            elif label == "部屋補足":
+                room_note = value
+            elif "標準的な部屋設備" in label:
+                room_equip = value
+            elif "インターネット" in label:
+                internet = value
+            elif label == "温泉":
+                onsen = value
+            elif "サービス" in label and "レジャー" in label:
+                service = value
+            elif "クレジットカード" in label:
+                credit = value
+            elif label == "補足":
+                note = value
+
+        # 総部屋数 は洋室/和室/… と並ぶ横並びテーブルの「列見出し」で、
+        # 値は見出し行の次行の同じ列位置(td)に入る。th/td 同一行では拾えない。
+        total_rooms = self._extract_total_rooms(soup)
 
         pref = ""
         addr = addr_full
@@ -300,7 +341,7 @@ class JalanScraper(StaticCrawler):
             pref = m.group(1)
             addr = addr_full[m.end():].strip()
 
-        return {
+        record = {
             Schema.URL: url,
             Schema.NAME: name,
             Schema.PREF: pref,
@@ -315,6 +356,53 @@ class JalanScraper(StaticCrawler):
             "チェックアウト": checkout,
             "総部屋数": total_rooms,
             "施設内容": facility,
+            "部屋補足": room_note,
+            "部屋設備": room_equip,
+            "インターネット": internet,
+            "温泉": onsen,
+            "サービス&レジャー": service,
+            "クレジットカード": credit,
+            "補足": note,
+        }
+        record.update(self._parse_reviews(soup))
+        return record
+
+    def _extract_total_rooms(self, soup) -> str:
+        """横並びテーブル(洋室/和室/和洋室/その他/総部屋数)から総部屋数を抽出する。
+
+        「総部屋数」は見出し行の th、値は次行の同じ列位置の td にある。
+        """
+        for th in soup.find_all("th"):
+            if _clean(th.get_text()) != "総部屋数":
+                continue
+            header_tr = th.find_parent("tr")
+            if header_tr is None:
+                continue
+            headers = header_tr.find_all("th", recursive=False)
+            if th not in headers:
+                headers = header_tr.find_all("th")
+            try:
+                idx = headers.index(th)
+            except ValueError:
+                continue
+            value_tr = header_tr.find_next_sibling("tr")
+            if value_tr is None:
+                continue
+            tds = value_tr.find_all("td", recursive=False)
+            if not tds:
+                tds = value_tr.find_all("td")
+            if idx < len(tds):
+                value = _clean(tds[idx].get_text(" "))
+                if value:
+                    return value
+        return ""
+
+    def _parse_reviews(self, soup) -> dict:
+        """詳細ページ下部のクチコミ評価（項目別スコア）を抽出する。"""
+        text = _clean(soup.get_text(" "))
+        return {
+            col: (m.group(1) if (m := pat.search(text)) else "")
+            for col, pat in _REVIEW_SCORE_RE.items()
         }
 
 
@@ -327,7 +415,7 @@ if __name__ == "__main__":
     )
 
     scraper = JalanScraper()
-    scraper.execute(HUB_URL)
+    scraper.execute("https://www.jalan.net/yado.html")
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
     print(f"取得件数: {scraper.item_count}")
