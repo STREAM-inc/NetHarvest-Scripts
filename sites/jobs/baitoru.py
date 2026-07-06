@@ -24,6 +24,21 @@ ver 1.4.0 20260702 各地区の2ページ目以降が取得できない不具合
                      ステータスと求人リンクの有無で最終ページ超えを検出し、
                      それ以外は最大ページまで無条件に page{N}/ を辿る。
                      seen_jobs は出力の重複排除にのみ使用する。
+ver 1.5.0 20260706 someya 1エリア1万件上限(=400ページ)の取りこぼしを解消。
+                   - バイトルの一覧は1エリアあたり最大10,000件(=400ページ)しか
+                     返さない。市区町村(区)単位でも1万件を超えるエリア(例: 新宿区
+                     =12,428件)があり、旧実装はページ送りだけでは超過分を取得
+                     できず取りこぼしていた。
+                   - 対処: 各エリアの総件数(<b>N件</b>)を読み取り、10,000件を
+                     超える場合はページ送りせず、そのページ上の1段深い絞り込み
+                     リンク(職種/駅・エリア等の子リンク)へ再帰的に降りて分割
+                     取得する(例: 新宿区 → 新宿東口 等)。子リンクの和集合で
+                     全求人を被覆し、seen_jobs で重複出力を排除する。総件数が
+                     10,000件以下のエリアは従来どおり全ページを巡回する。
+                   - 電話番号は求人詳細の「電話番号を表示する」ボタン
+                     (a.tel-entry[data-obo_tel])から取得する方式を最優先に変更。
+                     住所内 TEL 抽出は data-obo_tel が無い場合のフォールバック。
+                     想定件数は全国約250万件。
 ---------------------------------------------------------------------------
 """
 
@@ -52,9 +67,16 @@ REGIONS = [
     "koshinetsu", "chushikoku", "kyushu",
 ]
 
+# バイトルが1エリアの一覧で返す上限件数。これを超えるエリアはページ送り
+# だけでは取りこぼすため、1段深い絞り込みリンクへ再帰的に降りて分割取得する。
+AREA_LIMIT = 10000
+
 # 1エリアあたりの巡回上限ページ数（暴走防止のセーフティ）。
-# 市区町村粒度では最大でも数百ページ（新宿区=400ページ）に収まる。
-MAX_PAGES = 1000
+# 上限件数(10,000)まで巡回できるよう、実測の最大ページ数(=400)に合わせる。
+MAX_PAGES = 400
+
+# 絞り込みの再帰上限（region/jlist/pref/city/ward/subarea… の想定最大深度）。
+MAX_DEPTH = 6
 
 # 都道府県スラッグ → 日本語名（住所から取れない場合のデフォルト用）。
 # バイトルのURLスラッグは標準ローマ字と一部異なるため別名も登録する。
@@ -79,6 +101,8 @@ _JOB_DETAIL_RE = re.compile(r"/job\d+/?$")
 # 地域別求人一覧エリアURL（…/{region}/jlist/{pref}/…/）を抽出する。
 # 末尾が job\d は求人詳細なので、後段で別途除外する。
 _AREA_LIST_RE = re.compile(r"https?://[^/]+/[a-z]+/jlist/[a-z0-9/]+/")
+# 「N件」表記から件数を取り出す（総件数は <b>N件</b> に入る）。
+_COUNT_RE = re.compile(r"^\s*([\d,]+)\s*件\s*$")
 
 
 def _clean(s) -> str:
@@ -98,9 +122,11 @@ def _norm_area(u: str) -> str:
 class BaitoruScraper(DynamicCrawler):
     """バイトル 全国求人スクレイパー（baitoru.com）
 
-    sitemap_ba_area.xml から市区町村粒度の「葉」エリア一覧を自動探索し、
-    各エリアを全ページ巡回。各求人詳細から企業情報を抽出し、求人詳細URLを
-    重複排除キーにして全国の全求人（約300万件想定）を取りこぼさず収集する。
+    sitemap_ba_area.xml から市区町村粒度の「葉」エリア一覧を自動探索し、各エリアを
+    巡回する。1エリアの一覧はバイトル側の上限(10,000件=400ページ)までしか返さ
+    ないため、総件数がこの上限を超えるエリアは、そのページ上の1段深い絞り込み
+    リンク(職種/駅・エリア等)へ再帰的に降りて分割取得する。求人詳細URLを重複排除
+    キーにして全国の全求人（約250万件想定）を取りこぼさず収集する。
     """
 
     DELAY = 1.0
@@ -112,16 +138,14 @@ class BaitoruScraper(DynamicCrawler):
         parsed = urlparse(url)
         self.origin = f"{parsed.scheme}://{parsed.netloc}"
 
-        seen_jobs: set[str] = set()  # 訪問済み求人詳細URL（重複排除キー）
+        seen_jobs: set[str] = set()   # 訪問済み求人詳細URL（重複排除キー）
+        seen_areas: set[str] = set()  # 巡回済みエリアURL（再帰の重複防止）
 
         area_lists = self._discover_area_lists()
         self.logger.info("巡回対象の葉エリア一覧: %d件", len(area_lists))
 
         for base in area_lists:
-            slug = self._pref_slug(base)
-            pref_ja = PREF_JA.get(slug, "")
-            self.logger.info("一覧巡回: %s (%s)", base, pref_ja or slug)
-            yield from self._scrape_list(base, pref_ja, seen_jobs)
+            yield from self._crawl_area(base, seen_jobs, seen_areas, depth=0)
 
         self.logger.info("収集求人数: %d件", len(seen_jobs))
 
@@ -173,52 +197,131 @@ class BaitoruScraper(DynamicCrawler):
         return parts[2] if len(parts) >= 3 else ""
 
     # ------------------------------------------------------------------ #
-    # 一覧ページのページネーション巡回
+    # エリア巡回（件数に応じてページ送り or 再帰分割）
     # ------------------------------------------------------------------ #
-    def _scrape_list(self, base: str, pref_ja: str,
-                     seen_jobs: set) -> Generator[dict, None, None]:
-        # ページ送りの継続はページ自体の有効性で判定する（新規求人の有無では
-        # 判定しない）。範囲外ページ(最終ページ超え)はバイトルが HTTP 404 を
-        # 返すため、goto の応答ステータスと求人リンクの有無で終端を検出し、
-        # それ以外は最大ページまで無条件に page{N}/ を辿る。seen_jobs は
-        # エリア横断で共有され、重複求人の「出力」抑止にのみ用いる。
-        page_no = 1
+    def _crawl_area(self, base: str, seen_jobs: set, seen_areas: set,
+                    depth: int) -> Generator[dict, None, None]:
+        """1エリアを巡回する。
+
+        まず1ページ目を取得して総件数(<b>N件</b>)を読む。総件数が上限
+        (10,000件)以下なら全ページをページ送りで巡回する。上限を超える場合は
+        ページ送りでは超過分を取りこぼすため、そのページ上の1段深い絞り込み
+        リンク（職種/駅・エリア等の子リンク）へ再帰的に降りて分割取得する。
+        いずれの場合も1ページ目の求人は先に出力するため、最初の1件は速やかに
+        yield される。seen_jobs は求人の重複出力を、seen_areas はエリア再帰の
+        重複を防ぐために用いる。
+        """
+        base = _norm_area(base)
+        if base in seen_areas:
+            return
+        seen_areas.add(base)
+
+        try:
+            resp = self.page.goto(base, wait_until="domcontentloaded")
+        except Exception:
+            return
+        if resp is not None and resp.status >= 400:
+            return
+        try:
+            self.page.wait_for_selector("a[href*='/job']", timeout=8000)
+        except Exception:
+            return
+
+        page_url = self.page.url
+        soup = BeautifulSoup(self.page.content(), "html.parser")
+        pref_ja = PREF_JA.get(self._pref_slug(base), "")
+
+        total = self._total_count(soup)
+        self.logger.info("一覧巡回: %s (%s) 総件数=%s depth=%d",
+                         base, pref_ja or self._pref_slug(base),
+                         total if total is not None else "?", depth)
+
+        # 1ページ目の求人は常に先に出力する（最初の1件を速やかに yield）。
+        yield from self._emit_jobs(soup, page_url, pref_ja, seen_jobs)
+
+        # 上限超過エリアはページ送りせず、1段深い絞り込みへ降りて分割取得する。
+        if total is not None and total > AREA_LIMIT and depth < MAX_DEPTH:
+            children = self._child_areas(soup, page_url, base)
+            if children:
+                self.logger.info("上限超過(%d件)につき %d 個の子エリアへ分割: %s",
+                                 total, len(children), base)
+                for child in children:
+                    yield from self._crawl_area(
+                        child, seen_jobs, seen_areas, depth + 1)
+                return
+            # 子リンクが無い最深エリアは、取れる範囲(=上限まで)だけ巡回する。
+
+        # 上限以下 or これ以上分割できないエリア → 2ページ目以降を巡回。
+        page_no = 2
         while page_no <= MAX_PAGES:
-            list_url = base if page_no == 1 else f"{base}page{page_no}/"
+            list_url = f"{base}page{page_no}/"
             try:
                 resp = self.page.goto(list_url, wait_until="domcontentloaded")
             except Exception:
-                break  # 取得失敗 → このエリアの巡回終了
-
+                break
             # 範囲外ページ(最終ページ超え)は 404。8秒待たず即終了する。
             if resp is not None and resp.status >= 400:
                 break
-
             try:
                 self.page.wait_for_selector("a[href*='/job']", timeout=8000)
             except Exception:
-                break  # 求人リンクが無い＝実質的に最終ページ超え
+                break
 
             page_url = self.page.url
             soup = BeautifulSoup(self.page.content(), "html.parser")
-
-            job_urls = self._page_job_urls(soup, page_url)
-            if not job_urls:
+            if not self._page_job_urls(soup, page_url):
                 break  # このページに求人が無い → 巡回終了
-
-            for job_url in job_urls:
-                if job_url in seen_jobs:
-                    continue  # 別エリアで取得済みの求人は出力しない（重複排除）
-                seen_jobs.add(job_url)
-
-                item = self._scrape_detail(job_url, pref_ja)
-                if not item or not item.get(Schema.NAME):
-                    continue
-                yield item
-
-            # ページ内の求人が全て既取得(seen_jobs)でも、次ページは無条件に辿る。
-            # ここで打ち切ると重複エリアで2ページ目以降が取得できなくなる。
+            yield from self._emit_jobs(soup, page_url, pref_ja, seen_jobs)
             page_no += 1
+
+    def _emit_jobs(self, soup, page_url: str, pref_ja: str,
+                   seen_jobs: set) -> Generator[dict, None, None]:
+        """一覧ページ上の各求人詳細を取得して出力する（重複排除つき）。"""
+        for job_url in self._page_job_urls(soup, page_url):
+            if job_url in seen_jobs:
+                continue  # 別エリアで取得済みの求人は出力しない（重複排除）
+            seen_jobs.add(job_url)
+            item = self._scrape_detail(job_url, pref_ja)
+            if not item or not item.get(Schema.NAME):
+                continue
+            yield item
+
+    @staticmethod
+    def _total_count(soup) -> int | None:
+        """一覧ページの総件数を返す。総件数は <b>N件</b> に入る（実測）。
+
+        表示件数の切替(20/30/40件)は em/a 要素なので <b> のみを対象にすることで
+        混同を避ける。複数あれば最大値（＝そのエリアの総件数）を採用する。
+        """
+        counts: list[int] = []
+        for b in soup.find_all("b"):
+            m = _COUNT_RE.match(b.get_text())
+            if m:
+                counts.append(int(m.group(1).replace(",", "")))
+        return max(counts) if counts else None
+
+    def _child_areas(self, soup, page_url: str, base: str) -> list[str]:
+        """現在エリアの「1段深い」絞り込みリンク（子エリア）を抽出する。
+
+        子リンクは現在エリアURLをパス接頭辞に持ち、パスセグメントが1つだけ深い
+        /…/jlist/… のURL（職種・駅・エリア等の絞り込み）。求人詳細(/jobNNN/)は
+        除外する。職種／地理いずれの子リンクでも和集合は全求人を被覆するため、
+        分割起点として利用できる（重複は seen_jobs で排除）。
+        """
+        base_parts = [p for p in urlparse(base).path.split("/") if p]
+        children: set[str] = set()
+        for a in soup.select("a[href*='/jlist/']"):
+            href = (a.get("href", "") or "")
+            if "/job" in href:
+                continue
+            full = _norm_area(urljoin(page_url, href))
+            if _JOB_DETAIL_RE.search(full):
+                continue
+            parts = [p for p in urlparse(full).path.split("/") if p]
+            # 現在エリアの真下（セグメント +1）の子だけを採用する。
+            if len(parts) == len(base_parts) + 1 and parts[:len(base_parts)] == base_parts:
+                children.add(full)
+        return sorted(children)
 
     @staticmethod
     def _page_job_urls(soup, page_url: str) -> list[str]:
@@ -250,6 +353,15 @@ class BaitoruScraper(DynamicCrawler):
 
         # 重複排除キー兼出力URLは求人詳細URL（1求人=1行）。
         data = {Schema.URL: url, Schema.PREF: pref_ja}
+
+        # 電話番号は「電話番号を表示する」ボタン(a.tel-entry[data-obo_tel])から
+        # 取得する方式を最優先とする。data-obo_tel には実番号(03-…)または
+        # フリーダイヤル(0120-…)が入り、末尾に空白を含むことがあるので除去する。
+        tel_btn = soup.select_one("a.tel-entry[data-obo_tel], a[data-obo_tel]")
+        if tel_btn:
+            obo_tel = (tel_btn.get("data-obo_tel") or "").strip()
+            if obo_tel:
+                data[Schema.TEL] = obo_tel
 
         company_info = soup.find("div", class_="detail-companyInfo")
         if company_info:
@@ -290,7 +402,8 @@ class BaitoruScraper(DynamicCrawler):
                         if pref_match:
                             data[Schema.PREF] = pref_match.group(1)
                     elif "代表電話番号" in key or "電話番号" in key:
-                        data[Schema.TEL] = val
+                        if not data.get(Schema.TEL):  # obo_tel を最優先
+                            data[Schema.TEL] = val
                     elif "代表者" in key:
                         data[Schema.REP_NM] = val
                     elif "事業内容" in key or "業種" in key:
