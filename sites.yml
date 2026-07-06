@@ -3497,3 +3497,10 @@ sites:
     url: "https://gate2006.jp/"
     schedule: "0 9 26 * *"
     enabled: true
+
+  - site_id: p_portal_5
+    name: "調達ポータル【法人】（東京版）"
+    module: "government.p_portal_5"
+    url: "https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103"
+    schedule: null
+    enabled: true
