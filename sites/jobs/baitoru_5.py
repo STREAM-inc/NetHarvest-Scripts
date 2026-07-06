@@ -60,6 +60,20 @@ ver 1.5.0 20260706 応募電話ボタンの電話番号も取得（追加指示�
                      場合はこの data-obo_tel を Schema.TEL に採用する。
                    - 値は末尾に空白パディングを含むため _clean で整形する。
                    - URL一貫性・エリア分割巡回・重複排除方針は 1.4.0 のまま。
+ver 1.6.0 20260706 絞り込みをフリーワードから職種カテゴリへ変更（追加指示：
+                   /kansai/jlist/factory-productionetc で取得したい。ただし
+                   バイトル側の都合で最大約1万件までしか取得できない）。
+                   - baitoru の職種絞り込みはパスセグメント
+                     「factory-productionetc/」（工場・製造・軽作業カテゴリ）で
+                     表現される。ルート/エリアのURL末尾に付与するとこのカテゴリの
+                     求人だけの一覧になる（例: /kansai/jlist/factory-productionetc/）。
+                   - フリーワード(wrd工場/)による絞り込みは廃止し、カテゴリ
+                     セグメントに置き換える。
+                   - page400 上限対策としての葉(leaf)エリア分割巡回はそのまま維持し、
+                     各エリアURLにカテゴリセグメントを付与して巡回する。
+                   - URL一貫性ルール準拠：ルートURL(/kansai/jlist/)自体は変更せず、
+                     カテゴリURL・エリアURL・ページURLはすべて引数 url から派生。
+                   - 重複排除キーは求人詳細URL（1求人=1行）。
 ---------------------------------------------------------------------------
 """
 
@@ -68,7 +82,7 @@ import sys
 import urllib.request
 from pathlib import Path
 from typing import Generator
-from urllib.parse import quote, urljoin, urlparse
+from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -89,13 +103,12 @@ AREA_SITEMAP = "sitemap_ba_area.xml"
 # 求人詳細ページのURL（…/job123456/）にマッチ。応募フォーム(/entry/)は除外する。
 _JOB_DETAIL_RE = re.compile(r"/job\d+/?$")
 
-# 追加指示: フリーワード検索キーワード。baitoru のフリーワードはクエリではなく
-# パスセグメント「wrd<キーワード>/」で表現される（/noscreen/createurl/ が生成する
-# 正規URLで確認済み）。ルートやエリアのURL末尾にこのセグメントを付与すると
-# フリーワード絞り込み一覧になる（例: /kansai/jlist/wrd工場/ = 14,856件）。
-FREEWORD = "工場"
-# URLエンコード済みのフリーワードセグメント（末尾スラッシュ付き）。
-FREEWORD_SEG = "wrd" + quote(FREEWORD) + "/"
+# 追加指示: 職種カテゴリ絞り込みセグメント。baitoru の職種絞り込みはクエリではなく
+# パスセグメントで表現される。ルートやエリアのURL末尾にこのセグメントを付与すると
+# 工場・製造・軽作業カテゴリの求人だけの一覧になる
+# （例: /kansai/jlist/factory-productionetc/）。
+# ※baitoru 側の都合でこのカテゴリの取得上限は約1万件。
+CATEGORY_SEG = "factory-productionetc/"
 
 
 def _clean(s) -> str:
@@ -117,10 +130,11 @@ class Baitoru5Scraper(DynamicCrawler):
 
     引数 url（=…/kansai/jlist/）を唯一のルートとし、sitemap_ba_area.xml から
     その配下の「葉(leaf)」エリア（市区町村・区の最深粒度）を抽出して、各エリアに
-    フリーワード「工場」セグメント(wrd工場/)を付与し、個別にページ送りで巡回する。
-    単一の /kansai/jlist/wrd工場/（14,856件）をそのまま辿ると baitoru のページ送り
-    上限(page400≒8,000件)に阻まれて約半分を取りこぼすため、エリア分割によって
-    各リストを上限内に収め、関西の工場求人 14,856件を網羅収集する。
+    工場・製造・軽作業カテゴリセグメント(factory-productionetc/)を付与し、個別に
+    ページ送りで巡回する。単一の /kansai/jlist/factory-productionetc/ をそのまま
+    辿ると baitoru のページ送り上限(page400≒8,000件)に阻まれて取りこぼすため、
+    エリア分割によって各リストを上限内に収める（baitoru 側の都合で当カテゴリの
+    取得上限は約1万件）。
     各求人詳細から企業情報を抽出し、求人詳細URLを重複排除キー(1求人=1行)にする。
     """
 
@@ -148,27 +162,27 @@ class Baitoru5Scraper(DynamicCrawler):
 
         seen_jobs: set[str] = set()  # 訪問済み求人詳細URL（重複排除キー・1求人=1行）
 
-        # ── フリーワード「工場」絞り込み + 取りこぼし対策 ──────────────────
-        # フリーワード検索はパスセグメント wrd工場/ で表現される。ルート/エリアの
-        # URL末尾に付与すると工場求人だけの一覧になる（/kansai/jlist/wrd工場/=14,856件）。
-        # ただし baitoru はどの一覧でもページ送りが page400 で頭打ち（約20件/頁≒
-        # 8,000件）。14,856件を単一一覧(約743頁)で辿ると約半分を取りこぼすため、
-        # sitemap_ba_area.xml の「葉(leaf)」エリアへ分割し、各エリアに wrd工場/ を
-        # 付与して個別に巡回する（各エリアは page400 上限内に収まる）。
+        # ── 工場カテゴリ絞り込み + 取りこぼし対策 ──────────────────────────
+        # 職種カテゴリ絞り込みはパスセグメント factory-productionetc/ で表現される。
+        # ルート/エリアのURL末尾に付与すると工場・製造・軽作業カテゴリの求人だけの
+        # 一覧になる（/kansai/jlist/factory-productionetc/）。ただし baitoru はどの
+        # 一覧でもページ送りが page400 で頭打ち（約20件/頁≒8,000件）のため、
+        # sitemap_ba_area.xml の「葉(leaf)」エリアへ分割し、各エリアに
+        # factory-productionetc/ を付与して個別に巡回する（各エリアは page400 上限内）。
         leaf_areas = self._fetch_leaf_areas()
         if leaf_areas:
-            self.logger.info("巡回対象の葉エリア数: %d件（root=%s, freeword=%s）",
-                             len(leaf_areas), self.root, FREEWORD)
+            self.logger.info("巡回対象の葉エリア数: %d件（root=%s, category=%s）",
+                             len(leaf_areas), self.root, CATEGORY_SEG)
             for area in leaf_areas:
-                # エリアURL末尾にフリーワードセグメントを付与（URLは引数 url 由来）。
-                fw_area = _norm_area(area) + FREEWORD_SEG
-                self.logger.info("エリア巡回開始: %s", fw_area)
-                yield from self._scrape_list(fw_area, "", seen_jobs)
+                # エリアURL末尾にカテゴリセグメントを付与（URLは引数 url 由来）。
+                cat_area = _norm_area(area) + CATEGORY_SEG
+                self.logger.info("エリア巡回開始: %s", cat_area)
+                yield from self._scrape_list(cat_area, "", seen_jobs)
         else:
             # サイトマップ取得失敗時のフォールバック（少なくとも先頭～page400は巡回）。
-            fw_root = self.root + FREEWORD_SEG
-            self.logger.warning("サイトマップ取得に失敗。ルートのフリーワード一覧のみ巡回します: %s", fw_root)
-            yield from self._scrape_list(fw_root, "", seen_jobs)
+            cat_root = self.root + CATEGORY_SEG
+            self.logger.warning("サイトマップ取得に失敗。ルートのカテゴリ一覧のみ巡回します: %s", cat_root)
+            yield from self._scrape_list(cat_root, "", seen_jobs)
 
         self.logger.info("収集求人数: %d件", len(seen_jobs))
 
