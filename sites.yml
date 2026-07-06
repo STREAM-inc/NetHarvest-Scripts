@@ -3476,3 +3476,10 @@ sites:
     url: "https://soramachi.net/recruit?mode=search"
     schedule: "0 9 26 * *"
     enabled: true
+
+  - site_id: jobmake_2
+    name: "ジョブメイク岡山版リスト"
+    module: "jobs.jobmake_2"
+    url: "https://jobmake.jp/33/"
+    schedule: null
+    enabled: true
