@@ -3469,3 +3469,10 @@ sites:
     url: "https://www.hotworks.jp/yamaguchi/"
     schedule: null
     enabled: true
+
+  - site_id: soramachi
+    name: "そら街"
+    module: "nightlife.soramachi"
+    url: "https://soramachi.net/recruit?mode=search"
+    schedule: "0 9 26 * *"
+    enabled: true
