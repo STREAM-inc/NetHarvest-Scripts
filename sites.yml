@@ -231,7 +231,7 @@ sites:
     url: "https://dokenchiku.com/company/1"
     schedule: "40 1 8-14 * SUN"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #25
   - site_id: koujishi
@@ -321,7 +321,7 @@ sites:
     url: "https://picsastock.com/sitemap.xml"
     schedule: "0 2 * * SUN"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #35
   - site_id: tadaoka_shoko
@@ -492,7 +492,7 @@ sites:
     url: "https://www.dan-work.com"
     schedule: "40 2 22-28 * SUN"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #54
   - site_id: hamanight
@@ -672,7 +672,7 @@ sites:
     url: "https://www.benrishi-navi.com"
     schedule: "40 3 8-14 * SUN"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #74
   - site_id: prtimes
@@ -1554,7 +1554,7 @@ sites:
     url: "https://hikariweb.ntt-east.co.jp/general/search/list.php?keyword=1"
     schedule: "20 5 22-28 * SAT"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #172
   - site_id: hikariweb_cancell
@@ -1563,7 +1563,7 @@ sites:
     url: "https://hikariweb.ntt-east.co.jp/general/cancell/list.php?keyword=1"
     schedule: "20 5 22-28 * SAT"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #173
   - site_id: nightstyle
@@ -1698,7 +1698,7 @@ sites:
     url: "https://www.hoskyu.com/"
     schedule: "30 1 15-21 * 6"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #188
   - site_id: iiyeah_tateru
@@ -1787,7 +1787,7 @@ sites:
     url: "https://www.spa.or.jp/search_p/"
     schedule: "0 1 * * SUN"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #198
   - site_id: cabacrown
@@ -1940,7 +1940,7 @@ sites:
     url: "https://www.takasaki-fun.jp/"
     schedule: "0 0 8-14 * SUN"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #215
   - site_id: cute_p
@@ -1967,7 +1967,7 @@ sites:
     url: "https://meccel.net/"
     schedule: "0 8 22-28 * SAT"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #218
   - site_id: kaigo_kensaku
@@ -2039,7 +2039,7 @@ sites:
     url: "https://jexadb.nittenkyo.ne.jp/json/jexa_memb.tsv"
     schedule: "0 0 1 * *"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #226
   - site_id: web_kanji
@@ -2102,7 +2102,7 @@ sites:
     url: "https://www.hoskyu.com/"
     schedule: "0 0 1 * *"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #233
   - site_id: oremichi
@@ -2273,7 +2273,7 @@ sites:
     url: "https://girlsbar-station.com"
     schedule: "0 0 1 * *"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #252
   - site_id: imitsu
@@ -2336,7 +2336,7 @@ sites:
     url: "https://okinawasyako.ti-da.net/"
     schedule: "0 0 1 * *"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #259
   - site_id: reshop_navi
@@ -2813,7 +2813,7 @@ sites:
     url: "https://www.zenshukyo.or.jp/memberlist/"
     schedule: "0 9 18 * *"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #312
   - site_id: softbank
@@ -2831,7 +2831,7 @@ sites:
     url: "https://www5.techno-aids.or.jp/shop/map.php"
     schedule: "0 9 1 * *"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #314
   - site_id: ii_ie2
@@ -2984,7 +2984,7 @@ sites:
     url: "https://www.snack-guide.com/"
     schedule: "20 13 1-7 * SUN"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #331
   - site_id: cabanavi
@@ -3083,7 +3083,7 @@ sites:
     url: "https://bunbunweb.com/shop/455/"
     schedule: "0 4 5 * *"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #342
   - site_id: luline
@@ -3263,7 +3263,7 @@ sites:
     url: "https://girls-good-job.jp/"
     schedule: "0 22 18 * *"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #362
   - site_id: tainew_walker
@@ -3337,7 +3337,7 @@ sites:
     url: "https://www.jasmac8.com/sitemap.html"
     schedule: "0 9 1 * *"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #370
   - site_id: japanshishatimes
@@ -3364,7 +3364,7 @@ sites:
     url: "https://ekimae-lab.com/"
     schedule: "0 9 1 * *"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #373
   - site_id: foul
@@ -3373,7 +3373,7 @@ sites:
     url: "https://www.foul.co.jp/"
     schedule: "0 9 1 * *"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #374
   - site_id: navi_2
@@ -3472,7 +3472,7 @@ sites:
     url: "https://builders-ranking.com/"
     schedule: "0 12 25 * *"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #385
   - site_id: nap_camp
@@ -3526,7 +3526,7 @@ sites:
     url: "https://k-navi.happyjob.jp/"
     schedule: "0 9 1 * *"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #391
   - site_id: guide_jp
@@ -3616,7 +3616,7 @@ sites:
     url: "https://kyujin-saitama.com/2026-2027list/"
     schedule: "0 9 29 * *"
     enabled: true
-    terms_url: "無し"
+    terms_url: ""
 
 #401
   - site_id: jobway
