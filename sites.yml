@@ -3885,6 +3885,7 @@ sites:
     url: "https://www.jfnet.or.jp/"
     schedule: null
     enabled: true
+    terms_url: ""
 
 #431
   - site_id: soumu_2
@@ -3893,6 +3894,7 @@ sites:
     url: "https://www.soumu.go.jp/johotsusintokei/field/tsuushin04.html"
     schedule: null
     enabled: true
+    terms_url: ""
 
 #432
   - site_id: hotworks
@@ -3901,6 +3903,7 @@ sites:
     url: "https://www.hotworks.jp/yamaguchi/"
     schedule: null
     enabled: true
+    terms_url: ""
 
 #433
   - site_id: soramachi
@@ -3909,6 +3912,7 @@ sites:
     url: "https://soramachi.net/recruit?mode=search"
     schedule: "0 9 26 * *"
     enabled: true
+    terms_url: ""
 
 #434
   - site_id: jobmake_2
@@ -3917,6 +3921,7 @@ sites:
     url: "https://jobmake.jp/33/"
     schedule: null
     enabled: true
+    terms_url: ""
 
 #435
   - site_id: ja
@@ -3925,6 +3930,7 @@ sites:
     url: "https://shimonoseki-ja-night.com/store/"
     schedule: "0 9 21 * *"
     enabled: true
+    terms_url: ""
 
 #436
   - site_id: gate2006
@@ -3933,6 +3939,7 @@ sites:
     url: "https://gate2006.jp/"
     schedule: "0 9 26 * *"
     enabled: true
+    terms_url: ""
 
 #437
   - site_id: p_portal_5
@@ -3941,3 +3948,4 @@ sites:
     url: "https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103"
     schedule: null
     enabled: true
+    terms_url: ""
