@@ -3958,9 +3958,9 @@ sites:
     enabled: true
     terms_url: ""
 
-  - site_id: bunnabi_2
+  - site_id: bunnabi_2028
     name: "ブンナビ"
-    module: "jobs.bunnabi_2"
+    module: "jobs.bunnabi_2028"
     url: "https://bunnabi.jp/2028/sh_result.php"
     schedule: "0 9 * * 2"
     enabled: true
