@@ -3981,3 +3981,11 @@ sites:
     schedule: "0 10 * * 1"
     enabled: true
     terms_url: ""
+
+  - site_id: butsuryu
+    name: "日本物流団体連合会"
+    module: "corporate.butsuryu"
+    url: "https://www.butsuryu.or.jp/about/members"
+    schedule: "0 10 * * 2"
+    enabled: true
+    terms_url: ""
