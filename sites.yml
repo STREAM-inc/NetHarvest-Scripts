@@ -3949,3 +3949,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.p-portal.go.jp/pps-web-biz/resources/app/pdf/riyoukiyaku.pdf"
+
+  - site_id: onecareer
+    name: "onecareer"
+    module: "corporate.onecareer"
+    url: "https://www.onecareer.jp/companies?per=20&page=1&sort=standard&lowest_rating=0&highest_rating=5&search_query="
+    schedule: "0 9 * * 2"
+    enabled: true
+    terms_url: ""
