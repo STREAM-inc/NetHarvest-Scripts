@@ -3973,3 +3973,11 @@ sites:
     schedule: "0 9 * * 2"
     enabled: true
     terms_url: ""
+
+  - site_id: www12
+    name: "全国商工会連合会＋各都道府県商工会連合会"
+    module: "government.www12"
+    url: "https://www12.shokokai.or.jp/hpsearch/top/php/search.php"
+    schedule: "0 10 * * 1"
+    enabled: true
+    terms_url: ""
