@@ -3957,3 +3957,11 @@ sites:
     schedule: "0 9 * * 2"
     enabled: true
     terms_url: ""
+
+  - site_id: bunnabi_2
+    name: "ブンナビ"
+    module: "jobs.bunnabi_2"
+    url: "https://bunnabi.jp/2028/sh_result.php"
+    schedule: "0 9 * * 2"
+    enabled: true
+    terms_url: ""
