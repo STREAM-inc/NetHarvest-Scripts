@@ -2039,7 +2039,7 @@ sites:
     url: "https://jexadb.nittenkyo.ne.jp/json/jexa_memb.tsv"
     schedule: "0 0 1 * *"
     enabled: true
-    terms_url: ""
+    terms_url: "https://web-kanji.com/terms"
 
 #226
   - site_id: web_kanji
@@ -2273,7 +2273,7 @@ sites:
     url: "https://girlsbar-station.com"
     schedule: "0 0 1 * *"
     enabled: true
-    terms_url: ""
+    terms_url: "https://imitsu.jp/terms/"
 
 #252
   - site_id: imitsu
@@ -2336,7 +2336,7 @@ sites:
     url: "https://okinawasyako.ti-da.net/"
     schedule: "0 0 1 * *"
     enabled: true
-    terms_url: ""
+    terms_url: "https://rehome-navi.com/informations/terms"
 
 #259
   - site_id: reshop_navi
@@ -3642,7 +3642,7 @@ sites:
     module: "jobs.paiza"
     url: "https://paiza.jp/career/job_offers"
     schedule: "0 17 10 * *"
-    terms_url: ""
+    terms_url: "https://paiza.jp/guide/kiyaku"
 
 #404
   - site_id: mynavi_baito
@@ -3687,7 +3687,7 @@ sites:
     url: "https://bunnabi.jp/2027/sh_result.php"
     schedule: "0 21 15-21 * SAT"
     enabled: true
-    terms_url: ""
+    terms_url: "https://bunnabi.jp/s/kiyaku.php"
 
 #409
   - site_id: emeao
@@ -3804,7 +3804,7 @@ sites:
     url: "https://eslove.jp"
     schedule: "0 9 7 * *"
     enabled: true
-    terms_url: ""
+    terms_url: "https://eslove.jp/terms"
 
 #422
   - site_id: crowdworks
@@ -3885,6 +3885,7 @@ sites:
     url: "https://www.jfnet.or.jp/"
     schedule: null
     enabled: true
+    terms_url: "https://www.jfnet.or.jp/terms_of_service/"
 
 #431
   - site_id: soumu_2
@@ -3893,6 +3894,7 @@ sites:
     url: "https://www.soumu.go.jp/johotsusintokei/field/tsuushin04.html"
     schedule: null
     enabled: true
+    terms_url: "https://www.soumu.go.jp/menu_kyotsuu/policy/policy.html"
 
 #432
   - site_id: hotworks
@@ -3901,38 +3903,49 @@ sites:
     url: "https://www.hotworks.jp/yamaguchi/"
     schedule: null
     enabled: true
+    terms_url: ""
 
+#433
   - site_id: soramachi
     name: "そら街"
     module: "nightlife.soramachi"
     url: "https://soramachi.net/recruit?mode=search"
     schedule: "0 9 26 * *"
     enabled: true
+    terms_url: "https://soramachi.net/guide/terms"
 
+#434
   - site_id: jobmake_2
     name: "ジョブメイク岡山版リスト"
     module: "jobs.jobmake_2"
     url: "https://jobmake.jp/33/"
     schedule: null
     enabled: true
+    terms_url: ""
 
+#435
   - site_id: ja
     name: "しものせきJaナイトリスト"
     module: "nightlife.ja"
     url: "https://shimonoseki-ja-night.com/store/"
     schedule: "0 9 21 * *"
     enabled: true
+    terms_url: "https://shimonoseki-ja-night.com/rule/"
 
+#436
   - site_id: gate2006
     name: "ゲート"
     module: "nightlife.gate2006"
     url: "https://gate2006.jp/"
     schedule: "0 9 26 * *"
     enabled: true
+    terms_url: "https://gate2006.jp/pc/agreement/"
 
+#437
   - site_id: p_portal_5
     name: "調達ポータル【法人】（東京版）"
     module: "government.p_portal_5"
     url: "https://www.p-portal.go.jp/pps-web-biz/UAB01/OAB0103"
     schedule: null
     enabled: true
+    terms_url: "https://www.p-portal.go.jp/pps-web-biz/resources/app/pdf/riyoukiyaku.pdf"
