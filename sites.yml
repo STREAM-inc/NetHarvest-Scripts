@@ -3902,6 +3902,7 @@ sites:
     schedule: null
     enabled: true
 
+#433
   - site_id: soramachi
     name: "そら街"
     module: "nightlife.soramachi"
@@ -3909,6 +3910,7 @@ sites:
     schedule: "0 9 26 * *"
     enabled: true
 
+#434
   - site_id: jobmake_2
     name: "ジョブメイク岡山版リスト"
     module: "jobs.jobmake_2"
@@ -3916,6 +3918,7 @@ sites:
     schedule: null
     enabled: true
 
+#435
   - site_id: ja
     name: "しものせきJaナイトリスト"
     module: "nightlife.ja"
@@ -3923,6 +3926,7 @@ sites:
     schedule: "0 9 21 * *"
     enabled: true
 
+#436
   - site_id: gate2006
     name: "ゲート"
     module: "nightlife.gate2006"
@@ -3930,6 +3934,7 @@ sites:
     schedule: "0 9 26 * *"
     enabled: true
 
+#437
   - site_id: p_portal_5
     name: "調達ポータル【法人】（東京版）"
     module: "government.p_portal_5"
