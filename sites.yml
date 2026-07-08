@@ -4101,3 +4101,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_6
+    name: "全国警備業協会（AJSSA）会員名簿(福島県)"
+    module: "government.ajssa_6"
+    url: "https://www.fukukeikyo.or.jp/pages/13/"
+    schedule: null
+    enabled: true
+    terms_url: ""
