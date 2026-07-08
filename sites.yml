@@ -4229,3 +4229,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_20
+    name: "全国警備業協会（AJSSA）会員名簿(岐阜県)"
+    module: "government.ajssa_20"
+    url: "https://www.gssa.or.jp/pages/21/"
+    schedule: null
+    enabled: true
+    terms_url: ""
