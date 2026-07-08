@@ -4253,3 +4253,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_23
+    name: "全国警備業協会（AJSSA）会員名簿(滋賀県)"
+    module: "corporate.ajssa_23"
+    url: "https://www.shikeikyou.jp/enterprise/"
+    schedule: null
+    enabled: true
+    terms_url: ""
