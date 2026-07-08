@@ -4221,3 +4221,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_17
+    name: "全国警備業協会（AJSSA）会員名簿(富山県)"
+    module: "government.ajssa_17"
+    url: "https://www.security-toyama.jp/meibo_kn.html"
+    schedule: null
+    enabled: true
+    terms_url: ""
