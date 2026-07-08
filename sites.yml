@@ -4181,3 +4181,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_14
+    name: "全国警備業協会（AJSSA）会員名簿(山梨県)"
+    module: "government.ajssa_14"
+    url: "http://nashikeikyo.jp/membership-list/"
+    schedule: null
+    enabled: true
+    terms_url: ""
