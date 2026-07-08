@@ -4093,3 +4093,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_5
+    name: "全国警備業協会（AJSSA）会員名簿(秋田県)"
+    module: "government.ajssa_5"
+    url: "https://akita-keibi-k.com/free/kaiinnitiran"
+    schedule: null
+    enabled: true
+    terms_url: ""
