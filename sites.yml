@@ -4237,3 +4237,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_21
+    name: "全国警備業協会（AJSSA）会員名簿(愛知県)"
+    module: "government.ajssa_21"
+    url: "https://aikeikyo.jp/wp_user/wordpress/member_list/"
+    schedule: null
+    enabled: true
+    terms_url: ""
