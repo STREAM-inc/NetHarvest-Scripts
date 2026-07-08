@@ -74,6 +74,25 @@ ver 1.6.0 20260706 絞り込みをフリーワードから職種カテゴリへ�
                    - URL一貫性ルール準拠：ルートURL(/kansai/jlist/)自体は変更せず、
                      カテゴリURL・エリアURL・ページURLはすべて引数 url から派生。
                    - 重複排除キーは求人詳細URL（1求人=1行）。
+ver 1.7.0 20260708 約6,900件で頭打ちする不具合を修正（追加指示）。
+                   - 【真因1】_scrape_list が「そのページに新規求人が1件も無い」時点で
+                     即 break していた。seen_jobs を全エリアで共有しているため、派遣
+                     求人（同一jobを複数エリアへ重複掲載）が多い当カテゴリでは、後続
+                     エリアの先頭ページが既取得だけで埋まり、そのエリアの奥ページにある
+                     固有求人へ到達する前に打ち切られていた。
+                   - 【真因2】巡回起点を「葉(leaf)エリア」に限定していたため、勤務地が
+                     市区町村まで特定されず府県止まりで登録された求人は、どの葉一覧にも
+                     現れず原理的に取得不可だった。両者が重なり、関西合計10,218件のうち
+                     約6,900件で頭打ちしていた。
+                   - 【対策1】ページ送り終了判定を「新規ゼロ」ではなく「求人ゼロ、または
+                     前ページと同一の求人集合（ページ送り上限クランプ）」に変更。重複は
+                     yield せず巡回のみ継続し、各リストを実際の末尾まで辿る。
+                   - 【対策2】巡回起点を府県粒度へ変更（例 /kansai/jlist/osaka/）。関西の
+                     各府県は工場カテゴリでも8,000件未満（page400上限内）に収まるため
+                     全件到達できる（実測 osaka=4,013, hyogo=2,595 等）。万一ある粒度で
+                     page400 上限に達した場合は、その配下の子エリアへ自動で降りて残りを
+                     回収する（適応的分割）。
+                   - URL一貫性・重複排除(1求人=1行)方針は従来どおり。
 ---------------------------------------------------------------------------
 """
 
@@ -129,12 +148,20 @@ class Baitoru5Scraper(DynamicCrawler):
     """バイトル関西 求人スクレイパー（baitoru.com /kansai/jlist/）
 
     引数 url（=…/kansai/jlist/）を唯一のルートとし、sitemap_ba_area.xml から
-    その配下の「葉(leaf)」エリア（市区町村・区の最深粒度）を抽出して、各エリアに
-    工場・製造・軽作業カテゴリセグメント(factory-productionetc/)を付与し、個別に
-    ページ送りで巡回する。単一の /kansai/jlist/factory-productionetc/ をそのまま
-    辿ると baitoru のページ送り上限(page400≒8,000件)に阻まれて取りこぼすため、
-    エリア分割によって各リストを上限内に収める（baitoru 側の都合で当カテゴリの
-    取得上限は約1万件）。
+    その配下のエリア（府県／市区町村／区）を抽出、各エリアに工場・製造・軽作業
+    カテゴリセグメント(factory-productionetc/)を付与して個別にページ送り巡回する。
+    単一の /kansai/jlist/factory-productionetc/ をそのまま辿ると baitoru のページ
+    送り上限(page400≒8,000件)に阻まれて取りこぼすため、エリア分割で各リストを
+    上限内に収める。
+
+    巡回起点は府県粒度（region_prefix の直下1階層。例 /kansai/jlist/osaka/）。
+    関西の各府県は工場カテゴリでも 8,000件未満に収まり page400 上限内で全件到達
+    できる。万一ある粒度で page400 上限に達した（＝取りこぼしの疑い）場合のみ、
+    その配下の子エリアへ自動で降りて残りを回収する（適応的分割）。府県粒度で巡回
+    するため、勤務地が市区町村まで特定されない「府県止まり」求人も取りこぼさない。
+
+    ページ送りの終了は「求人ゼロ、または前ページと同一の求人集合（上限クランプ）」
+    で判定し、既取得（重複）求人が並ぶページでも巡回自体は末尾まで継続する。
     各求人詳細から企業情報を抽出し、求人詳細URLを重複排除キー(1求人=1行)にする。
     """
 
@@ -165,19 +192,18 @@ class Baitoru5Scraper(DynamicCrawler):
         # ── 工場カテゴリ絞り込み + 取りこぼし対策 ──────────────────────────
         # 職種カテゴリ絞り込みはパスセグメント factory-productionetc/ で表現される。
         # ルート/エリアのURL末尾に付与すると工場・製造・軽作業カテゴリの求人だけの
-        # 一覧になる（/kansai/jlist/factory-productionetc/）。ただし baitoru はどの
-        # 一覧でもページ送りが page400 で頭打ち（約20件/頁≒8,000件）のため、
-        # sitemap_ba_area.xml の「葉(leaf)」エリアへ分割し、各エリアに
-        # factory-productionetc/ を付与して個別に巡回する（各エリアは page400 上限内）。
-        leaf_areas = self._fetch_leaf_areas()
-        if leaf_areas:
-            self.logger.info("巡回対象の葉エリア数: %d件（root=%s, category=%s）",
-                             len(leaf_areas), self.root, CATEGORY_SEG)
-            for area in leaf_areas:
-                # エリアURL末尾にカテゴリセグメントを付与（URLは引数 url 由来）。
-                cat_area = _norm_area(area) + CATEGORY_SEG
-                self.logger.info("エリア巡回開始: %s", cat_area)
-                yield from self._scrape_list(cat_area, "", seen_jobs)
+        # 一覧になる。ただし baitoru はどの一覧でもページ送りが page400 で頭打ち
+        # （約20件/頁≒8,000件）のため、sitemap_ba_area.xml のエリアへ分割して巡回する。
+        # 巡回起点は府県粒度（region_prefix 直下1階層）。関西の各府県は工場カテゴリでも
+        # 8,000件未満に収まり page400 上限内で全件到達できる。府県粒度で辿ることで、
+        # 勤務地が市区町村まで特定されない「府県止まり」求人も取りこぼさない。
+        self.area_paths = self._fetch_area_paths()  # region_prefix 配下の全階層エリア
+        top_areas = self._child_areas(self.region_prefix)  # 府県粒度（直下1階層）
+        if top_areas:
+            self.logger.info("巡回対象の府県エリア数: %d件（root=%s, category=%s）",
+                             len(top_areas), self.root, CATEGORY_SEG)
+            for area_path in top_areas:
+                yield from self._crawl_area(area_path, seen_jobs)
         else:
             # サイトマップ取得失敗時のフォールバック（少なくとも先頭～page400は巡回）。
             cat_root = self.root + CATEGORY_SEG
@@ -187,14 +213,44 @@ class Baitoru5Scraper(DynamicCrawler):
         self.logger.info("収集求人数: %d件", len(seen_jobs))
 
     # ------------------------------------------------------------------ #
-    # サイトマップから「葉(leaf)」エリア一覧を取得
+    # エリア巡回（適応的分割）: 上限クランプ検知時のみ子エリアへ降りる
     # ------------------------------------------------------------------ #
-    def _fetch_leaf_areas(self) -> list[str]:
-        """sitemap_ba_area.xml を取得し、root 配下(region_prefix)の最深エリアを返す。
+    def _crawl_area(self, area_path: str, seen_jobs: set) -> Generator[dict, None, None]:
+        """1エリアを巡回する。page400 上限に達した（取りこぼしの疑い）場合のみ、
+        その配下の子エリア（1階層深い粒度）へ降りて残りを回収する。
 
-        あるエリアURLが別のエリアURLの接頭辞になっている場合（例: 市 ⊃ 区）、
-        その親エリアは非葉とみなして除外する。残った最深粒度のエリアだけを巡回
-        起点にすることで、各エリアの件数が page400 上限内に収まり全件へ到達できる。
+        通常は府県粒度で page400 上限内に収まるため子への降下は発生しない。将来の
+        件数増や粒度差に備えた安全弁として適応的に分割する。エリアURL末尾には工場
+        カテゴリセグメントを付与する（URLは引数 url 由来）。
+        """
+        cat_area = self.origin + area_path + CATEGORY_SEG
+        self.logger.info("エリア巡回開始: %s", cat_area)
+        capped = yield from self._scrape_list(cat_area, "", seen_jobs)
+        if capped:
+            children = self._child_areas(area_path)
+            if children:
+                self.logger.info(
+                    "page400上限に到達。子エリアへ分割して残りを回収: %s（子%d件）",
+                    area_path, len(children),
+                )
+                for child in children:
+                    yield from self._crawl_area(child, seen_jobs)
+            else:
+                self.logger.warning(
+                    "page400上限に到達したが子エリアが無く、これ以上分割できません: %s",
+                    area_path,
+                )
+
+    # ------------------------------------------------------------------ #
+    # サイトマップから region_prefix 配下の全階層エリアパスを取得
+    # ------------------------------------------------------------------ #
+    def _fetch_area_paths(self) -> set[str]:
+        """sitemap_ba_area.xml を取得し、root 配下(region_prefix)の全階層エリアの
+        パス集合を返す（末尾スラッシュ付き。例 "/kansai/jlist/osaka/osakashi/"）。
+
+        サイトマップに載る各エリアについて、region_prefix 直下から当該エリアまでの
+        中間の全祖先パスも合成して追加する（例: 区までしか載っていなくても、府県・市の
+        粒度のノードを補完する）。これにより府県→市→区の適応的分割が可能になる。
         エリアURL・サイトマップURLはいずれも引数 url 由来の origin から派生させる。
         """
         sitemap_url = urljoin(self.origin + "/", AREA_SITEMAP)
@@ -206,34 +262,50 @@ class Baitoru5Scraper(DynamicCrawler):
                 xml = resp.read().decode("utf-8", errors="ignore")
         except Exception as e:
             self.logger.warning("サイトマップ取得失敗: %s — %s", sitemap_url, e)
-            return []
+            return set()
 
         # <loc> を名前空間非依存で抽出し、root 配下（region_prefix より深い）だけに絞る。
         host = urlparse(self.origin).netloc
-        areas: set[str] = set()
+        paths: set[str] = set()
         for loc in re.findall(r"<loc>\s*(.*?)\s*</loc>", xml, flags=re.IGNORECASE | re.DOTALL):
             loc = _norm_area(loc)
             p = urlparse(loc)
             if p.netloc and p.netloc != host:
                 continue
             path = p.path if p.path.endswith("/") else p.path + "/"
-            if path.startswith(self.region_prefix) and path != self.region_prefix:
-                areas.add(f"{self.origin}{path}")
+            if not (path.startswith(self.region_prefix) and path != self.region_prefix):
+                continue
+            # region_prefix 直下から当該エリアまでの全祖先パスを合成して追加。
+            segs = path[len(self.region_prefix):].strip("/").split("/")
+            for i in range(1, len(segs) + 1):
+                paths.add(self.region_prefix + "/".join(segs[:i]) + "/")
+        return paths
 
-        if not areas:
-            return []
-
-        # 葉判定: 自分を接頭辞に持つ別エリアが存在しないものが葉（末尾スラッシュ付き
-        # のため、兄弟スラッグ同士の誤検知は起きない）。
-        leaves = [a for a in areas
-                  if not any(b != a and b.startswith(a) for b in areas)]
-        return sorted(leaves)
+    def _child_areas(self, parent_path: str) -> list[str]:
+        """area_paths のうち parent_path のちょうど1階層深い子エリアのパスを返す。"""
+        parent = parent_path if parent_path.endswith("/") else parent_path + "/"
+        children = []
+        for path in self.area_paths:
+            if not path.startswith(parent) or path == parent:
+                continue
+            rest = path[len(parent):].strip("/")
+            if rest and "/" not in rest:  # ちょうど1階層深い
+                children.append(path)
+        return sorted(children)
 
     # ------------------------------------------------------------------ #
     # 一覧ページのページネーション巡回
     # ------------------------------------------------------------------ #
     def _scrape_list(self, base: str, pref_ja: str,
-                     seen_jobs: set) -> Generator[dict, None, None]:
+                     seen_jobs: set) -> Generator[dict, bool, bool]:
+        """一覧をページ末尾まで巡回する。戻り値は「page400 上限に達して打ち切った
+        （＝取りこぼしの疑いがある）」場合 True、正常に末尾まで到達した場合 False。
+
+        終了判定は「求人ゼロ、または前ページと同一の求人集合（ページ送り上限クランプ）」。
+        既取得（重複）求人だけのページでも巡回自体は継続し、そのエリア固有の求人へ確実に
+        到達する（旧版の『新規ゼロで即 break』による取りこぼしを解消）。
+        """
+        prev_urls: set[str] | None = None
         page_no = 1
         while page_no <= MAX_PAGES:
             list_url = base if page_no == 1 else f"{base}page{page_no}/"
@@ -241,26 +313,35 @@ class Baitoru5Scraper(DynamicCrawler):
                 self.page.goto(list_url, wait_until="domcontentloaded")
                 self.page.wait_for_selector("a[href*='/job']", timeout=8000)
             except Exception:
-                break  # ページ無し or 取得失敗 → このエリアの巡回終了
+                return False  # ページ無し or 取得失敗 → このエリアは末尾まで到達済み
 
             page_url = self.page.url
             soup = BeautifulSoup(self.page.content(), "html.parser")
 
-            found_new = False
-            for job_url in self._page_job_urls(soup, page_url):
+            page_urls = self._page_job_urls(soup, page_url)
+            cur_set = set(page_urls)
+            if not cur_set:
+                return False  # 求人ゼロ → 完結
+            if prev_urls is not None and cur_set == prev_urls:
+                return False  # 前ページと同一集合（上限クランプで先へ進めない）→ 完結
+            prev_urls = cur_set
+
+            for job_url in page_urls:
                 if job_url in seen_jobs:
-                    continue
+                    continue  # 重複は yield しないが巡回は継続
                 seen_jobs.add(job_url)
-                found_new = True
 
                 item = self._scrape_detail(job_url, pref_ja)
                 if not item or not item.get(Schema.NAME):
                     continue
                 yield item  # 1求人取得ごとに即 yield（全件バッファ禁止）
 
-            if not found_new:
-                break  # 新規求人が無い（最終ページを越えた等）→ 終了
             page_no += 1
+
+        # MAX_PAGES(=page400)まで回してもクランプ/ゼロで終わらなかった＝上限に阻まれ
+        # まだ続く可能性がある。取りこぼしの疑いがあるため True を返し、呼び出し側で
+        # 子エリアへ分割して残りを回収する。
+        return True
 
     @staticmethod
     def _page_job_urls(soup, page_url: str) -> list[str]:
