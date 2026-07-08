@@ -4109,3 +4109,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_7
+    name: "全国警備業協会（AJSSA）会員名簿(茨城県)"
+    module: "government.ajssa_7"
+    url: "https://ibaraki.r.ajssa.or.jp/"
+    schedule: null
+    enabled: true
+    terms_url: ""
