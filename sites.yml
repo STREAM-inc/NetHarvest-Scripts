@@ -3957,3 +3957,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.kensankyo.org/riyojyoken.html"
+
+  - site_id: ajssa_31
+    name: "全国警備業協会（AJSSA）会員名簿(広島県)"
+    module: "government.ajssa_31"
+    url: "https://www.hirokeikyo.com/member.html"
+    schedule: null
+    enabled: true
+    terms_url: ""
