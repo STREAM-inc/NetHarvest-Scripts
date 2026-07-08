@@ -4013,3 +4013,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: jaia
+    name: "日本アミューズメント産業協会"
+    module: "leisure.jaia"
+    url: "https://jaia.jp/list/"
+    schedule: "0 12 8 * *"
+    enabled: true
+    terms_url: ""
