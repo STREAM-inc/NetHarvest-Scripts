@@ -7,7 +7,7 @@
 
 取得フロー:
     起点 URL (sites.yml の url = .xlsx の直リンク) を session.get でダウンロードし、
-    python-calamine エンジンで解析。ヘッダ行 (『氏名又は名称』を含む行) を検出後、
+    openpyxl エンジンで解析。ヘッダ行 (『氏名又は名称』を含む行) を検出後、
     データ行を 1 行ずつ即 yield する。詳細ページ (レコード単位の別 URL) は存在せず、
     全項目がこの 1 ファイル内に構造化されて含まれる。
 
@@ -92,7 +92,7 @@ class Mlit(StaticCrawler):
         resp.raise_for_status()
         return pd.read_excel(
             io.BytesIO(resp.content),
-            engine="calamine",
+            engine="openpyxl",
             header=None,
             dtype=object,
         )
