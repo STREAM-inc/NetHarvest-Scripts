@@ -4293,3 +4293,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_28
+    name: "全国警備業協会（AJSSA）会員名簿(和歌山県)"
+    module: "government.ajssa_28"
+    url: "https://w-keibi.or.jp/member-list/"
+    schedule: null
+    enabled: true
+    terms_url: ""
