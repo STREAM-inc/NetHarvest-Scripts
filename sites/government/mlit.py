@@ -7,7 +7,7 @@
 
 取得フロー:
     起点 URL (sites.yml の url = .xlsx の直リンク) を session.get でダウンロードし、
-    openpyxl エンジンで解析。ヘッダ行 (『氏名又は名称』を含む行) を検出後、
+    Python 標準ライブラリ (zipfile + xml.etree) で解析 (外部パッケージ不要)。ヘッダ行 (『氏名又は名称』を含む行) を検出後、
     データ行を 1 行ずつ即 yield する。詳細ページ (レコード単位の別 URL) は存在せず、
     全項目がこの 1 ファイル内に構造化されて含まれる。
 
@@ -31,6 +31,8 @@ import io
 import logging
 import re
 import sys
+import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
@@ -87,15 +89,69 @@ class Mlit(StaticCrawler):
 
     def _read_xlsx(self, url: str) -> pd.DataFrame | None:
         """.xlsx を取得し DataFrame (ヘッダ無し) を返す。
-        session.get はテストランナーのソフトタイムアウト対象 (get_soup と同経路)。"""
+        openpyxl/calamine 不要 — Python 標準ライブラリのみで解析する。"""
         resp = self.session.get(url, timeout=self.TIMEOUT)
         resp.raise_for_status()
-        return pd.read_excel(
-            io.BytesIO(resp.content),
-            engine="openpyxl",
-            header=None,
-            dtype=object,
-        )
+        rows = self._parse_xlsx(resp.content)
+        if not rows:
+            return None
+        return pd.DataFrame(rows)
+
+    @staticmethod
+    def _parse_xlsx(content: bytes) -> list:
+        """zipfile + xml.etree だけで xlsx を解析し list[list] を返す。"""
+        _NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+
+        with zipfile.ZipFile(io.BytesIO(content)) as z:
+            names = z.namelist()
+
+            # 共有文字列テーブル (sharedStrings.xml)
+            shared: list[str] = []
+            if "xl/sharedStrings.xml" in names:
+                root = ET.parse(z.open("xl/sharedStrings.xml")).getroot()
+                for si in root.findall(f".//{{{_NS}}}si"):
+                    parts = si.findall(f".//{{{_NS}}}t")
+                    shared.append("".join(t.text or "" for t in parts))
+
+            # 1 枚目のシート (sheet1.xml)
+            sheet_path = next(
+                (n for n in names if re.match(r"xl/worksheets/sheet\d+\.xml", n)),
+                None,
+            )
+            if not sheet_path:
+                return []
+
+            root = ET.parse(z.open(sheet_path)).getroot()
+            result: list[list] = []
+            for row_elem in root.findall(f".//{{{_NS}}}row"):
+                sparse: dict[int, object] = {}
+                for cell in row_elem.findall(f"{{{_NS}}}c"):
+                    ref = cell.get("r", "")
+                    col_str = "".join(c for c in ref if c.isalpha()).upper()
+                    col_idx = 0
+                    for ch in col_str:
+                        col_idx = col_idx * 26 + (ord(ch) - ord("A") + 1)
+                    col_idx -= 1  # 0-indexed
+
+                    t = cell.get("t", "")
+                    v = cell.find(f"{{{_NS}}}v")
+                    val: object = None
+                    if v is not None and v.text is not None:
+                        if t == "s":  # shared string
+                            idx = int(v.text)
+                            val = shared[idx] if idx < len(shared) else ""
+                        elif t == "inlineStr":
+                            it = cell.find(f".//{{{_NS}}}t")
+                            val = it.text if it is not None else ""
+                        else:
+                            val = v.text  # 数値はそのまま文字列で受け取る
+                    sparse[col_idx] = val
+
+                if sparse:
+                    width = max(sparse.keys()) + 1
+                    result.append([sparse.get(i) for i in range(width)])
+
+        return result
 
     @staticmethod
     def _find_header_row(df: pd.DataFrame) -> int | None:
