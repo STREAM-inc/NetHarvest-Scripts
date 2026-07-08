@@ -4085,3 +4085,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_4
+    name: "全国警備業協会（AJSSA）会員名簿(宮城県)"
+    module: "government.ajssa_4"
+    url: "https://www.mssa.jp/kamei/"
+    schedule: null
+    enabled: true
+    terms_url: ""
