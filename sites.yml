@@ -4277,3 +4277,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_26
+    name: "全国警備業協会（AJSSA）会員名簿(兵庫県)"
+    module: "government.ajssa_26"
+    url: "https://hyo-keikyo.or.jp/members-list/"
+    schedule: null
+    enabled: true
+    terms_url: ""
