@@ -4069,3 +4069,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_2
+    name: "全国警備業協会（AJSSA）会員名簿(北海道)"
+    module: "government.ajssa_2"
+    url: "https://www.hssa.or.jp/search/index.html?company_name_s=&subdivision_s=0&address_s=&search=%E6%A4%9C%E7%B4%A2%E3%81%99%E3%82%8B"
+    schedule: null
+    enabled: true
+    terms_url: ""
