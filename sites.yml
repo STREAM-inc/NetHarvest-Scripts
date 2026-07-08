@@ -4125,3 +4125,11 @@ sites:
     schedule: "0 10 13 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_8
+    name: "全国警備業協会（AJSSA）会員名簿(栃木県)"
+    module: "government.ajssa_8"
+    url: "https://tochikeikyo.or.jp/memberslist/"
+    schedule: null
+    enabled: true
+    terms_url: ""
