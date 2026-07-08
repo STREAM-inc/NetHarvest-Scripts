@@ -4037,3 +4037,11 @@ sites:
     schedule: "0 10 10 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: anta
+    name: "全国旅行業協会（ANTA）会員"
+    module: "travel.anta"
+    url: "https://www.anta.or.jp/search/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.anta.or.jp/law/law.html"
