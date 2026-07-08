@@ -4317,3 +4317,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_29
+    name: "全国警備業協会（AJSSA）会員名簿(鳥取県)"
+    module: "government.ajssa_29"
+    url: "http://www.torikeikyo.jp/wordpress/wp-content/uploads/2026/06/HP%E7%94%A8%E4%BC%9A%E5%93%A1%E5%90%8D%E7%B0%BF%EF%BC%88%EF%BC%B28.5%EF%BC%89.pdf"
+    schedule: null
+    enabled: true
+    terms_url: ""
