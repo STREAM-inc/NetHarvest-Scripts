@@ -4165,3 +4165,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_12
+    name: "全国警備業協会（AJSSA）会員名簿(神奈川県)"
+    module: "government.ajssa_12"
+    url: "https://www.shinkeikyo.or.jp/kaiinn.html"
+    schedule: null
+    enabled: true
+    terms_url: ""
