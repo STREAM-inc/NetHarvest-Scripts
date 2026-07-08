@@ -4029,3 +4029,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: member_list
+    name: "一般社団法人日本能率協会"
+    module: "corporate.member_list"
+    url: "https://member-list.jma.or.jp/companies/index/0"
+    schedule: "0 10 10 * *"
+    enabled: true
+    terms_url: ""
