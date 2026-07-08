@@ -4117,3 +4117,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: jaspa
+    name: "一般社団法人日本自動車整備振興会連合会"
+    module: "auto.jaspa"
+    url: "https://www.jaspa.or.jp/association/districts/hokkaido.html"
+    schedule: "0 10 13 * *"
+    enabled: true
+    terms_url: ""
