@@ -4269,3 +4269,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_25
+    name: "全国警備業協会（AJSSA）会員名簿(大阪府)"
+    module: "government.ajssa_25"
+    url: "https://daikeikyo.or.jp/member/"
+    schedule: null
+    enabled: true
+    terms_url: ""
