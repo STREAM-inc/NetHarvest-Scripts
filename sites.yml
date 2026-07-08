@@ -4021,3 +4021,11 @@ sites:
     schedule: "0 12 8 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: jata
+    name: "日本旅行業協会（JATA）会員リスト"
+    module: "travel.jata"
+    url: "https://www.jata-net.or.jp/about/jata-about/about02/"
+    schedule: null
+    enabled: true
+    terms_url: ""
