@@ -4133,3 +4133,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: zenkuren
+    name: "全国クリーニング生活衛生同業組合連合会"
+    module: "government.zenkuren"
+    url: "https://www.zenkuren.or.jp/shopsearch/result_list?pref=hokkaidou&cityCode="
+    schedule: "0 14 16 * *"
+    enabled: true
+    terms_url: ""
