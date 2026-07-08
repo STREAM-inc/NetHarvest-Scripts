@@ -4061,3 +4061,11 @@ sites:
     schedule: "0 10 15 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa
+    name: "全国警備業協会（AJSSA）会員名簿(東京)"
+    module: "government.ajssa"
+    url: "https://www.toukeikyo.or.jp/corp_search.html"
+    schedule: null
+    enabled: true
+    terms_url: ""
