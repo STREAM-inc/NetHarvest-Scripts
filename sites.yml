@@ -4045,3 +4045,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.anta.or.jp/law/law.html"
+
+  - site_id: jbma
+    name: "全国ビルメンテナンス協会（JBMA）会員一覧名簿"
+    module: "corporate.jbma"
+    url: "https://www.j-bma.or.jp/meibo/corp.php"
+    schedule: null
+    enabled: true
+    terms_url: ""
