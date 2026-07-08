@@ -3997,3 +3997,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: mlit_2
+    name: "一般貨物自動車運送事業者（国交省・各運輸局公示）"
+    module: "government.mlit_2"
+    url: "https://www.mlit.go.jp/jidosha/"
+    schedule: null
+    enabled: true
+    terms_url: ""
