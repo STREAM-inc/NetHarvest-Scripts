@@ -4005,3 +4005,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: i2fas
+    name: "食品関係営業許可"
+    module: "government.i2fas"
+    url: "https://i2fas.mhlw.go.jp/faspub/IO_S010303.do?_errCheck=false&_searched=false&_sessionId=16CF4AE107F25ABF9C0720C37B29B24E&method=a_menu_o01Action&param=&_focus=actionlink_a_menu_o01&_posx=0&_posy=0&_rowidx=0&_language=&_timezoneOffset=-540&_timezoneId=Asia%2FTokyo&_downloadId=&_status=&_labelMapArchive=&_wfinfo=&_wfinfo_RefParams=&_ActionHistoryList%5B0%5D.action=%2FIO_S010303"
+    schedule: null
+    enabled: true
+    terms_url: ""
