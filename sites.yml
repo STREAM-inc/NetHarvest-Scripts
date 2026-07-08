@@ -4157,3 +4157,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_11
+    name: "全国警備業協会（AJSSA）会員名簿(千葉県)"
+    module: "government.ajssa_11"
+    url: "https://www.chikeikyo.or.jp/n_membership.html"
+    schedule: null
+    enabled: true
+    terms_url: ""
