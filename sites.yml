@@ -4141,3 +4141,11 @@ sites:
     schedule: "0 14 16 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_9
+    name: "全国警備業協会（AJSSA）会員名簿(群馬県)"
+    module: "government.ajssa_9"
+    url: "http://www.gunkeikyo.or.jp/recruit.html"
+    schedule: null
+    enabled: true
+    terms_url: ""
