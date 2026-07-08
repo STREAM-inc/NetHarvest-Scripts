@@ -3949,3 +3949,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.p-portal.go.jp/pps-web-biz/resources/app/pdf/riyoukiyaku.pdf"
+
+  - site_id: p_portal_5
+    name: "日本建材・住宅設備産業協会"
+    module: "government.kensankyo"
+    url: "https://www.kensankyo.org/link.html"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.kensankyo.org/riyojyoken.html"
