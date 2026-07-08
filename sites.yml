@@ -4053,3 +4053,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: saj
+    name: "一般社団法人ソフトウェア協会"
+    module: "corporate.saj"
+    url: "https://www.saj.or.jp/M10/corporate_list/corporate_name/asc/1"
+    schedule: "0 10 15 * *"
+    enabled: true
+    terms_url: ""
