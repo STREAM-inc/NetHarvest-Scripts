@@ -4189,3 +4189,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_15
+    name: "全国警備業協会（AJSSA）会員名簿(長野県)"
+    module: "government.ajssa_15"
+    url: "https://nagano-keibi.or.jp/area/hokushin"
+    schedule: null
+    enabled: true
+    terms_url: ""
