@@ -4213,3 +4213,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_19
+    name: "全国警備業協会（AJSSA）会員名簿(福井県)"
+    module: "government.ajssa_19"
+    url: "https://fukuikb.jp/#member"
+    schedule: null
+    enabled: true
+    terms_url: ""
