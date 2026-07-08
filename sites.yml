@@ -4261,3 +4261,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_24
+    name: "全国警備業協会（AJSSA）会員名簿(京都府)"
+    module: "government.ajssa_24"
+    url: "https://kyokeikyo.or.jp/company.html"
+    schedule: null
+    enabled: true
+    terms_url: ""
