@@ -3989,3 +3989,11 @@ sites:
     schedule: "0 10 * * 2"
     enabled: true
     terms_url: ""
+
+  - site_id: mlit
+    name: "倉庫業者登録簿"
+    module: "government.mlit"
+    url: "https://www.mlit.go.jp/seisakutokatsu/freight/content/001991758.xlsx"
+    schedule: null
+    enabled: true
+    terms_url: ""
