@@ -4149,3 +4149,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_10
+    name: "全国警備業協会（AJSSA）会員名簿(埼玉県)"
+    module: "government.ajssa_10"
+    url: "https://saikeikyo.or.jp/member-list.html"
+    schedule: null
+    enabled: true
+    terms_url: ""
