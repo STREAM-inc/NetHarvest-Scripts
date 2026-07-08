@@ -4173,3 +4173,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_13
+    name: "全国警備業協会（AJSSA）会員名簿(新潟県)"
+    module: "corporate.ajssa_13"
+    url: "https://www.niikeikyo.jp/list/"
+    schedule: null
+    enabled: true
+    terms_url: ""
