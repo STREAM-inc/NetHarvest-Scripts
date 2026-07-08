@@ -4245,3 +4245,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_22
+    name: "全国警備業協会（AJSSA）会員名簿(三重県)"
+    module: "government.ajssa_22"
+    url: "https://mie.r.ajssa.or.jp/menber.html"
+    schedule: null
+    enabled: true
+    terms_url: ""
