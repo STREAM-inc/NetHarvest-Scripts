@@ -4197,3 +4197,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_16
+    name: "全国警備業協会（AJSSA）会員名簿(静岡県)"
+    module: "government.ajssa_16"
+    url: "https://www.shizu-keikyo.jp/pages/38/"
+    schedule: null
+    enabled: true
+    terms_url: ""
