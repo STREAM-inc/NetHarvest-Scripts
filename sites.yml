@@ -4301,3 +4301,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_30
+    name: "全国警備業協会（AJSSA）会員名簿(岡山県)"
+    module: "government.ajssa_30"
+    url: "https://okakeikyo.or.jp/kaiin/kaiin.html#area"
+    schedule: null
+    enabled: true
+    terms_url: ""
