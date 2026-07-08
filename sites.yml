@@ -4205,3 +4205,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_18
+    name: "全国警備業協会（AJSSA）会員名簿(石川県)"
+    module: "government.ajssa_18"
+    url: "https://www.ishikeikyo.or.jp/pages/10/"
+    schedule: null
+    enabled: true
+    terms_url: ""
