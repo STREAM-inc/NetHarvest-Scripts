@@ -4309,3 +4309,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_32
+    name: "全国警備業協会（AJSSA）会員名簿(山口県)"
+    module: "government.ajssa_32"
+    url: "https://www.yssa.or.jp/membership/"
+    schedule: null
+    enabled: true
+    terms_url: ""
