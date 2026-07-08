@@ -4285,3 +4285,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_27
+    name: "全国警備業協会（AJSSA）会員名簿(奈良県)"
+    module: "corporate.ajssa_27"
+    url: "https://www.nakeikyo.or.jp/member"
+    schedule: null
+    enabled: true
+    terms_url: ""
