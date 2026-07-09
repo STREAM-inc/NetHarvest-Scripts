@@ -4341,3 +4341,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: xn_pckua2a7gp15o89zb_3
+    name: "求人ボックス【外国人人材】"
+    module: "jobs.xn_pckua2a7gp15o89zb_3"
+    url: "https://xn--pckua2a7gp15o89zb.com/"
+    schedule: "0 0 8 * *"
+    enabled: true
+    terms_url: "https://xn--pckua2a7gp15o89zb.com/%E5%88%A9%E7%94%A8%E8%A6%8F%E7%B4%84"
