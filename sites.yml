@@ -3966,7 +3966,7 @@ sites:
     enabled: true
     terms_url: ""
 
-    - site_id: onecareer
+  - site_id: onecareer
     name: "onecareer"
     module: "corporate.onecareer"
     url: "https://www.onecareer.jp/companies?per=20&page=1&sort=standard&lowest_rating=0&highest_rating=5&search_query="
