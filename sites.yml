@@ -4405,3 +4405,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: jaaa
+    name: "日本広告業協会（JAAA）会員"
+    module: "corporate.jaaa"
+    url: "https://www.jaaa.ne.jp/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
