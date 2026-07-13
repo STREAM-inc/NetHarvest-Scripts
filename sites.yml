@@ -4397,3 +4397,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: jfea
+    name: "日本厨房工業会 会員"
+    module: "corporate.jfea"
+    url: "https://www.jfea.or.jp/list/list.html"
+    schedule: null
+    enabled: true
+    terms_url: ""
