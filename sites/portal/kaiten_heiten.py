@@ -36,8 +36,19 @@ _BRACKET_PREFIX = re.compile(r"^[【\[（(][^】\]）)]*[】\]）)]\s*")
 _DATE_RE = re.compile(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日")
 # 郵便番号 〒573-1152 / 5731152
 _POST_RE = re.compile(r"〒?\s*(\d{3})[-－‐\s]?(\d{4})")
-# h3 先頭の所在地（都道府県）
-_PREF_RE = re.compile(r"^\s*(\S+?[都道府県])")
+# 都道府県（47 都道府県の完全リスト）。
+# 旧 r"^\s*(\S+?[都道府県])" は「京都府/大阪府」を「京都/大阪」に切ってしまうため厳密指定にする。
+_PREF_NAMES = (
+    "北海道|東京都|京都府|大阪府|"
+    "青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|"
+    "神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|"
+    "滋賀県|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|"
+    "愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県"
+)
+# 文字列中の最初の都道府県を拾う（住所先頭からの導出に使用）
+_PREF_RE = re.compile("(" + _PREF_NAMES + ")")
+# 行頭が都道府県で始まるか（情報 h3 の判定・都道府県抽出に使用）
+_PREF_HEAD_RE = re.compile(r"^\s*(" + _PREF_NAMES + ")")
 
 
 class KaitenHeitenScraper(StaticCrawler):
@@ -121,10 +132,14 @@ class KaitenHeitenScraper(StaticCrawler):
         h1_text = h1.get_text(" ", strip=True) if h1 else ""
 
         # --- 所在地・開店閉店日（h3 例: 大阪府枚方市 2026年6月29日（月）オープン） ---
+        # 情報 h3 は「都道府県始まり + 開店/閉店語」で判定する。
+        # 日付は「2024年2月末」「2024年3月頃」のように日を欠く投稿が一定数あるため、
+        # 完全日付を判定条件にしない（従来はこれを条件にして都道府県まで取りこぼしていた）。
+        # サイドバーの関連記事 h3 は「【開店】店名」形式で都道府県始まりではないため除外される。
         h3_text = ""
         for h3 in soup.select("h3"):
             t = h3.get_text(" ", strip=True)
-            if _DATE_RE.search(t) and (_OPEN_RE.search(t) or _CLOSE_RE.search(t)):
+            if _PREF_HEAD_RE.match(t) and (_OPEN_RE.search(t) or _CLOSE_RE.search(t)):
                 h3_text = t
                 break
 
@@ -133,7 +148,9 @@ class KaitenHeitenScraper(StaticCrawler):
             data["開店閉店"] = flag
             data[Schema.STS_NM] = flag
 
-        date = self._extract_date(h3_text, h1_text, soup)
+        # 完全日付（YYYY年MM月DD日）のみ採用。無関係な投稿公開日 <time> への
+        # 誤フォールバックは廃止（部分日付の投稿は日付を空にする方が正しい）。
+        date = self._extract_date(h3_text, h1_text)
         if date:
             data[Schema.OPEN_DATE] = date
             data["開店閉店日"] = date
@@ -142,12 +159,21 @@ class KaitenHeitenScraper(StaticCrawler):
         if name:
             data[Schema.NAME] = name
 
-        pref_m = _PREF_RE.match(h3_text)
-        if pref_m:
-            data[Schema.PREF] = pref_m.group(1)
-
         # --- 店舗詳細テーブル（住所・電話・営業時間・定休日・HP 等） ---
         self._parse_table(soup, data)
+
+        # 都道府県: 情報 h3 の冒頭を優先し、無ければ住所先頭から導出する。
+        # 住所は本番実測で全件必ず都道府県を含むため、これで欠落を無くす。
+        pref = ""
+        head_m = _PREF_HEAD_RE.match(h3_text)
+        if head_m:
+            pref = head_m.group(1)
+        elif data.get(Schema.ADDR):
+            addr_m = _PREF_RE.search(data[Schema.ADDR])
+            if addr_m:
+                pref = addr_m.group(1)
+        if pref:
+            data[Schema.PREF] = pref
 
         if not data.get(Schema.NAME) and not data.get(Schema.ADDR):
             return None
@@ -165,15 +191,11 @@ class KaitenHeitenScraper(StaticCrawler):
         return None
 
     @staticmethod
-    def _extract_date(h3_text: str, h1_text: str, soup) -> str | None:
-        # h3（所在地+日付+オープン/閉店）を最優先。次に h1、最後に <time> 要素。
+    def _extract_date(h3_text: str, h1_text: str) -> str | None:
+        # 開店/閉店の告知日は h3（所在地+日付+オープン/閉店）か h1 にのみ現れる。
+        # 完全日付が無ければ空とする（投稿公開日 <time> は告知日と無関係なため使わない）。
         for text in (h3_text, h1_text):
             m = _DATE_RE.search(text or "")
-            if m:
-                return _fmt_date(m)
-        t = soup.select_one("time.date") or soup.select_one("time[datetime]")
-        if t:
-            m = _DATE_RE.search(t.get_text(strip=True))
             if m:
                 return _fmt_date(m)
         return None
