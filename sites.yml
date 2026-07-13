@@ -4357,3 +4357,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: "https://www.ajssa.or.jp/guide"
+
+  - site_id: jfnet_2
+    name: "日本フードサービス協会（正会員）"
+    module: "food.jfnet_2"
+    url: "https://www.jfnet.or.jp/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: "https://www.jfnet.or.jp/terms_of_service/"
