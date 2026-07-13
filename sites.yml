@@ -4413,3 +4413,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: jadma_2
+    name: "日本通信販売協会（JADMA）会員"
+    module: "ec.jadma_2"
+    url: "https://jadma.or.jp/membercompany/fmember"
+    schedule: "0 9 3 * *"
+    enabled: true
+    terms_url: ""
