@@ -4389,3 +4389,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: jara
+    name: "日本ロボット工業会 会員"
+    module: "corporate.jara"
+    url: "https://www.jara.jp/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
