@@ -4381,3 +4381,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: jeita
+    name: "電子情報技術産業協会（JEITA）会員"
+    module: "corporate.jeita"
+    url: "https://www.jeita.or.jp/cgi-bin/member/list.cgi"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
