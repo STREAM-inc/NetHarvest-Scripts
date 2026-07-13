@@ -4365,3 +4365,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: "https://www.jfnet.or.jp/terms_of_service/"
+
+  - site_id: jfa
+    name: "日本フランチャイズチェーン協会（JFA）正会員"
+    module: "agency_franchise.jfa"
+    url: "https://www.jfa-fc.or.jp/particle/38.html"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
