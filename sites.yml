@@ -4453,3 +4453,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_38
+    name: "全国警備業協会（AJSSA）会員名簿(佐賀県)"
+    module: "government.ajssa_38"
+    url: "https://sakeikyo.or.jp/members/"
+    schedule: null
+    enabled: true
+    terms_url: ""
