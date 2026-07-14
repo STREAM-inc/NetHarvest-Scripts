@@ -4461,3 +4461,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_39
+    name: "全国警備業協会（AJSSA）会員名簿(長崎県)"
+    module: "government.ajssa_39"
+    url: "https://choukeikyo.or.jp/%e5%8d%94%e4%bc%9a%e5%93%a1%e5%90%8d%e7%b0%bf/"
+    schedule: null
+    enabled: true
+    terms_url: ""
