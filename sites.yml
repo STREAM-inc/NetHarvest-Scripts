@@ -1755,14 +1755,7 @@ sites:
     enabled: true
     terms_url: "https://shokuba.mhlw.go.jp/080/010/20180302211203.html"
 
-#196
-  - site_id: tattoo_navi
-    name: "タットゥースタジオナビ"
-    module: "tattoo_navi.tattoo_studio"
-    url: "https://tattoo-navi.jp/studio/"
-    schedule: "0 3 1 * *"
-    enabled: true
-    terms_url: "https://tattoo-navi.jp/terms/"
+
 
 #197
   - site_id: onsen_kyokai
