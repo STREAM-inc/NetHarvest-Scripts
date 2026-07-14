@@ -4509,3 +4509,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.plex-job.com/terms/"
+
+  - site_id: job_4
+    name: "トラックマンJOB"
+    module: "jobs.truckman_job"
+    url: "https://truckman-job.com/zenkoku/search-result"
+    schedule: null
+    enabled: true
+    terms_url: "https://truckman-job.com/policy?policy_no=7"
