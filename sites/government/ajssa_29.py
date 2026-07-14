@@ -36,8 +36,6 @@ _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-import pdfplumber
-
 from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
@@ -85,6 +83,10 @@ class Ajssa29(StaticCrawler):
         return re.sub(r"\s*\n\s*", "", (s or "")).strip()
 
     def parse(self, url: str):
+        # pdfplumber は PDF 解析にのみ必要な重い外部依存。モジュール読込
+        # (サイト登録/収集) 時に未導入でも失敗しないよう遅延 import する。
+        import pdfplumber
+
         # session.get はテストランナーのソフトタイムアウト対象 (get_soup と同経路)
         resp = self.session.get(url, timeout=self.TIMEOUT)
         resp.raise_for_status()
