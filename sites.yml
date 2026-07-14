@@ -4469,3 +4469,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_40
+    name: "全国警備業協会（AJSSA）会員名簿(熊本県)"
+    module: "government.ajssa_40"
+    url: "https://www.kssa.or.jp/pages/10/#page-content"
+    schedule: null
+    enabled: true
+    terms_url: ""
