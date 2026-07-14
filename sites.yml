@@ -1007,15 +1007,6 @@ sites:
     enabled: true
     terms_url: "https://webjobpark.kyoto.jp/rules/"
 
-#111
-  - site_id: job_chocolat_2
-    name: "ジョブショコラ"
-    module: "jobs.job_chocolat_2"
-    url: "https://job-chocolat.jp/"
-    schedule: "20 7 15-21 * SAT"
-    enabled: true
-    terms_url: "https://job-chocolat.jp/terms/"
-
 #112
   - site_id: navi
     name: "ジョブナビ愛知"
