@@ -4501,3 +4501,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: plex_job
+    name: "PLEX JOB(プレックスジョブ)"
+    module: "jobs.plex_job"
+    url: "https://www.plex-job.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.plex-job.com/terms/"
