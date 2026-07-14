@@ -4437,3 +4437,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_36
+    name: "全国警備業協会（AJSSA）会員名簿(愛媛県)"
+    module: "government.ajssa_36"
+    url: "https://www.himekeikyo.or.jp/meibo"
+    schedule: null
+    enabled: true
+    terms_url: ""
