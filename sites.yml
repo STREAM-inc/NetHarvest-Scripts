@@ -4429,3 +4429,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_37
+    name: "全国警備業協会（AJSSA）会員名簿(高知県)"
+    module: "government.ajssa_37"
+    url: "https://koukeikyo.com/membership_list/"
+    schedule: null
+    enabled: true
+    terms_url: ""
