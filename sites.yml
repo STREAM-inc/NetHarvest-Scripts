@@ -1415,7 +1415,7 @@ sites:
 #157
   - site_id: j_reit
     name: "J-REIT"
-    module: "corporate.j_reit"
+    module: realestate.j_reit
     url: "https://j-reit.jp/brand/"
     schedule: "0 2 * * SUN"
     enabled: true
