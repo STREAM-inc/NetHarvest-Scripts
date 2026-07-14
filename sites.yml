@@ -4445,3 +4445,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_34
+    name: "全国警備業協会（AJSSA）会員名簿(香川県)"
+    module: "corporate.ajssa_34"
+    url: "https://www.yonkeikyo.or.jp/keibi/index.html"
+    schedule: null
+    enabled: true
+    terms_url: ""
