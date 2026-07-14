@@ -5,35 +5,30 @@ Web幹事 — ホームページ制作会社ディレクトリ（web-kanji.com�
     - 東京都・埼玉県・千葉県・神奈川県・茨城県・栃木県・群馬県・山梨県・大阪府
 
 取得フロー:
-    1. /search/{prefecture}[/page/{N}] を巡回し詳細URLを収集
+    1. {root}/search/{prefecture}[/page/{N}] を巡回し詳細URLを収集
     2. 各詳細ページ /companies/{slug} から企業情報を抽出
     3. 都道府県またぎの重複はURLベースで排除
 
-CAPTCHA対応:
-    実行するとChromiumブラウザが画面に表示される。
-    「ユーザーが人間であることを確認する」画面が出た場合は、
-    ブラウザウィンドウ上で手動で解決すれば自動的に処理が続行される（最大2分待機）。
+備考:
+    当サイトは静的HTMLで全データが取得できるため requests ベースの
+    StaticCrawler で実装している（Playwright/実ブラウザは不要）。
 
 実行方法:
     python scripts/sites/corporate/web_kanji.py
     python bin/run_flow.py --site-id web_kanji
 """
 
-import random
 import re
 import sys
-import time
 from pathlib import Path
 from typing import Generator
+from urllib.parse import urljoin
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from bs4 import BeautifulSoup
-from playwright.sync_api import sync_playwright
-
-from src.framework.dynamic import DynamicCrawler
+from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
 BASE_URL = "https://web-kanji.com"
@@ -77,76 +72,36 @@ def _dl_value(soup, key: str) -> str:
     return ""
 
 
-def _is_blocked(soup) -> bool:
-    if soup is None:
-        return True
-    text = soup.get_text()
-    return "ユーザーが人間であることを確認する" in text or (
-        "Just a moment" in text and "Cloudflare" in text
-    )
+class WebKanjiScraper(StaticCrawler):
+    """Web幹事 ホームページ制作会社スクレイパー（静的HTML方式）"""
 
-
-class WebKanjiScraper(DynamicCrawler):
-    """Web幹事 ホームページ制作会社スクレイパー（Playwright実ブラウザ方式）"""
-
-    DELAY = 2.0
+    DELAY = 1.0
     EXTRA_COLUMNS: list[str] = []
 
     def _setup(self):
-        """headless=False でブラウザを起動。CAPTCHAが出た場合に手動解決できるよう画面表示する。"""
-        self.playwright = sync_playwright().start()
-        self.browser = self.playwright.chromium.launch(headless=False)
-        self.context = self.browser.new_context(user_agent=self.USER_AGENT)
-        self.page = self.context.new_page()
-
-    def _navigate(self, url: str) -> BeautifulSoup | None:
-        """ページ遷移してBeautifulSoupを返す。CAPTCHAが出た場合は最大2分待機する。"""
-        time.sleep(self.DELAY + random.uniform(0.5, 1.5))
-        soup = self.get_soup(url, wait_until="load")
-
-        if _is_blocked(soup):
-            self.logger.warning(
-                "CAPTCHA検知 — ブラウザウィンドウで手動解決してください（最大2分）: %s", url
-            )
-            try:
-                # 会社一覧 or 会社詳細のいずれかのセレクタが出るまで待つ
-                self.page.wait_for_selector(
-                    ".companies-item, dl dt", timeout=120_000
-                )
-            except Exception:
-                self.logger.error("CAPTCHA解決タイムアウト。スキップします: %s", url)
-                return None
-            soup = BeautifulSoup(self.page.content(), "html.parser")
-
-        return soup
+        # /search/{pref}/page/{N} は Referer ヘッダが無いと 405 を返すため付与する
+        super()._setup()
+        self.session.headers.update({"Referer": BASE_URL + "/"})
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        detail_urls = self._collect_detail_urls()
-        self.total_items = len(detail_urls)
-        self.logger.info("詳細URL収集完了: %d 件", len(detail_urls))
+        """一覧ページを1ページ巡回するごとに詳細を取得して即 yield する。
 
-        for detail_url in detail_urls:
-            try:
-                item = self._scrape_detail(detail_url)
-            except Exception as e:
-                self.logger.warning("詳細取得失敗 %s: %s", detail_url, e)
-                continue
-            if item and item.get(Schema.NAME):
-                yield item
-
-    def _collect_detail_urls(self) -> list[str]:
-        urls: list[str] = []
+        全URLを先に収集してから yield する書き方は最初の1件までの時間が
+        長くなるため避け、発見した詳細ページをその場で処理する。
+        """
+        # 引数の url を唯一のルート（起点）として利用する
         seen: set[str] = set()
 
         for pref in _PREFECTURES:
-            base = f"{BASE_URL}/search/{pref}"
+            # ルート url から検索ページ URL を派生させる
+            base = urljoin(url.rstrip("/") + "/", f"search/{pref}")
             self.logger.info("都道府県巡回: %s", pref)
             page = 1
             max_page = 1
 
             while page <= max_page:
                 page_url = base if page == 1 else f"{base}/page/{page}"
-                soup = self._navigate(page_url)
+                soup = self.get_soup(page_url)
 
                 if soup is None:
                     self.logger.warning("%s の %d ページ目をスキップ", pref, page)
@@ -156,13 +111,6 @@ class WebKanjiScraper(DynamicCrawler):
                 if not cards:
                     break
 
-                for a in soup.select('.companies-item a[href*="/companies/"]'):
-                    href = a.get("href", "")
-                    if not href or href in seen:
-                        continue
-                    seen.add(href)
-                    urls.append(href)
-
                 if page == 1:
                     for a in soup.select(".pagination-item a"):
                         m = re.search(r"/page/(\d+)$", a.get("href", ""))
@@ -170,12 +118,33 @@ class WebKanjiScraper(DynamicCrawler):
                             max_page = max(max_page, int(m.group(1)))
                     self.logger.info("  %s: %d ページ", pref, max_page)
 
+                for a in soup.select('.companies-item a[href*="/companies/"]'):
+                    href = a.get("href", "")
+                    if not href:
+                        continue
+                    # 相対/絶対どちらでも root 基準の絶対 URL に正規化
+                    detail_url = urljoin(page_url, href)
+                    # カテゴリ索引 (/companies/industries など) は除外
+                    if re.search(
+                        r"/companies/(industries|objects|features)\b", detail_url
+                    ):
+                        continue
+                    if detail_url in seen:
+                        continue
+                    seen.add(detail_url)
+
+                    try:
+                        item = self._scrape_detail(detail_url)
+                    except Exception as e:
+                        self.logger.warning("詳細取得失敗 %s: %s", detail_url, e)
+                        continue
+                    if item and item.get(Schema.NAME):
+                        yield item
+
                 page += 1
 
-        return urls
-
     def _scrape_detail(self, url: str) -> dict | None:
-        soup = self._navigate(url)
+        soup = self.get_soup(url)
         if soup is None:
             return None
 
@@ -233,7 +202,7 @@ if __name__ == "__main__":
     )
 
     scraper = WebKanjiScraper()
-    scraper.execute(f"{BASE_URL}/search/tokyo")
+    scraper.execute("https://web-kanji.com")
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
     print(f"取得件数: {scraper.item_count}")
