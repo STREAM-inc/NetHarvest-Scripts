@@ -4494,3 +4494,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://truckman-job.com/policy?policy_no=7"
+
+  - site_id: info
+    name: "ガテン職(info)"
+    module: "jobs.info"
+    url: "https://gaten.info/list"
+    schedule: null
+    enabled: true
+    terms_url: "https://gaten.info/apply-terms"
