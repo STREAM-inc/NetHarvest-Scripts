@@ -66,8 +66,9 @@ class Ajssa29(StaticCrawler):
 
     DELAY = 1.5
     # 業種 = 警備種別の短い構造化ラベル → Schema.CAT_SITE。
-    # FAX(電話番号)・備考(役職/短い注記) はサイト固有の構造化情報として EXTRA。
-    EXTRA_COLUMNS = ["FAX", "備考"]
+    # 郵便番号(〒) は共通スキーマに列が無いためサイト固有の EXTRA 列として出力する。
+    # FAX(電話番号)・備考(役職/短い注記) も同様にサイト固有の構造化情報として EXTRA。
+    EXTRA_COLUMNS = ["郵便番号", "FAX", "備考"]
 
     @staticmethod
     def _norm_num(s: str) -> str:
@@ -171,12 +172,12 @@ class Ajssa29(StaticCrawler):
             Schema.URL: source_url,
             Schema.NAME: name,
             Schema.CAT_SITE: gyoshu,
-            Schema.POST_CODE: post,
             Schema.PREF: pref,
             Schema.ADDR: addr,
             Schema.TEL: tel,
             Schema.REP_NM: rep,
             Schema.HP: hp,
+            "郵便番号": post,
             "FAX": fax,
             "備考": " ".join(notes),
         }
