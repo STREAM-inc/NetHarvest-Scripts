@@ -4421,3 +4421,11 @@ sites:
     schedule: "0 9 3 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: ajssa_35
+    name: "全国警備業協会（AJSSA）会員名簿(徳島県)"
+    module: "government.ajssa_35"
+    url: "https://tokukeikyo.jp/pages/26/"
+    schedule: null
+    enabled: true
+    terms_url: ""
