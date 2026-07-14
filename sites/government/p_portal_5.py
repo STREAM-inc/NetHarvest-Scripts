@@ -520,6 +520,29 @@ class PPortal5Scraper(DynamicCrawler):
     #  ページネーション + 詳細取得 (突合ログ付き)                          #
     # ------------------------------------------------------------------ #
 
+    def _fetch_page_uncached(self, page_url: str) -> BeautifulSoup | None:
+        """ページ送りGETをキャッシュを通さず取得する。
+
+        ページ送りURL (例 OAB0103?page=1&size=50) は検索条件を一切含まず、実際の
+        絞り込みはサーバー側セッションが保持している。そのため URL をキーにする
+        get_soup() のキャッシュを使うと、最初に走った検索の2ページ目以降を全ての
+        市区町村・分割バケットに使い回してしまい (キャッシュ衝突)、2ページ目以降が
+        まるごと別バケットの重複データになる。結果、各バケットは1ページ目(50件)しか
+        残らず重複が爆発する。これを避けるため、直前に _do_search で検索を確立した
+        self.page 上で goto して生HTMLを直接読む (キャッシュ非経由)。
+        """
+        try:
+            self.page.goto(page_url, wait_until="domcontentloaded")
+            try:
+                self.page.wait_for_selector("table tbody tr", timeout=10000)
+            except Exception:
+                pass
+            self.page.wait_for_timeout(300)
+            return BeautifulSoup(self.page.content(), "html.parser")
+        except Exception as e:
+            self.logger.warning("ページ送り取得失敗 (キャッシュ非経由): %s — %s", page_url, e)
+            return None
+
     def _paginate_and_yield(
         self,
         result_url: str,
@@ -550,7 +573,10 @@ class PPortal5Scraper(DynamicCrawler):
                 page_url = result_url
             else:
                 page_url = _build_page_url(result_url, page_num, self.PAGE_SIZE)
-                soup = self.get_soup(page_url)
+                # ページ送りURLは検索条件を含まずセッション依存のため、URLキーの
+                # get_soup() キャッシュを使うとバケット間でページが取り違えられる。
+                # 直前の検索を確立した self.page 上でキャッシュ非経由で取得する。
+                soup = self._fetch_page_uncached(page_url)
                 if soup is None:
                     break
             pages_visited += 1
