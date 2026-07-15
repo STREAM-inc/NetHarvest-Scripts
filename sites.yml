@@ -4510,3 +4510,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://kochi-info.jp/privacy-policy/"
+
+  - site_id: air_for_night
+    name: "AIR函館 for Night"
+    module: "nightlife.air_for_night"
+    url: "https://air-h.jp/water/shop-search/"
+    schedule: null
+    enabled: true
+    terms_url: "https://air-h.jp/contract/"
