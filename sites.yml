@@ -4526,3 +4526,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://navi-para.net/privacy/"
+
+  - site_id: goguynet
+    name: "号外ネット"
+    module: "portal.goguynet"
+    url: "https://goguynet.jp/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: "https://goguynet.jp/about/privacy/"
