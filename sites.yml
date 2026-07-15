@@ -1317,7 +1317,7 @@ sites:
   - site_id: pepperlikes
     name: "PepperLikes"
     module: "portal.pepperlikes"
-    url: "https://www.pepperlikes.com/"
+    url: https://www.pepperlikes.com/api/projects 
     schedule: "20 4 15-21 * SAT"
     enabled: true
     terms_url: "https://www.pepperlikes.com/terms-and-conditions"
