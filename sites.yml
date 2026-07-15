@@ -4542,3 +4542,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: susukino
+    name: "すすきの通信"
+    module: "food.susukino"
+    url: "https://susukino.tv/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: "https://susukino.tv/page_service.php"
