@@ -4534,3 +4534,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: "https://goguynet.jp/about/privacy/"
+
+  - site_id: sukipara
+    name: "すきパラネット"
+    module: "nightlife.sukipara"
+    url: "https://www.sukipara.net/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
