@@ -4550,3 +4550,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: "https://susukino.tv/page_service.php"
+
+  - site_id: goguynet_2
+    name: "号外ネット飲食店2"
+    module: "portal.goguynet_2"
+    url: "https://goguynet.jp/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: "https://goguynet.jp/about/privacy/"
