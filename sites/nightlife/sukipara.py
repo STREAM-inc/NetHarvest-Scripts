@@ -7,9 +7,24 @@
 
 取得フロー:
     1. ルート URL から各ジャンル一覧 (shop_list.php?gid=N / shop_list_{beauty,gourmet,other}.php)
-       を urljoin で導出
+       とエリア一覧 (shop_list.php?aid=N) を urljoin で導出
     2. 各一覧を ?page=N で巡回し、店舗詳細リンク (shop/shop.php?id=N) を収集（ID で重複排除）
     3. 各詳細ページを取得し、取得のたびに即 yield（Pattern B / 早期 yield）
+
+件数と一覧構成について（過去に 90 件しか取れなかった主因の記録）:
+    この PHP サイトは「現在の表示ページ番号」をサーバ側セッションに保持している。しかも
+    そのセッション状態は Cookie(PHPSESSID) だけでなく keep-alive の TCP コネクションにも
+    紐づいており、一覧の末尾（範囲外ページ）を 1 度でも取得するとセッションが汚染され、
+    以後 別一覧が空(0 件)を返し続ける。session.cookies.clear() だけでは復旧せず、
+    コネクションプールごと作り直した新しい requests.Session でのみ復旧する。
+    → 一覧(list path)ごとに self.session を作り直して汚染を遮断する(_reset_session)。
+    加えて gid ジャンル一覧はナイト系の一部（約90件・掲載店のみ）しか出さないため、
+    飲食/美容/その他ジャンル一覧と、全業種を地理で網羅する aid エリア一覧を併用して
+    重複排除しながら約300件を取り切る（旧実装は汚染により約90件で頭打ちだった）。
+
+    加えて、この WAF は再利用された keep-alive コネクション上のリクエストを高確率で
+    403 にする（詳細ページの約半数が 403 になっていた）。_reset_session で
+    `Connection: close` を付与し keep-alive を無効化して回避している。
 
 利用規約について:
     rules.php（本サイトのご利用について）を確認済み。スクレイピング/クローリング/自動アクセスを
@@ -35,6 +50,8 @@ from urllib.parse import urljoin
 
 import bs4
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -55,6 +72,10 @@ _LIST_PATHS = [
     "shop_list_gourmet.php",  # 飲食店
     "shop_list_beauty.php",   # 美容サロン
     "shop_list_other.php",    # その他業種
+    # エリア一覧（全業種を地理で網羅）。gid ジャンル一覧に出ない店舗を補完する。
+    "shop_list.php?aid=1",  # すすきの中心部
+    "shop_list.php?aid=2",  # 周辺エリア
+    "shop_list.php?aid=3",  # その他エリア
 ]
 
 _ID_RE = re.compile(r"[?&]id=(\d+)")
@@ -86,6 +107,25 @@ class SukiparaCrawler(StaticCrawler):
     DELAY = 1.5
     EXTRA_COLUMNS = []
 
+    def _reset_session(self) -> None:
+        """一覧ごとに requests.Session を作り直し、サーバ側ページ状態の汚染を遮断する。
+
+        このサイトは表示ページ番号を keep-alive コネクションに紐づけて保持するため、
+        cookies.clear() では復旧しない。コネクションプールごと新規セッションを張り直す。
+        _setup() と同じリトライ/User-Agent 設定を適用する。
+
+        さらに `Connection: close` を付与して keep-alive を無効化する。この WAF は
+        再利用された keep-alive コネクション上のリクエストを高確率で 403 にするため
+        (詳細ページの約半数が 403 になっていた)、毎回コネクションを閉じて回避する。
+        """
+        if self.session is not None:
+            self.session.close()
+        self.session = requests.Session()
+        retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+        self.session.mount("https://", HTTPAdapter(max_retries=retries))
+        self.session.mount("http://", HTTPAdapter(max_retries=retries))
+        self.session.headers.update({"User-Agent": self.USER_AGENT, "Connection": "close"})
+
     def get_soup(self, url: str) -> bs4.BeautifulSoup | None:
         # Content-Type: charset=none のため既定判定では化ける。EUC-JP を強制する。
         try:
@@ -102,33 +142,40 @@ class SukiparaCrawler(StaticCrawler):
             raise
 
     def parse(self, url: str):
-        seen_ids: set[str] = set()
+        seen_ids: set[str] = set()  # 全一覧横断の重複排除（詳細を二度取得しない）
 
         for path in _LIST_PATHS:
+            # 一覧ごとにセッションを張り直す。前一覧末尾の範囲外ページで汚染された
+            # サーバ側ページ状態を捨て、この一覧を 1 ページ目から正しく取得するため。
+            self._reset_session()
+
             list_base = urljoin(url, path)
             page = 1
+            list_ids: set[str] = set()  # この一覧内で出現済みの ID（巡回終了判定に使う）
             while True:
                 page_url = f"{list_base}&page={page}" if "?" in list_base else f"{list_base}?page={page}"
                 list_soup = self.get_soup(page_url)
                 if list_soup is None:
                     break
 
-                page_ids = []
+                # このページに載っている全店舗 ID（一覧内の新規判定はページ表示単位で行う）
+                page_all_ids = []
                 for a in list_soup.select("a[href*='shop/shop.php?id=']"):
                     m = _ID_RE.search(a.get("href", ""))
-                    if not m:
-                        continue
-                    sid = m.group(1)
+                    if m:
+                        page_all_ids.append(m.group(1))
+
+                # この一覧でまだ見ていない ID が 1 つも無い → 末尾(空ページ) or 短い一覧の
+                # ページ番号クランプ（同じ内容の再表示）。当一覧の巡回を終了する。
+                if not any(sid not in list_ids for sid in page_all_ids):
+                    break
+                list_ids.update(page_all_ids)
+
+                # 全一覧横断でまだ詳細を取っていない店舗だけを yield 対象にする
+                for sid in page_all_ids:
                     if sid in seen_ids:
                         continue
                     seen_ids.add(sid)
-                    page_ids.append(sid)
-
-                if not page_ids:
-                    # このページに新規店舗が無い → 当ジャンルの巡回終了
-                    break
-
-                for sid in page_ids:
                     detail_url = urljoin(url, f"shop/shop.php?id={sid}")
                     try:
                         item = self._scrape_detail(detail_url)
