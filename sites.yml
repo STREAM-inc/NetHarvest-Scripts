@@ -4502,3 +4502,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://gaten.info/apply-terms"
+
+  - site_id: kochi_info
+    name: "よさこい無料案内所"
+    module: "nightlife.kochi_info"
+    url: "https://kochi-info.jp/partner/"
+    schedule: null
+    enabled: true
+    terms_url: "https://kochi-info.jp/privacy-policy/"
