@@ -4528,7 +4528,7 @@ sites:
     terms_url: "https://navi-para.net/privacy/"
 
   - site_id: goguynet
-    name: "号外ネット"
+    name: "号外ネット_飲食店"
     module: "portal.goguynet"
     url: "https://goguynet.jp/"
     schedule: "0 9 1 * *"

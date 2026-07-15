@@ -1,12 +1,23 @@
 """
-号外NET — 地域ニュースサイト (goguynet.jp) 店舗・イベント情報スクレイパー
+号外NET — 地域ニュースサイト (goguynet.jp) の「飲食店」情報スクレイパー
 
-取得対象:
-    - トップの最新記事フィード (全国横断・?page=N で最大40ページ / 1ページ10件)
+取得対象（飲食店のみ）:
+    - トップの最新記事フィード (全国横断・?page=N で最大40ページ / 1ページ10件) の
+      うち、飲食店（レストラン・カフェ・居酒屋・ラーメン・パン/スイーツ店 等）に
+      該当する記事のみを対象とする。
     - 各記事詳細ページの .shop-info（店舗名・住所・営業時間・定休日・最寄り駅・関連リンク）
+
+飲食店フィルタ:
+    号外NET はカテゴリが イベント / お店みちゃお / 開店・閉店 等の粒度しか無く、
+    「グルメ」「飲食」といったジャンル分類 (タグ・カテゴリ・構造化データ) を持たない。
+    コンビニ・ドラッグストア・雑貨店・催事イベント等が同じカテゴリに混在するため、
+    記事タイトル（＝店名＋業態を含む文章）に飲食店ジャンル語が含まれるかで判定し、
+    フェア・物産展などの一過性イベントは除外する（_is_restaurant / _FOOD_KEYWORDS）。
+    ジャンル語の有無は一覧側で先に判定し、飲食店以外は詳細を取得しない。
 
 取得フロー:
     一覧 (a.itemTitle01: タイトル/カテゴリ/掲載日時/詳細URL)
+      → 飲食店判定 (_is_restaurant) を通過したものだけ
       → 詳細ページ (.shop-info の dt/dd) を1件ずつ取得して即 yield (Pattern B)
 
 利用規約:
@@ -49,6 +60,68 @@ _POST_RE = re.compile(r"〒?\s*(\d{3})[-－‐\s]?(\d{4})")
 _TEL_RE = re.compile(r"0\d{1,3}[-‐−ー－(]?\d{2,4}[-‐−ー－)]?\d{3,4}")
 # タイトル先頭の 【新潟市中央区】等の角括弧プレフィックスを除去
 _BRACKET_PREFIX = re.compile(r"^[【\[（(][^】\]）)]*[】\]）)]\s*")
+# タイトル中の「店名」『イベント名』"..." を店舗・イベント名として抽出
+_QUOTE_RE = re.compile(r"[「『“”\"]([^」』“”\"]+)[」』“”\"]")
+# 先頭の煽り導入節（「今週末行ける！」「今年も始まります。」等の短い前置き）
+_ATTENTION_RE = re.compile(
+    r"^(?:今週末|今年も|いよいよ|ついに|遂に|なんと|祝)[^、。！]{0,9}[、。！]\s*"
+)
+# 先頭の日付・期間トークン列（「7月18日は、」「7/21(火)まで！ 」「2026年7月17日から」）
+_DATE_LEAD_RE = re.compile(
+    r"^(?:\d{4}年)?\s*\d{1,2}\s*[/月]\s*\d{0,2}\s*日?\s*"
+    r"(?:\([^)]*\)|（[^）]*）)?\s*(?:は|から|まで|より|～|~|〜|・|、|！|\s)*"
+)
+# 末尾の述語（「〜が開催されています。」「〜がオープンします。」等）
+_TAIL_RE = re.compile(
+    r"(?:が|を|は|も|、)?\s*(?:[0-9０-９/月日\(\)（）〜~\-\s]*)?"
+    r"(?:開催|オープン|スタート|リニューアル|グランドオープン|閉店|開店|開業|登場|発売|実施|営業)"
+    r"(?:中|されています|されました|されます|される|されて|され|します|しました|する|して|!|！|。)*\s*$"
+)
+# 先頭の場所プレフィックス「◯◯で」（「カワトク1Fで」「イオン旭川西店で」等）
+_LOC_LEAD_RE = re.compile(r"^[^、。！]{1,15}?で")
+
+# 飲食店（レストラン・カフェ・居酒屋・ラーメン店・パン/スイーツ店 等）の業態を示す
+# ジャンル語。号外NET には「グルメ」ジャンルの構造化データが無いため、記事タイトル
+# （店名＋業態を含む文章）にこれらが含まれるものを飲食店とみなす。誤検出を避けるため、
+# 「バー」「パン」「デリ」等の他語に埋没しやすい短い断片は業態が確定する形でのみ列挙する
+# （例: ワインバー / パン屋 / ベーカリー）。三軒茶屋・工事の最中 等の地名・慣用句に
+# 一致する「茶屋」「最中」等は除外している。
+_FOOD_KEYWORDS = re.compile(
+    "|".join(
+        [
+            r"ラーメン", r"らーめん", r"拉麺", r"中華そば", r"つけ麺", r"油そば", r"担々麺", r"麺類", r"製麺", r"麺",
+            r"食堂", r"レストラン", r"ダイニング", r"ダイナー", r"食事処", r"お食事処", r"料理店", r"飲食店",
+            r"カフェ", r"cafe", r"caf[eé]", r"喫茶", r"珈琲", r"コーヒー", r"茶房", r"甘味処",
+            r"居酒屋", r"酒場", r"立呑", r"立ち呑", r"立ち飲", r"呑み", r"ビストロ", r"トラットリア",
+            r"スナック", r"ワインバー", r"ビアガーデン", r"ビアバー", r"クラフトビール",
+            r"焼肉", r"焼き肉", r"ホルモン", r"もつ鍋", r"もつ焼", r"焼鳥", r"焼き鳥",
+            r"串カツ", r"串揚げ", r"串焼", r"やきとり",
+            r"寿司", r"鮨", r"寿し", r"回転寿司", r"海鮮", r"刺身",
+            r"そば処", r"蕎麦", r"うどん", r"讃岐",
+            r"定食", r"牛丼", r"天丼", r"カツ丼", r"海鮮丼", r"丼",
+            r"カレー",
+            r"パスタ", r"ピザ", r"ピッツァ", r"pizza", r"イタリアン", r"フレンチ",
+            r"天ぷら", r"天麩羅", r"とんかつ", r"トンカツ", r"ステーキ", r"ハンバーグ", r"ハンバーガー", r"バーガー",
+            r"餃子", r"中華料理", r"韓国料理", r"タイ料理", r"エスニック",
+            r"しゃぶしゃぶ", r"すき焼", r"水炊き", r"鉄板焼", r"お好み焼", r"もんじゃ", r"たこ焼", r"たこやき",
+            r"パン屋", r"ベーカリー", r"bakery", r"ブーランジェリー", r"ベーグル", r"サンドイッチ",
+            r"スイーツ", r"パティスリー", r"ケーキ", r"ドーナツ", r"クレープ", r"たい焼", r"鯛焼",
+            r"ジェラート", r"ソフトクリーム", r"かき氷", r"プリン", r"タルト", r"ワッフル", r"パンケーキ",
+            r"和菓子", r"洋菓子", r"焼き菓子", r"団子", r"大福",
+            r"弁当", r"惣菜", r"おにぎり", r"おむすび",
+            r"タピオカ", r"スムージー", r"フルーツパーラー",
+            r"屋台", r"フードコート", r"キッチンカー",
+            r"割烹", r"料亭", r"懐石", r"会席", r"グリル", r"バイキング", r"食べ放題", r"ビュッフェ",
+            r"グルメ",
+        ]
+    )
+)
+# 一過性の催事・イベント語。飲食ジャンル語を含んでいても（例: ラーメンフェス、
+# ご当地アイスフェア）常設の飲食店ではないため除外する。
+_EVENT_WORDS = re.compile(
+    r"フェア|フェス|物産展|即売会|マルシェ|マーケット|抽選会|キャンペーン|"
+    r"祭り|お祭り|花火|フェスティバル|出店イベント|グルメイベント"
+)
 
 # 一覧・詳細のページ送り安全上限（実測は約40ページ。取り逃し防止に余裕を持たせる）
 _MAX_PAGES = 60
@@ -62,7 +135,6 @@ class GoguynetScraper(StaticCrawler):
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         page = 1
-        estimated_set = False
         while page <= _MAX_PAGES:
             list_url = url if page == 1 else f"{url}?page={page}"
             soup = self.get_soup(list_url)
@@ -71,10 +143,6 @@ class GoguynetScraper(StaticCrawler):
             anchors = soup.select("a.itemTitle01")
             if not anchors:
                 break
-
-            if not estimated_set:
-                self.total_items = self._estimate_total(soup, len(anchors))
-                estimated_set = True
 
             for a in anchors:
                 href = a.get("href")
@@ -90,6 +158,11 @@ class GoguynetScraper(StaticCrawler):
                 date_el = a.select_one(".listDate01")
                 post_date = date_el.get_text(" ", strip=True) if date_el else ""
 
+                # 飲食店以外（イベント・コンビニ・雑貨店等）は詳細を取得せずスキップ。
+                # 業態はタイトル（店名＋業態を含む文章）で判定する。
+                if not self._is_restaurant(f"{category} {list_title}"):
+                    continue
+
                 try:
                     item = self._scrape_detail(detail_url, list_title, category, post_date)
                 except Exception as e:  # 個別記事の失敗で全体を止めない
@@ -101,14 +174,68 @@ class GoguynetScraper(StaticCrawler):
             page += 1
 
     @staticmethod
-    def _estimate_total(soup, per_page: int) -> int:
-        """ページャの最大ページ番号 × 1ページ件数で総件数を概算する。"""
-        max_page = 1
-        for a in soup.select('a[href*="page="]'):
-            m = re.search(r"page=(\d+)", a.get("href", ""))
-            if m:
-                max_page = max(max_page, int(m.group(1)))
-        return max_page * per_page
+    def _name_from_title(title: str) -> str:
+        """記事タイトルから店舗・イベント名を抽出する。
+
+        goguynet の記事タイトルは「【地域】…「店名」…します。」形式の文章で、
+        角括弧プレフィックスを除いただけでは日付や煽り文句・述語が混じった
+        文章丸ごとが名称になってしまう（例: 「7月18日は、おにクルで手作り
+        マルシェ開催！朝採れ野菜の…」）。以下の順で固有名だけを取り出す。
+
+        1. 「」『』"" で囲まれた固有名があれば最優先で採用する。
+        2. 角括弧の地域プレフィックス（【茨木市】等）を除去する。
+        3. 先頭の煽り導入節（「今週末行ける！」）と日付・期間トークン列
+           （「7月18日は、」「7/21(火)まで！ 」）を剥がす。
+        4. 最初の節（、。！の手前まで）を取り出し、末尾の述語（「が開催
+           されています」「がオープンします」等）を落とす。
+        5. 先頭の場所プレフィックス「◯◯で」（「カワトク1Fで」等）を除去する。
+        いずれの段階でも空にならないよう、最終的に空なら角括弧除去後の
+        タイトルへフォールバックする。
+        """
+        m = _QUOTE_RE.search(title)
+        if m:
+            return m.group(1).strip()
+
+        base = _BRACKET_PREFIX.sub("", title).strip()
+        s = base
+        # 先頭の導入句（煽り節＋日付トークン列）を最大3回まで剥がす
+        for _ in range(3):
+            stripped = _DATE_LEAD_RE.sub("", _ATTENTION_RE.sub("", s)).strip()
+            if stripped == s:
+                break
+            s = stripped
+
+        # 最初の節のみを名称候補にする（以降は補足説明・列挙のため捨てる）
+        first = re.split(r"[、。！\n]", s, maxsplit=1)[0].strip()
+        if first:
+            s = first
+
+        # 末尾の述語（開催/オープン/…）を除去
+        tail_removed = _TAIL_RE.sub("", s).strip()
+        if len(tail_removed) >= 3:
+            s = tail_removed
+
+        # 先頭の場所プレフィックス「◯◯で」を除去（除去後も3文字以上残る場合のみ）
+        lm = _LOC_LEAD_RE.match(s)
+        if lm and len(s) - lm.end() >= 3:
+            s = s[lm.end():].strip()
+
+        return s or base
+
+    @staticmethod
+    def _is_restaurant(text: str) -> bool:
+        """記事タイトル（＋カテゴリ）が飲食店に該当するか判定する。
+
+        飲食ジャンル語（_FOOD_KEYWORDS）を含み、かつ一過性の催事・イベント語
+        （_EVENT_WORDS。例: ラーメンフェス、ご当地アイスフェア）を含まないものを
+        常設の飲食店とみなす。号外NET には飲食ジャンルの構造化データが無いため、
+        この文字列判定が唯一の分類手段となる。
+        """
+        if not text:
+            return False
+        if _EVENT_WORDS.search(text):
+            return False
+        return bool(_FOOD_KEYWORDS.search(text))
 
     def _scrape_detail(
         self, url: str, list_title: str, category: str, post_date: str
@@ -150,9 +277,12 @@ class GoguynetScraper(StaticCrawler):
                 name = name_el.get_text(" ", strip=True)
             self._parse_shop_info(info, data)
 
-        # 名称: 店舗名を優先、無ければ記事タイトル（角括弧の地域プレフィックスを除去）
+        # 名称: 店舗情報ブロックの店舗名を最優先。無ければ記事タイトルから導出する。
+        # タイトルは「南笹口に「麺や大舎厘 南笹口店」がオープンします。」のような文章
+        # なので、丸ごと使うと名称が壊れる。まず「」『』で囲まれた店舗・イベント名を
+        # 抽出し、それも無ければ角括弧の地域プレフィックスを除いた文章を用いる。
         if not name:
-            name = _BRACKET_PREFIX.sub("", list_title).strip()
+            name = self._name_from_title(list_title)
         if name:
             data[Schema.NAME] = name
 
