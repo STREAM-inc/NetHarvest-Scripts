@@ -4518,3 +4518,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://air-h.jp/contract/"
+
+  - site_id: navi_para
+    name: "ナビパラネット"
+    module: "nightlife.navi_para"
+    url: "https://navi-para.net/shoplist/"
+    schedule: null
+    enabled: true
+    terms_url: "https://navi-para.net/privacy/"
