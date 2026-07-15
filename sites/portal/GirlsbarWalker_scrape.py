@@ -7,11 +7,11 @@ if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 # ================================================================
 
+import gzip
 import logging
 import re
-from urllib.parse import urlparse
-
-from usp.tree import sitemap_tree_for_homepage
+from urllib.parse import urljoin, urlparse
+from xml.etree import ElementTree as ET
 
 from src.framework.static import StaticCrawler
 from src.const.schema import Schema
@@ -199,15 +199,91 @@ class GBWalkerScraper(StaticCrawler):
 
         return self._normalize_text(td.get_text(" ", strip=True))
 
+    # ===== サイトマップ収集（旧 usp.sitemap_tree_for_homepage の代替） =====
+    @staticmethod
+    def _local_name(tag: str) -> str:
+        """名前空間付きタグ({...}loc)からローカル名(loc)を取り出す"""
+        return tag.rsplit("}", 1)[-1].lower()
+
+    def _fetch_bytes(self, target_url: str) -> bytes | None:
+        """URLの生バイトを取得。.gz または gzipマジックナンバーなら解凍する。"""
+        try:
+            resp = self.session.get(target_url, timeout=20)
+            resp.raise_for_status()
+        except Exception as e:
+            self.logger.warning("取得失敗: %s | %s", target_url, e)
+            return None
+
+        raw = resp.content
+        if target_url.endswith(".gz") or raw[:2] == b"\x1f\x8b":
+            try:
+                raw = gzip.decompress(raw)
+            except OSError:
+                pass
+        return raw
+
+    def _sitemap_urls_from_robots(self, homepage: str) -> list[str]:
+        """robots.txt の `Sitemap:` 行からサイトマップURLを集める"""
+        raw = self._fetch_bytes(urljoin(homepage, "/robots.txt"))
+        if not raw:
+            return []
+        found = []
+        for line in raw.decode("utf-8", errors="ignore").splitlines():
+            m = re.match(r"\s*sitemap\s*:\s*(\S+)", line, re.IGNORECASE)
+            if m:
+                found.append(m.group(1).strip())
+        return found
+
+    def _collect_page_urls(self, homepage: str) -> list[str]:
+        """robots.txt と /sitemap.xml を起点にサイトマップを辿り、全ページURLを収集する。
+        sitemapindex（入れ子）は再帰的に展開する。"""
+        candidates = self._sitemap_urls_from_robots(homepage)
+        candidates.append(urljoin(homepage, "/sitemap.xml"))
+
+        page_urls: list[str] = []
+        seen_pages: set[str] = set()
+        seen_sitemaps: set[str] = set()
+        stack = list(dict.fromkeys(candidates))
+
+        while stack:
+            sm_url = stack.pop()
+            if sm_url in seen_sitemaps:
+                continue
+            seen_sitemaps.add(sm_url)
+
+            raw = self._fetch_bytes(sm_url)
+            if not raw:
+                continue
+            try:
+                root = ET.fromstring(raw)
+            except ET.ParseError as e:
+                self.logger.warning("サイトマップ解析失敗: %s | %s", sm_url, e)
+                continue
+
+            is_index = self._local_name(root.tag) == "sitemapindex"
+            for loc in root.iter():
+                if self._local_name(loc.tag) != "loc":
+                    continue
+                value = (loc.text or "").strip()
+                if not value:
+                    continue
+                if is_index:
+                    # 入れ子のサイトマップ → 後で辿る
+                    if value not in seen_sitemaps:
+                        stack.append(value)
+                elif value not in seen_pages:
+                    seen_pages.add(value)
+                    page_urls.append(value)
+
+        return page_urls
+
     def parse(self, url: str):
         self.logger.info("=== Step1: サイトマップから店舗詳細URLを収集中 ===")
-        tree = sitemap_tree_for_homepage(url)
 
         detail_urls = []
         seen = set()
 
-        for page in tree.all_pages():
-            page_url = getattr(page, "url", "")
+        for page_url in self._collect_page_urls(url):
             if not self._is_target_detail_url(page_url):
                 continue
             if page_url in seen:
