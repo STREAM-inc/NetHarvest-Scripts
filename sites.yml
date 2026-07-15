@@ -1397,7 +1397,7 @@ sites:
 #155
   - site_id: nihon_souko_kyokai
     name: "日本倉庫協会"
-    module: "corporate.nihon_souko_kyokai"
+    module: corporate.nissokyo
     url: "https://www.nissokyo.or.jp/member_list/"
     schedule: "0 6 * * SAT"
     enabled: true
