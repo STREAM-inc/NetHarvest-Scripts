@@ -58,6 +58,19 @@ class SajCrawler(StaticCrawler):
         "代表的なソフトウェア製品・サービス名",
     ]
 
+    # WAF が python-requests のデフォルトUAを弾く（403）ため、ブラウザ相当のヘッダを付与する
+    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+
+    def _setup(self):
+        super()._setup()
+        self.session.headers.update(
+            {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+                "Referer": "https://www.saj.or.jp/",
+            }
+        )
+
     def parse(self, url: str) -> Generator[dict, None, None]:
         page = 1
         while True:
