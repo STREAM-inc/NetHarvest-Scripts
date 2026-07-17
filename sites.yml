@@ -4574,3 +4574,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.cluman.co.jp/rules"
+
+  - site_id: susukino_ta
+    name: "一般社団法人_すすきの観光協会リスト"
+    module: "nightlife.susukino_ta"
+    url: "http://www.susukino-ta.jp/?kensakuword=&gyotai=2"
+    schedule: null
+    enabled: true
+    terms_url: ""
