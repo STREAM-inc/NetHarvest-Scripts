@@ -4558,3 +4558,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: "https://goguynet.jp/about/privacy/"
+
+  - site_id: web_4
+    name: "すすきのタウン情報WEB"
+    module: "nightlife.web_4"
+    url: "https://www.susukino.gr.jp/nomi-dokoro/index.php"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.susukino.gr.jp/policy.html"
