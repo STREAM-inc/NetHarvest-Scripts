@@ -4566,3 +4566,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.susukino.gr.jp/policy.html"
+
+  - site_id: https_www_cluman_co_jp
+    name: "https://www.cluman.co.jp/"
+    module: "nightlife.https_www_cluman_co_jp"
+    url: "https://www.cluman.co.jp/hokkaido/shops"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.cluman.co.jp/rules"
