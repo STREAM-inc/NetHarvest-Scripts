@@ -4582,3 +4582,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: tokushima_night_style
+    name: "徳島ナイトスタイルリスト"
+    module: "nightlife.tokushima_night_style"
+    url: "https://www.tokushima-night-style.com/"
+    schedule: null
+    enabled: true
+    terms_url: ""
