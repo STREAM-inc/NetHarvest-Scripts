@@ -4590,3 +4590,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: search_oita
+    name: "サーチ大分"
+    module: "nightlife.search_oita"
+    url: "https://search-oita.com/shop/"
+    schedule: null
+    enabled: true
+    terms_url: "https://search-oita.com/privacy/"
