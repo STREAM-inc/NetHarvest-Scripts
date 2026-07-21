@@ -4630,3 +4630,11 @@ sites:
     schedule: "0 9 27 * *"
     enabled: true
     terms_url: "https://kyushu.garuru.work/rules.html"
+
+  - site_id: nakasu_magazine
+    name: "中洲マガジン"
+    module: "nightlife.nakasu_magazine"
+    url: "https://nakasu-magazine.com/category/nakasu-adult/"
+    schedule: null
+    enabled: true
+    terms_url: "https://nakasu-magazine.com/privacy-policy/"
