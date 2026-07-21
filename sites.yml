@@ -4614,3 +4614,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: night_select
+    name: "サンキュー案内所"
+    module: "nightlife.night_select"
+    url: "https://night-select.jp/"
+    schedule: null
+    enabled: true
+    terms_url: ""
