@@ -4654,3 +4654,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://night-info.okinawa/privacy/"
+
+  - site_id: sunakkuadvisor
+    name: "スナックアドバイザー"
+    module: "nightlife.sunakkuadvisor"
+    url: "https://sunakkuadvisor.com/"
+    schedule: "0 9 22 * *"
+    enabled: true
+    terms_url: ""
