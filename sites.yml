@@ -4662,3 +4662,11 @@ sites:
     schedule: "0 9 22 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: nishitachi_museum
+    name: "ニシタチナイト"
+    module: "nightlife.nishitachi_museum"
+    url: "https://nishitachi-museum.com/map/"
+    schedule: "0 9 19 * *"
+    enabled: true
+    terms_url: ""
