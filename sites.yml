@@ -4606,3 +4606,11 @@ sites:
     schedule: "0 9 28 * *"
     enabled: true
     terms_url: "https://www.yoruasobi.com/kiyaku.html"
+
+  - site_id: jobhunter_fukuoka
+    name: "ナビスタ（中洲無料案内所）"
+    module: "nightlife.jobhunter_fukuoka"
+    url: "https://jobhunter-fukuoka.com/navista-nakasu/"
+    schedule: null
+    enabled: true
+    terms_url: ""
