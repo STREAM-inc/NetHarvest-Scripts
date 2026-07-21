@@ -4638,3 +4638,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://nakasu-magazine.com/privacy-policy/"
+
+  - site_id: lounge
+    name: "ナイエコ出張所"
+    module: "nightlife.lounge"
+    url: "https://lounge.cxc-kumamoto.com/"
+    schedule: "0 9 26 * *"
+    enabled: true
+    terms_url: ""
