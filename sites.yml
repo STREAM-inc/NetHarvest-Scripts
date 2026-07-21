@@ -4598,3 +4598,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://search-oita.com/privacy/"
+
+  - site_id: yoruasobi
+    name: "おきなわ夜アソビ"
+    module: "nightlife.yoruasobi"
+    url: "https://www.yoruasobi.com/"
+    schedule: "0 9 28 * *"
+    enabled: true
+    terms_url: "https://www.yoruasobi.com/kiyaku.html"
