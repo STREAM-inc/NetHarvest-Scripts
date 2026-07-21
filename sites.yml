@@ -4622,3 +4622,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: kyushu
+    name: "体入がるる九州版"
+    module: "nightlife.kyushu"
+    url: "https://kyushu.garuru.work/joblist.html"
+    schedule: "0 9 27 * *"
+    enabled: true
+    terms_url: "https://kyushu.garuru.work/rules.html"
