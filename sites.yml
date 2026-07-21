@@ -4646,3 +4646,11 @@ sites:
     schedule: "0 9 26 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: night_info
+    name: "みんなの案内所"
+    module: "nightlife.night_info"
+    url: "https://night-info.okinawa/shop-list/#tab1"
+    schedule: null
+    enabled: true
+    terms_url: "https://night-info.okinawa/privacy/"
