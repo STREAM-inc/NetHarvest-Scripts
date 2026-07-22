@@ -4670,3 +4670,11 @@ sites:
     schedule: "0 9 19 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: curama_2
+    name: "くらしのマーケット2"
+    module: "service.curama_2"
+    url: "https://curama.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://curama.jp/terms/"
