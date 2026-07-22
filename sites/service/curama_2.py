@@ -2,15 +2,20 @@
 くらしのマーケット2 (curama.jp) — サービス情報 + 店舗プロフィール収集スクレイパー
 
 取得対象:
-    - /aircon/ カテゴリ一覧に掲載される各サービス詳細ページ (SER{n})
+    - /category/ 一覧に掲載される全カテゴリ (/aircon/, /moving/, /pest/ …) の
+      各サービス詳細ページ (SER{n})
     - 各サービス詳細ページのトラッキング JS 内 item_brand を店舗ID(9桁)として取得
     - 店舗ID から生成した店舗プロフィール (/{店舗ID}/) の店舗情報
 
-取得フロー (一覧 → サービス詳細 → 店舗プロフィール; Pattern B: 1件ごとに即 yield):
-    1. 引数 url (= https://curama.jp/) から開始カテゴリ /aircon/ を urljoin で導出
-    2. ?page=N& でページネーション。service-details アンカーが無い or「次のN件」リンクが無い
-       or 直前ページと同一一覧になったら終了
-    3. サービスURLは SER から始まるサービスIDで重複排除
+取得フロー (カテゴリ一覧 → カテゴリ別サービス一覧 → サービス詳細 → 店舗プロフィール;
+            Pattern B: 1件ごとに即 yield):
+    1. 引数 url (= https://curama.jp/) から /category/ を urljoin で導出し全カテゴリを列挙
+       (ヘッダ/フッタの about/category/magazine/privacy/terms は除外)
+    2. 各カテゴリで ?page=N& によりページネーション。SERリンクが無い or「次のN件」リンクが
+       無い or 直前ページと同一一覧になったら次カテゴリへ
+       ※ 一部カテゴリ(例 /moving/)は service-details アンカーを持たないため、
+         id ではなく href の /SER{n}/ で抽出する
+    3. サービスURLは SER から始まるサービスIDで重複排除 (カテゴリ横断でグローバルに)
     4. 各サービス詳細ページで item_name(SER)/item_brand(9桁店舗ID)/item_category/price と
        microdata (ratingValue/reviewCount/name) と店舗画像URL(/store/{9桁}/)を取得
     5. item_brand を正式な店舗IDとし、店舗ID から /{店舗ID}/ プロフィールURLを生成
@@ -56,8 +61,17 @@ _HANKAKU = "0123456789-()"
 _TRANS = str.maketrans(_ZENKAKU, _HANKAKU)
 
 _START_PATH = "/aircon/"
+_CATEGORY_INDEX_PATH = "/category/"
+
+# /category/ から列挙する単一セグメントのカテゴリパス (/aircon/ 等)。
+_CATEGORY_PATH_RE = re.compile(r"^/([a-z0-9-]+)/$")
+# サービス/カテゴリではないヘッダ・フッタ導線を除外する。
+_NON_CATEGORY_SLUGS = {"about", "category", "magazine", "privacy", "terms"}
 
 _SER_RE = re.compile(r"(SER\d+)")
+# サービス詳細リンクは href に /SER{n}/ を含む (id=service-details を持たない
+# カテゴリ /moving/ 等にも対応するため id ではなく href で抽出する)。
+_SER_HREF_RE = re.compile(r"/SER\d+/")
 _NEXT_BTN_RE = re.compile(r"次の\d+件|次へ")
 _STORE_ID_RE = re.compile(r"/store/(\d{9})/")
 _POST_RE = re.compile(r"〒?\s*(\d{3}-?\d{4})")
@@ -91,9 +105,48 @@ class Curama2Scraper(StaticCrawler):
     ]
 
     def parse(self, url: str):
-        start_url = urljoin(url, _START_PATH)
         seen_services: set[str] = set()
         store_cache: dict[str, dict] = {}
+
+        category_paths = self._extract_categories(url)
+        if not category_paths:
+            # フォールバック: 一覧が取れなくとも最低限エアコンは巡回する
+            self.logger.warning("カテゴリ一覧が取得できず /aircon/ のみ巡回します")
+            category_paths = [_START_PATH]
+        self.logger.info("巡回カテゴリ数: %d", len(category_paths))
+
+        for cat_path in category_paths:
+            start_url = urljoin(url, cat_path)
+            yield from self._iter_category(start_url, url, seen_services, store_cache)
+
+    def _extract_categories(self, url: str) -> list[str]:
+        """/category/ から全カテゴリの単一セグメントパスを順序保持で列挙する。"""
+        index_url = urljoin(url, _CATEGORY_INDEX_PATH)
+        self.logger.info("カテゴリ一覧取得: %s", index_url)
+        soup = self.get_soup(index_url)
+        if not soup:
+            return []
+
+        paths: list[str] = []
+        seen: set[str] = set()
+        for a in soup.find_all("a", href=_CATEGORY_PATH_RE):
+            m = _CATEGORY_PATH_RE.match(a.get("href", ""))
+            if not m:
+                continue
+            slug = m.group(1)
+            if slug in _NON_CATEGORY_SLUGS:
+                continue
+            path = f"/{slug}/"
+            if path in seen:
+                continue
+            seen.add(path)
+            paths.append(path)
+        return paths
+
+    def _iter_category(
+        self, start_url: str, root_url: str, seen_services: set, store_cache: dict
+    ):
+        """1カテゴリを ?page=N& で巡回し、サービス行を1件ずつ yield する。"""
         prev_hrefs: list[str] | None = None
         page = 1
 
@@ -104,7 +157,8 @@ class Curama2Scraper(StaticCrawler):
             if not soup:
                 break
 
-            anchors = soup.find_all("a", id=re.compile(r"^service-details\d+"))
+            # id=service-details を持たないカテゴリもあるため href の /SER{n}/ で抽出
+            anchors = soup.find_all("a", href=_SER_HREF_RE)
             hrefs = [a.get("href") for a in anchors if a.get("href")]
             if not hrefs:
                 break
@@ -122,9 +176,9 @@ class Curama2Scraper(StaticCrawler):
                     continue
                 seen_services.add(service_id)
 
-                detail_url = urljoin(url, href)
+                detail_url = urljoin(root_url, href)
                 try:
-                    record = self._scrape_service(detail_url, url, store_cache)
+                    record = self._scrape_service(detail_url, root_url, store_cache)
                 except Exception as e:  # noqa: BLE001
                     self.logger.warning("サービス取得失敗: %s — %s", detail_url, e)
                     continue
