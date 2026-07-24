@@ -4734,3 +4734,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.koneko-breeder.com/rule.php"
+
+  - site_id: min_breeder
+    name: "みんなのブリーダー（犬）"
+    module: "service.min_breeder"
+    url: "https://www.min-breeder.com/breederList.php?search_act=search&search_flg=1&search_push=1&pref_mode=&key_dog_color_cd=&key_dog_sort_cd=&key_b_name="
+    schedule: null
+    enabled: true
+    terms_url: "https://www.min-breeder.com/rule.php"
