@@ -4744,7 +4744,7 @@ sites:
     terms_url: "https://www.min-breeder.com/rule.php"
 
   - site_id: chinkan_jp
-    name: "全宅管理(chinkan.jp) 会員店"
+    name: "一般社団法人全国賃貸不動産管理業協会(全宅管理)"
     module: "realestate.chinkan_jp"
     url: "https://chinkan.jp/shop/area_search"
     schedule: null
