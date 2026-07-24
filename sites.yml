@@ -4686,3 +4686,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: campfire
+    name: "CAMPFIRE (キャンプファイヤー)"
+    module: "portal.campfire"
+    url: "https://camp-fire.jp/projects/search"
+    schedule: null
+    enabled: true
+    terms_url: "https://camp-fire.jp/term"
