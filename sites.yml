@@ -4694,3 +4694,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://camp-fire.jp/term"
+
+  - site_id: makuake
+    name: "makuake (マクアケ)"
+    module: "corporate.makuake"
+    url: "https://www.makuake.com/discover/all"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.makuake.com/pages/term"
