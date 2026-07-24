@@ -4678,3 +4678,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://curama.jp/terms/"
+
+  - site_id: tsunagu_good
+    name: "つなぐっど"
+    module: "portal.tsunagu_good"
+    url: "https://tsunagu-good.com/shop-search"
+    schedule: null
+    enabled: true
+    terms_url: ""
