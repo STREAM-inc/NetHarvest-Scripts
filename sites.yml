@@ -4726,3 +4726,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://kibidango.com/page/UserKiyaku"
+
+  - site_id: koneko_breeder
+    name: "みんなのブリーダー（猫）"
+    module: "service.koneko_breeder"
+    url: "https://www.koneko-breeder.com/breederList.php?key_b_name="
+    schedule: null
+    enabled: true
+    terms_url: "https://www.koneko-breeder.com/rule.php"
