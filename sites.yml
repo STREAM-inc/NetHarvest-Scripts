@@ -4750,3 +4750,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://chinkan.jp/privacy"
+
+  - site_id: jpm
+    name: "公益財団法人日本賃貸住宅管理協会(日管協)"
+    module: "realestate.jpm"
+    url: "https://www.jpm.jp/branch/all.php?cid=14#list"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.jpm.jp/term_of_use/"
