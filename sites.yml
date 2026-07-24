@@ -4718,3 +4718,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://report.clinic/info/kiyaku.html"
+
+  - site_id: kibidango
+    name: "Kibidango"
+    module: "corporate.kibidango"
+    url: "https://kibidango.com/projects"
+    schedule: null
+    enabled: true
+    terms_url: "https://kibidango.com/page/UserKiyaku"
