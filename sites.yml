@@ -4702,3 +4702,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.makuake.com/pages/term"
+
+  - site_id: readyfor
+    name: "READYFOR"
+    module: "portal.readyfor"
+    url: "https://readyfor.jp/projects"
+    schedule: null
+    enabled: true
+    terms_url: "https://legal.readyfor.jp/guidelines/terms_of_service_index/terms_of_service_common/"
