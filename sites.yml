@@ -4758,3 +4758,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.jpm.jp/term_of_use/"
+
+  - site_id: zennichi
+    name: "公益社団法人全日本不動産協会(全日)"
+    module: "realestate.zennichi"
+    url: "https://www.zennichi.or.jp/member_search/list/?prefecture=&branch=&address=&representative=&shogo=&shogo_kana=&license_holder=&number=&region="
+    schedule: null
+    enabled: true
+    terms_url: ""
