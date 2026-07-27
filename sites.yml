@@ -4774,3 +4774,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://camp-fire.jp/term"
+
+  - site_id: value_press
+    name: "プレスリリース"
+    module: "corporate.value_press"
+    url: "https://www.value-press.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.value-press.com/terms"
