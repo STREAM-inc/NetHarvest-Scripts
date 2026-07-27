@@ -4782,3 +4782,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.value-press.com/terms"
+
+  - site_id: press
+    name: "＠Press"
+    module: "corporate.press"
+    url: "https://www.atpress.ne.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.atpress.ne.jp/term_use"
