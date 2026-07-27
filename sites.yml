@@ -4798,3 +4798,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://stores.fun/legal/general-terms"
+
+  - site_id: prfree
+    name: "PRfree"
+    module: "corporate.prfree"
+    url: "https://pr-free.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://pr-free.jp/terms/"
