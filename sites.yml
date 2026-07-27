@@ -4790,3 +4790,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.atpress.ne.jp/term_use"
+
+  - site_id: stores
+    name: "STORES"
+    module: "portal.stores"
+    url: "https://stores.fun/cases"
+    schedule: null
+    enabled: true
+    terms_url: "https://stores.fun/legal/general-terms"
