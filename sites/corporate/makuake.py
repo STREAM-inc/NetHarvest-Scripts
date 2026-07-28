@@ -10,6 +10,9 @@ Makuake (マクアケ) — 応援購入サービスの実行者(企業/クリエ
     1. プロジェクト一覧 API (api.makuake.com/v2/projects) をページング取得。
     2. 各プロジェクトの公開ページ (project url) を開き、
        <a class="owner-info_name" href="/member/index/{id}/"> から実行者 id を取得。
+       あわせて同ページの実行者 SNS ブロック (div.owner-contact 内の
+       <a class="owner-contact_icon" href="..."> ) から X / Instagram / Facebook の
+       URL を取得する (SNS は実行者 API には含まれず、プロジェクトページにのみ存在するため)。
     3. 実行者サマリ API (/v2/member/{id}, /v2/member/{id}/rate) で企業名・実績を取得。
     4. 重複を除外して 1 件ずつ即 yield (Pattern B)。
 
@@ -38,6 +41,18 @@ from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
 logger = logging.getLogger(__name__)
+
+
+def _classify_sns(href: str) -> str | None:
+    """SNS リンクの URL からどの SNS かを判定して Schema カラム名を返す。"""
+    low = href.lower()
+    if "twitter.com" in low or "x.com/" in low or low.rstrip("/").endswith("x.com"):
+        return Schema.X
+    if "instagram.com" in low:
+        return Schema.INSTA
+    if "facebook.com" in low:
+        return Schema.FB
+    return None
 
 # フロントが利用する公開 API のベース (www.makuake.com の SPA バックエンド)
 _API_BASE = "https://api.makuake.com"
@@ -80,21 +95,40 @@ class Makuake(StaticCrawler):
             logger.warning("API 取得失敗: %s — %s", api_url, e)
             return None
 
-    def _extract_owner_id(self, project_url: str) -> str | None:
-        """プロジェクトページを開いて実行者(オーナー) id を取得する。"""
+    def _extract_owner(self, project_url: str) -> tuple[str | None, dict]:
+        """プロジェクトページを開いて実行者(オーナー) id と SNS を取得する。
+
+        戻り値: (owner_id または None, {Schema.X/INSTA/FB: url} の SNS dict)
+        SNS は実行者 API に無く、プロジェクトページの div.owner-contact 内の
+        <a class="owner-contact_icon" href="..."> にのみ存在する。
+        """
         soup = self.get_soup(project_url)
         if soup is None:
-            return None
+            return None, {}
+
+        # 実行者 id
         a = soup.select_one('a.owner-info_name[href*="/member/index/"]') or soup.select_one(
             'a[href*="/member/index/"]'
         )
-        if not a:
-            return None
-        m = _MEMBER_ID_RE.search(a.get("href", ""))
-        return m.group(1) if m else None
+        owner_id = None
+        if a:
+            m = _MEMBER_ID_RE.search(a.get("href", ""))
+            owner_id = m.group(1) if m else None
 
-    def _build_member_row(self, owner_id: str) -> dict | None:
-        """実行者サマリ API から 1 行分のデータを組み立てる。"""
+        # 実行者 SNS (X / Instagram / Facebook)
+        sns: dict = {}
+        for link in soup.select('a.owner-contact_icon[href]'):
+            href = (link.get("href") or "").strip()
+            if not href:
+                continue
+            col = _classify_sns(href)
+            if col and col not in sns:
+                sns[col] = href
+
+        return owner_id, sns
+
+    def _build_member_row(self, owner_id: str, sns: dict | None = None) -> dict | None:
+        """実行者サマリ API と SNS から 1 行分のデータを組み立てる。"""
         member = self._api_get(f"/v2/member/{owner_id}")
         if not member or not member.get("user"):
             return None
@@ -107,9 +141,12 @@ class Makuake(StaticCrawler):
         rate_count = rate.get("count") or 0
         rate_avg = rate.get("total_evaluation") or 0
 
-        return {
+        row = {
             Schema.NAME: name,
             Schema.URL: f"https://www.makuake.com/member/index/{owner_id}/",
+            Schema.X: (sns or {}).get(Schema.X, ""),
+            Schema.INSTA: (sns or {}).get(Schema.INSTA, ""),
+            Schema.FB: (sns or {}).get(Schema.FB, ""),
             "実行者ID": str(owner_id),
             "総合評価": f"{round(float(rate_avg), 1)}" if rate_count else "",
             "評価件数": str(rate_count) if rate_count else "",
@@ -118,6 +155,7 @@ class Makuake(StaticCrawler):
             "サポーター数": str(member.get("total_supporters_count", "") or ""),
             "認定クリエイター": "はい" if user.get("is_selected_creator") else "いいえ",
         }
+        return row
 
     def parse(self, url: str):
         # url は sites.yml と同じ https://www.makuake.com/discover/all (起点)。
@@ -145,11 +183,11 @@ class Makuake(StaticCrawler):
                 if not project_url:
                     continue
                 try:
-                    owner_id = self._extract_owner_id(project_url)
+                    owner_id, sns = self._extract_owner(project_url)
                     if not owner_id or owner_id in seen:
                         continue
                     seen.add(owner_id)
-                    row = self._build_member_row(owner_id)
+                    row = self._build_member_row(owner_id, sns)
                     if row:
                         yield row
                 except Exception as e:  # noqa: BLE001 - 個別アイテムのエラーは握って継続
