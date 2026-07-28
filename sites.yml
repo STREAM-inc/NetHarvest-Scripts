@@ -4806,3 +4806,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://pr-free.jp/terms/"
+
+  - site_id: job_6
+    name: "リクナビ新卒"
+    module: "jobs.job_6"
+    url: "https://job.rikunabi.com/"
+    schedule: null
+    enabled: true
+    terms_url: ""
