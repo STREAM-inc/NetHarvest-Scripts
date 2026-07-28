@@ -4814,3 +4814,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: job_5
+    name: "マイナビ2028"
+    module: "jobs.job_5"
+    url: "https://job.mynavi.jp/28/pc/toppage/displayTopPage/index"
+    schedule: null
+    enabled: true
+    terms_url: ""
