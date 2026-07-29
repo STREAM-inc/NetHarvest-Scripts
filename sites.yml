@@ -4822,3 +4822,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: seikatsu110_2
+    name: "生活110番（加盟店・全国）"
+    module: "service.seikatsu110_2"
+    url: "https://www.seikatsu110.jp/service/garden/gd_felling/area/tokyo/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.seikatsu110.jp/terms-of-service/"
