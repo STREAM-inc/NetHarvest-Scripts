@@ -1,4 +1,5 @@
 import re
+import gzip
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -12,6 +13,17 @@ from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
 _SHOP_PATTERN = re.compile(r"^https://hitosara\.com/\d{4,}/$")
+
+
+def _maybe_gunzip(url: str, content: bytes) -> bytes:
+    """child sitemap は .xml.gz (Content-Type: application/x-gzip) で返るため
+    requests は自動解凍しない。gzip マジックナンバーor拡張子で判定して解凍する。"""
+    if content[:2] == b"\x1f\x8b" or url.lower().endswith(".gz"):
+        try:
+            return gzip.decompress(content)
+        except Exception:
+            return content
+    return content
 
 
 class HitosaraScraper(StaticCrawler):
@@ -31,10 +43,11 @@ class HitosaraScraper(StaticCrawler):
 
     def _collect_shop_urls(self, sitemap_url: str) -> list[str]:
         urls: list[str] = []
+        seen: set[str] = set()
         try:
             r = self.session.get(sitemap_url, timeout=self.TIMEOUT)
             r.raise_for_status()
-            root = ET.fromstring(r.content)
+            root = ET.fromstring(_maybe_gunzip(sitemap_url, r.content))
             if root.tag.lower().endswith("sitemapindex"):
                 for el in root.iter():
                     if el.tag.endswith("loc") and el.text:
@@ -42,19 +55,21 @@ class HitosaraScraper(StaticCrawler):
                         try:
                             cr = self.session.get(child_url, timeout=self.TIMEOUT)
                             cr.raise_for_status()
-                            child_root = ET.fromstring(cr.content)
+                            child_root = ET.fromstring(_maybe_gunzip(child_url, cr.content))
                             for loc in child_root.iter():
                                 if loc.tag.endswith("loc") and loc.text:
                                     u = loc.text.strip()
-                                    if _SHOP_PATTERN.match(u):
+                                    if _SHOP_PATTERN.match(u) and u not in seen:
+                                        seen.add(u)
                                         urls.append(u)
-                        except Exception:
-                            pass
+                        except Exception as ce:
+                            self.logger.warning("子サイトマップ取得エラー %s: %s", child_url, ce)
             else:
                 for el in root.iter():
                     if el.tag.endswith("loc") and el.text:
                         u = el.text.strip()
-                        if _SHOP_PATTERN.match(u):
+                        if _SHOP_PATTERN.match(u) and u not in seen:
+                            seen.add(u)
                             urls.append(u)
         except Exception as e:
             self.logger.warning("サイトマップ取得エラー: %s", e)
