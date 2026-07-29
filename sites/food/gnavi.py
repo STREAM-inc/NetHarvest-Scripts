@@ -184,7 +184,7 @@ if __name__ == "__main__":
     )
 
     scraper = GnaviScraper()
-    scraper.execute("https://r.gnavi.co.jp/area/jp/rs/")
+    scraper.execute("https://www.gnavi.co.jp/")
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
     print(f"取得件数: {scraper.item_count}")
