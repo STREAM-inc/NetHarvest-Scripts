@@ -4830,3 +4830,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.seikatsu110.jp/terms-of-service/"
+
+  - site_id: clerk
+    name: "バイトル事務系（clerk）中部・近畿"
+    module: "jobs.clerk"
+    url: "https://www.baitoru.com/kansai/jlist/clerk/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.baitoru.com/company/kiyaku/"
