@@ -1556,15 +1556,6 @@ sites:
     enabled: true
     terms_url: ""
 
-#173
-  - site_id: nightstyle
-    name: "ナイトスタイル"
-    module: "nightlife.nightstyle"
-    url: "https://nightstyle.jp"
-    schedule: "40 7 22-28 * SAT"
-    enabled: true
-    terms_url: "https://nightstyle.jp/terms/"
-
 #174
   - site_id: baitoru_nightwork
     name: "バイトル（ナイトワーク系）"
