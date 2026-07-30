@@ -3354,7 +3354,7 @@ sites:
 
 #375
   - site_id: nightstyle_2
-    name: "ナイト_ナイトスタイル"
+    name: "ナイトスタイル"
     module: "nightlife.nightstyle_2"
     url: "https://nightstyle.jp/g7/"
     schedule: "20 18 15-21 * SAT"
