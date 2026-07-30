@@ -2,25 +2,26 @@
 ヌリカエ — 外壁・屋根塗装会社情報スクレイパー
 
 取得対象:
-    - 47都道府県の `/area/{都道府県}/part/exterior_outer-wall` 一覧から
-      会社詳細ページ `/company/{id}` を辿り、会社概要を取得する。
+    - `/sitemap/company` (gzip 圧縮 XML) に列挙された全会社の
+      詳細ページ `/company/{id}` から会社概要を取得する。
 
 取得フロー:
-    1. 47都道府県の一覧URLをループ
-    2. 各都道府県で ?page=N を 1 から空ページまで巡回
-    3. 一覧ページから company-card 要素の詳細URLを抽出
-    4. 詳細ページの info-table から会社概要を取得
+    1. `/sitemap/company` を取得し gzip 展開して `/company/{id}` URL を全件抽出
+       （`/area/{都道府県}/part/exterior_outer-wall` の一覧は AJAX で数件ずつしか
+        描画されず全社を辿れないため、robots.txt にも記載された公式 sitemap を採用）
+    2. 各詳細ページの info-table から会社概要を取得
 
 実行方法:
     python scripts/sites/construction/nuri_kae.py
     python bin/run_flow.py --site-id nuri_kae
 """
 
+import gzip
 import re
 import sys
 from pathlib import Path
 from typing import Generator
-from urllib.parse import quote, urljoin
+from urllib.parse import urljoin
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -30,17 +31,6 @@ from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
 
-PREFECTURES = [
-    "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
-    "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
-    "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県",
-    "岐阜県", "静岡県", "愛知県", "三重県",
-    "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県",
-    "鳥取県", "島根県", "岡山県", "広島県", "山口県",
-    "徳島県", "香川県", "愛媛県", "高知県",
-    "福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
-]
-
 _PREF_RE = re.compile(
     r"^(東京都|北海道|(?:京都|大阪)府|"
     r"(?:青森|岩手|宮城|秋田|山形|福島|茨城|栃木|群馬|埼玉|千葉|神奈川|"
@@ -48,6 +38,9 @@ _PREF_RE = re.compile(
     r"和歌山|鳥取|島根|岡山|広島|山口|徳島|香川|愛媛|高知|福岡|佐賀|"
     r"長崎|熊本|大分|宮崎|鹿児島|沖縄)県)"
 )
+
+# sitemap 内で会社詳細ページを表す URL パターン（/company/123 のみ。review 等は除外）
+_COMPANY_LOC_RE = re.compile(r"https?://[^<>\s]+?/company/\d+(?=[<\s\"']|$)")
 
 
 class NurikaeScraper(StaticCrawler):
@@ -66,68 +59,65 @@ class NurikaeScraper(StaticCrawler):
         "口コミ件数",
         "ランキング",
         "最終更新日",
-        "検索都道府県",
     ]
 
-    BASE_URL = "https://www.nuri-kae.jp"
+    # 会社一覧の列挙元 sitemap（parse() の url から派生させる相対パス）
+    COMPANY_SITEMAP_PATH = "/sitemap/company"
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        detail_urls = self._collect_detail_urls()
+        detail_urls = self._collect_detail_urls(url)
         self.total_items = len(detail_urls)
         self.logger.info("会社URL収集完了: %d 件 (重複排除後)", len(detail_urls))
 
-        for company_url, search_pref in detail_urls.items():
+        for company_url in detail_urls:
             try:
-                item = self._scrape_detail(company_url, search_pref)
+                item = self._scrape_detail(company_url)
                 if item:
                     yield item
             except Exception as e:
                 self.logger.warning("詳細取得エラー: %s — %s", company_url, e)
                 continue
 
-    def _collect_detail_urls(self) -> dict[str, str]:
-        """全都道府県を巡回して会社詳細URLを集める。返り値は {url: 検索都道府県}。"""
-        result: dict[str, str] = {}
-        for pref in PREFECTURES:
-            page = 1
-            while True:
-                list_url = (
-                    f"{self.BASE_URL}/area/{quote(pref)}/part/exterior_outer-wall"
-                    f"?page={page}"
-                )
-                soup = self.get_soup(list_url)
-                if soup is None:
-                    break
-                cards = soup.select("div.company-card")
-                if not cards:
-                    break
-                added = 0
-                for card in cards:
-                    link = card.select_one("a.company-card__client-link[href]")
-                    if not link:
-                        continue
-                    href = link.get("href")
-                    if not href:
-                        continue
-                    full = urljoin(self.BASE_URL, href.split("?")[0].split("#")[0])
-                    if full not in result:
-                        result[full] = pref
-                        added += 1
-                self.logger.info(
-                    "[%s] page=%d cards=%d new=%d total=%d",
-                    pref, page, len(cards), added, len(result),
-                )
-                if added == 0 and page > 1:
-                    break
-                page += 1
-        return result
+    def _collect_detail_urls(self, root_url: str) -> list[str]:
+        """公式 sitemap を展開して会社詳細URLを全件集める。"""
+        sitemap_url = urljoin(root_url, self.COMPANY_SITEMAP_PATH)
+        xml = self._fetch_sitemap_text(sitemap_url)
+        if not xml:
+            self.logger.warning("sitemap取得失敗: %s", sitemap_url)
+            return []
 
-    def _scrape_detail(self, url: str, search_pref: str) -> dict | None:
+        seen: dict[str, None] = {}
+        for m in _COMPANY_LOC_RE.finditer(xml):
+            full = m.group(0).split("?")[0].split("#")[0]
+            if full not in seen:
+                seen[full] = None
+        self.logger.info("sitemapから会社URL抽出: %d 件", len(seen))
+        return list(seen.keys())
+
+    def _fetch_sitemap_text(self, sitemap_url: str) -> str:
+        """gzip 圧縮された sitemap を取得して展開し、テキストを返す。"""
+        try:
+            resp = self.session.get(sitemap_url, timeout=self.TIMEOUT)
+            resp.raise_for_status()
+        except Exception as e:
+            self.logger.warning("sitemap HTTP エラー: %s — %s", sitemap_url, e)
+            return ""
+
+        raw = resp.content
+        # gzip マジックナンバー or Content-Type が gzip の場合は展開
+        if raw[:2] == b"\x1f\x8b" or "gzip" in resp.headers.get("Content-Type", ""):
+            try:
+                raw = gzip.decompress(raw)
+            except OSError:
+                pass  # 既に非圧縮だった場合
+        return raw.decode("utf-8", "replace")
+
+    def _scrape_detail(self, url: str) -> dict | None:
         soup = self.get_soup(url)
         if soup is None:
             return None
 
-        data: dict = {Schema.URL: url, "検索都道府県": search_pref}
+        data: dict = {Schema.URL: url}
 
         h1 = soup.select_one("h1")
         if h1:
