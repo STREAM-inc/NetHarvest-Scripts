@@ -4829,3 +4829,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.baitoru.com/company/kiyaku/"
+
+  - site_id: gap_2
+    name: "日本GAP協会 認証農場検索"
+    module: "government.gap_2"
+    url: "https://jgap.jp/certification/farm-search/"
+    schedule: null
+    enabled: true
+    terms_url: "https://jgap.jp/policy/"
