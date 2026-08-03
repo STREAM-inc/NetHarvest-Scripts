@@ -4837,3 +4837,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://jgap.jp/policy/"
+
+  - site_id: baitoru_nightwork_2
+    name: "baitoru_nightwork_バイトル（ナイトワーク系）"
+    module: "jobs.baitoru_nightwork_2"
+    url: "https://www.baitoru.com/kanto-tokai-kansai-tohoku-koshinetsu-chushikoku-kyushu/jlist/nightwork?pname=link_job_list_pc_all_all"
+    schedule: "0 8 * * 1"
+    enabled: true
+    terms_url: ""
