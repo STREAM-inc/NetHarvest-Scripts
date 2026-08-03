@@ -552,7 +552,7 @@ sites:
   - site_id: doraever
     name: "ドラEVER"
     module: "jobs.doraever"
-    url: "https://doraever.jp/job-lists/1"
+    url: "https://doraever.jp/job-lists"
     schedule: "0 3 22-28 * SAT"
     enabled: true
     terms_url: "https://doraever.jp/terms"
