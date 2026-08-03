@@ -22,6 +22,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Generator
+from urllib.parse import urljoin
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -42,7 +43,6 @@ _PREF_PATTERN = re.compile(
     r"福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
 )
 
-_LIST_URL_TEMPLATE = "https://tabelog.com/rstLst/{page}/"
 _MAX_PAGES = 60  # 食べログの全国検索は最大60ページでキャップ
 _STATION_PATTERN = re.compile(r"([^\s、。　]+駅から\s*\d+(?:\.\d+)?\s*[km]+)")
 _HOLIDAY_PATTERN = re.compile(r"定休日[ :：]*([^■]+)")
@@ -81,24 +81,13 @@ class TabelogScraper(StaticCrawler):
     ]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        shop_urls = self._collect_shop_urls()
-        self.total_items = len(shop_urls)
-        self.logger.info("詳細取得対象: %d 件", self.total_items)
-
-        for shop_url in shop_urls:
-            try:
-                item = self._scrape_detail(shop_url)
-                if item:
-                    yield item
-            except Exception as e:
-                self.logger.warning("詳細取得エラー: %s (%s)", shop_url, e)
-                continue
-
-    def _collect_shop_urls(self) -> list[str]:
-        urls: list[str] = []
+        # 引数 url を唯一のルートとして一覧 URL を派生させる。
+        # 一覧ページ単位でクロールし、各詳細を fetch 直後に yield する
+        # (全件収集してから yield すると時間切れで 0 件になるため)。
         seen: set[str] = set()
+        count = 0
         for page in range(1, _MAX_PAGES + 1):
-            list_url = _LIST_URL_TEMPLATE.format(page=page)
+            list_url = urljoin(url, "rstLst/{page}/".format(page=page))
             soup = self.get_soup(list_url)
             if soup is None:
                 self.logger.warning("一覧取得失敗: page=%d", page)
@@ -107,17 +96,31 @@ class TabelogScraper(StaticCrawler):
             if not items:
                 self.logger.info("page=%d: 0件 → 終了", page)
                 break
+
+            page_urls: list[str] = []
             for item in items:
                 detail_url = item.get("data-detail-url") or ""
                 if not detail_url:
                     a = item.select_one("h3.list-rst__rst-name a")
                     if a and a.get("href"):
                         detail_url = a["href"].strip()
-                if detail_url and detail_url not in seen:
-                    seen.add(detail_url)
-                    urls.append(detail_url)
-            self.logger.info("page=%d: 累計 %d 件", page, len(urls))
-        return urls
+                if detail_url:
+                    detail_url = urljoin(url, detail_url)
+                    if detail_url not in seen:
+                        seen.add(detail_url)
+                        page_urls.append(detail_url)
+
+            self.logger.info("page=%d: %d 件の詳細を取得", page, len(page_urls))
+            for shop_url in page_urls:
+                try:
+                    item = self._scrape_detail(shop_url)
+                    if item:
+                        count += 1
+                        yield item
+                except Exception as e:
+                    self.logger.warning("詳細取得エラー: %s (%s)", shop_url, e)
+                    continue
+        self.logger.info("取得完了: 累計 %d 件", count)
 
     def _scrape_detail(self, url: str) -> dict | None:
         soup = self.get_soup(url)
@@ -204,7 +207,7 @@ class TabelogScraper(StaticCrawler):
 
         pay = _text("支払い方法")
         if pay:
-            data[Schema.PAY] = pay
+            data[Schema.PAYMENTS] = pay
 
         open_date = _text("オープン日")
         if open_date:
@@ -304,7 +307,7 @@ if __name__ == "__main__":
     )
 
     scraper = TabelogScraper()
-    scraper.execute("https://tabelog.com/rstLst/")
+    scraper.execute("https://tabelog.com/")
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
     print(f"取得件数: {scraper.item_count}")
