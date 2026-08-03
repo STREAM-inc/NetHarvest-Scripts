@@ -44,6 +44,9 @@ _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
@@ -92,8 +95,22 @@ _WS = re.compile(r"\s+")
 class GnaviScraper(StaticCrawler):
     """ぐるなび 飲食店情報スクレイパー"""
 
+    # 実ブラウザに近い新しめの UA。古い Chrome94 だと bot 判定でスロットルされ
+    # 店舗ページが read timeout しやすい（実測: 同一URLで full ヘッダは 200、素の
+    # crawler ヘッダは timeout になる瞬間があった）。
+    USER_AGENT = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    )
+
     DELAY = 0.5             # 基底クラスが yield 1件ごとに待つ間隔
     LIST_DELAY = 0.5        # 一覧ページを連続取得するときの間隔
+    # ぐるなびの店舗ページは一定割合で read timeout する（同一URLでも別時刻には正常に
+    # 応答する断続的な遅延で、特定エリアに固まって出ることがある）。既定の TIMEOUT=20 ×
+    # リトライ3回 だと遅延ページ数本で 60 秒以上を浪費し、最初の1件を yield する前に
+    # 制限時間を使い切る。短いタイムアウトで遅延ページを素早く見切り、次の店舗へ進む
+    # （実測 2026-08: 6 秒あれば健全なページは確実に応答する）。
+    TIMEOUT = 6
     MAX_PAGE = 334          # 一覧のページング上限 (実測 2026-07: p=334まで / p=400 は404)
     PER_PAGE = 30           # 一覧1ページの件数 (実測)
     SPLIT_LIMIT = 10_020    # MAX_PAGE * PER_PAGE = 1一覧URLから辿れる上限
@@ -106,6 +123,29 @@ class GnaviScraper(StaticCrawler):
         "https://r.gnavi.co.jp/{slug}/rs/",
     )
 
+    def _setup(self):
+        """基底のセッション設定に加え、読み取りタイムアウトのリトライを抑制する。
+
+        基底の Retry(total=3) は read timeout も 3 回リトライするため、遅延ページ
+        1 本で TIMEOUT×3 ＋ バックオフを消費してしまう。read は即あきらめて次の店舗へ
+        進み（read=0）、接続失敗とサーバ一時エラー(5xx)のみ従来通り粘る。
+        """
+        super()._setup()
+        retries = Retry(
+            total=None, connect=2, read=0, status=3, backoff_factor=0.5,
+            status_forcelist=[500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        self.session.mount("https://", adapter)
+        self.session.mount("http://", adapter)
+        # 実ブラウザ相当のヘッダを付けて bot 判定によるスロットルを避ける
+        self.session.headers.update({
+            "Accept": ("text/html,application/xhtml+xml,application/xml;q=0.9,"
+                       "image/avif,image/webp,*/*;q=0.8"),
+            "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+        })
+
     def prepare(self):
         """一覧1ページ目の soup をキャッシュする（件数判定とページ巡回で再利用）。"""
         self._page1: dict[str, object] = {}
@@ -114,12 +154,16 @@ class GnaviScraper(StaticCrawler):
     # ---------------- メイン（逐次ストリーミング） ----------------
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        # 一覧URLの形が変わっていても黙って0件で終わらないよう、まず起点を解決する
-        roots: dict[str, str] = {}
+        # 起点を都県ごとに解決し、詳細取得は「全都県を1件ずつラウンドロビン」で回す。
+        # ぐるなびの店舗ページは特定エリアに固まって断続的に read timeout することがあり
+        # （実測 2026-08: 埼玉の1ページ目が全滅している間、東京/千葉は正常）、県を順番に
+        # 処理すると先頭県の不調だけで制限時間を使い切り 0 件になる。ラウンドロビンなら
+        # 健全な県から即座に結果が出る。上限超過エリアの細分化は各県ジェネレータ内で遅延実行。
+        streams: list[tuple[str, Iterator[str]]] = []
         for pref_jp, slug in TARGET_PREFS.items():
             root = self._resolve_root(slug)
             if root:
-                roots[pref_jp] = root
+                streams.append((pref_jp, self._iter_pref_shops(pref_jp, root)))
             else:
                 self.logger.error(
                     "%s (%s): 一覧の起点URLを解決できませんでした（候補: %s）",
@@ -127,7 +171,7 @@ class GnaviScraper(StaticCrawler):
                     " / ".join(t.format(slug=slug) for t in self.LIST_TEMPLATES),
                 )
 
-        if not roots:
+        if not streams:
             # 全県で一覧が使えない＝サイト構造が変わった可能性。公式サイトマップで代替する
             self.logger.error(
                 "全都県で一覧起点を解決できないため、公式サイトマップにフォールバックします"
@@ -136,62 +180,54 @@ class GnaviScraper(StaticCrawler):
             return
 
         kept = 0
-        for pref_jp, root in roots.items():
-            slug = TARGET_PREFS[pref_jp]
-            listed = self._hit_count(root)
-            self.logger.info(
-                "=== %s (%s): 掲載件数 %s ===",
-                pref_jp, slug, f"{listed:,}" if listed else "不明",
-            )
+        pref_kept: dict[str, int] = {p: 0 for p, _ in streams}
+        active = list(streams)
+        while active:
+            still: list[tuple[str, Iterator[str]]] = []
+            for pref_jp, gen in active:
+                try:
+                    shop_url = next(gen)
+                except StopIteration:
+                    continue
+                still.append((pref_jp, gen))
+                if shop_url in self._seen_shops:
+                    continue
+                self._seen_shops.add(shop_url)
+                item = self._scrape_detail(shop_url)
+                if item:
+                    kept += 1
+                    pref_kept[pref_jp] += 1
+                    yield item
+            active = still
 
-            # 1本目は都道府県一覧そのもの。細分化を待たずに即巡回を始めるので
-            # 最初の約10,020件はここで流れ出す（結果が出るまでの待ちを作らない）。
-            # 上限を超える残りは、そのあと細分化した子一覧で回収する（重複はURLで排除）。
-            leaves = [root]
-            pref_kept = 0
-            n = 0
-            while n < len(leaves):
-                leaf = leaves[n]
-                n += 1
-                for shop_url in self._iter_shop_urls(leaf):
-                    if shop_url in self._seen_shops:
-                        continue
-                    self._seen_shops.add(shop_url)
-                    item = self._scrape_detail(shop_url)
-                    if item:
-                        kept += 1
-                        pref_kept += 1
-                        yield item
-                self.logger.info(
-                    "%s: 一覧 %d/%d 本 完了（%s 採用 %d 件 / 全体 %d 件）",
-                    pref_jp, n, len(leaves), pref_jp, pref_kept, kept,
-                )
-
-                # root を回し終えた時点で、上限超過なら細分化した子一覧を追加する
-                if n == 1 and listed and listed > self.SPLIT_LIMIT:
-                    children = self._split_until_under_limit(root, depth=0)
-                    extra = [c for c in children if c != root]
-                    leaves.extend(extra)
-                    self.logger.info(
-                        "%s: 掲載 %d 件 > 上限 %d のため子一覧 %d 本を追加",
-                        pref_jp, listed, self.SPLIT_LIMIT, len(extra),
-                    )
-
-            if listed:
-                self.logger.info(
-                    "%s: 採用 %d 件 / 掲載 %d 件 (カバー率 %.1f%%)",
-                    pref_jp, pref_kept, listed, pref_kept * 100.0 / listed,
-                )
-                if pref_kept < listed * 0.8:
-                    self.logger.warning(
-                        "%s: 取りこぼしの可能性（採用 %d < 掲載 %d の80%%）。"
-                        "TEL無し・JSON-LD無しの除外分も含むため要確認",
-                        pref_jp, pref_kept, listed,
-                    )
-            else:
-                self.logger.info("%s: 採用 %d 件（掲載件数は不明）", pref_jp, pref_kept)
-
+        for pref_jp, cnt in pref_kept.items():
+            self.logger.info("%s: 採用 %d 件", pref_jp, cnt)
         self.logger.info("全県完了: 採用 %d 件", kept)
+
+    def _iter_pref_shops(self, pref_jp: str, root: str) -> Iterator[str]:
+        """1都県ぶんの店舗URLを遅延生成する（本体一覧→必要なら細分化子一覧の順）。
+
+        ジェネレータにすることで、ラウンドロビン側は「次の店舗URLが必要になった時」だけ
+        一覧ページを取得する。細分化（件数上限超過エリアの子一覧展開）も本体一覧を
+        流し終えて初めて評価されるため、テスト実行では実行されず最初の1件が速く出る。
+        """
+        listed = self._hit_count(root)
+        self.logger.info(
+            "=== %s: 掲載件数 %s ===",
+            pref_jp, f"{listed:,}" if listed else "不明",
+        )
+        # まず都道府県一覧そのもの（最初の約10,020件）を流す
+        yield from self._iter_shop_urls(root)
+        # 上限を超える残りは、細分化した子一覧で回収する（重複は呼び出し側がURLで排除）
+        if listed and listed > self.SPLIT_LIMIT:
+            children = self._split_until_under_limit(root, depth=0)
+            extra = [c for c in children if c != root]
+            self.logger.info(
+                "%s: 掲載 %d 件 > 上限 %d のため子一覧 %d 本を追加",
+                pref_jp, listed, self.SPLIT_LIMIT, len(extra),
+            )
+            for child in extra:
+                yield from self._iter_shop_urls(child)
 
     # ---------------- 一覧の起点解決 / サイトマップ代替 ----------------
 
