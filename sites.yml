@@ -4845,3 +4845,11 @@ sites:
     schedule: "0 8 * * 1"
     enabled: true
     terms_url: ""
+
+  - site_id: beauty_3
+    name: "ホットペッパービューティー"
+    module: "beauty.beauty_3"
+    url: "https://beauty.hotpepper.jp/"
+    schedule: null
+    enabled: true
+    terms_url: ""
