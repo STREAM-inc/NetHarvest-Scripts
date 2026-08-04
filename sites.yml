@@ -4853,3 +4853,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: ever_2
+    name: "ドラEVER-2"
+    module: "jobs.ever_2"
+    url: "https://doraever.jp/job-lists"
+    schedule: null
+    enabled: true
+    terms_url: "https://doraever.jp/terms"
