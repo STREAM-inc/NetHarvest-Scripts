@@ -4868,3 +4868,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.hatarako.net/about/kiyaku_base.html?yclid=YSS.1000412257.EAIaIQobChMIhK-B0oqGlgMVwCZ7Bx39JQr3EAAYASAAEgL6jPD_BwE"
+
+  - site_id: moesta
+    name: "MOESTA+（もえすた）"
+    module: "nightlife.moesta"
+    url: "https://moe-sta.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://moe-sta.com/kiyaku"
