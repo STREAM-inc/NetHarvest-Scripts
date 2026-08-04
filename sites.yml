@@ -4876,3 +4876,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://moe-sta.com/kiyaku"
+
+  - site_id: antique_leaves
+    name: "アンティークリーブスantique-leaves"
+    module: "portal.antique_leaves"
+    url: "https://antique-leaves.com/?mode=cate&cbid=2927760&csid=0"
+    schedule: null
+    enabled: true
+    terms_url: ""
