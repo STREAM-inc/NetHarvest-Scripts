@@ -57,7 +57,7 @@ sites:
   - site_id: yorushoku
     name: "夜職倶楽部" 
     module: "nightlife.yorushoku"
-    url: "https://yorushoku.jp/job-list/"
+    url: "https://yorushoku.jp/shops/"
     schedule: "0 3 1-7 * SAT"
     enabled: true
     terms_url: "https://yorushoku.jp/legal/terms"
