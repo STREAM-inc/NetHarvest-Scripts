@@ -4846,7 +4846,7 @@ sites:
     terms_url: ""
 
   - site_id: ever_2
-    name: "ドラEVER-2"
+    name: "ドラEVER"
     module: "jobs.ever_2"
     url: "https://doraever.jp/job-lists"
     schedule: null
