@@ -61,14 +61,58 @@ class GatenInfo(DynamicCrawler):
         "担当者カナ",
     ]
 
-    def get_soup(self, url: str, wait_until: str = "domcontentloaded"):
-        return super().get_soup(url, wait_until=wait_until)
+    # Cloudflare の managed challenge は「同一セッションの 2 回目以降の遷移」をブロックし、
+    # 最初の遷移(=そのブラウザコンテキストでの初回 goto)だけ通過させる。
+    # 旧実装は 1 セッションを使い回していたため、2 ページ目以降・詳細ページがすべて
+    # チャレンジ画面(空)になり、実質 1 ページ目 25 件のカード名しか取れていなかった。
+    # → リクエストごとに新しいコンテキスト(新規セッション)を張り、常に「初回遷移」として取得する。
+    def get_soup(self, url: str, wait_until: str = "domcontentloaded", wait_selector: str | None = None):
+        def _fetch() -> str:
+            return self._fresh_html(url, wait_until, wait_selector)
+
+        try:
+            html = self._fetch_html_cached(url, variant=wait_until, fetcher=_fetch)
+            return BeautifulSoup(html, "html.parser")
+        except Exception as e:  # noqa: BLE001
+            if self.CONTINUE_ON_ERROR:
+                self.error_count += 1
+                self.logger.warning("ページ取得エラー (スキップして継続): %s — %s", url, e)
+                return None
+            raise
+
+    def _fresh_html(self, url: str, wait_until: str, wait_selector: str | None) -> str:
+        """毎回まっさらなブラウザコンテキストで 1 回だけ遷移して HTML を取得する。
+
+        Cloudflare チャレンジ(URL に __cf_chl_rt_tk が付く)を検出した場合は
+        新しいコンテキストで一度だけ再試行する。
+        """
+        last_html = ""
+        for attempt in range(2):
+            context = self.browser.new_context(user_agent=self.USER_AGENT)
+            try:
+                page = context.new_page()
+                self.logger.info("取得中 (Playwright/新規セッション 試行%d): %s", attempt + 1, url)
+                page.goto(url, wait_until=wait_until)
+                if wait_selector:
+                    try:
+                        page.wait_for_selector(wait_selector, timeout=15000)
+                    except Exception:  # noqa: BLE001 — レンダリング待ちタイムアウトは許容
+                        pass
+                current_url = page.url
+                last_html = page.content()
+            finally:
+                context.close()
+
+            if "__cf_chl" not in current_url:
+                return last_html
+            self.logger.warning("Cloudflare challenge を検出、新規セッションで再試行: %s", url)
+        return last_html
 
     def parse(self, url: str):
         page = 1
         while True:
             page_url = url if page == 1 else f"{url}?page={page}"
-            soup = self.get_soup(page_url)
+            soup = self.get_soup(page_url, wait_selector=".companylist_outer")
             if soup is None:
                 break
 
@@ -108,7 +152,7 @@ class GatenInfo(DynamicCrawler):
             page += 1
 
     def _scrape_detail(self, url: str, industries: list, list_name: str) -> dict | None:
-        soup = self.get_soup(url)
+        soup = self.get_soup(url, wait_selector="h2.detail-title")
         if soup is None:
             return None
 
