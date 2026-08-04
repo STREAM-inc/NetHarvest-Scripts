@@ -60,7 +60,7 @@ sites:
     url: "https://yorushoku.jp/job-list/"
     schedule: "0 3 1-7 * SAT"
     enabled: true
-    terms_url: "https://yorushoku.jp/terms-of-service/"
+    terms_url: "https://yorushoku.jp/legal/terms"
 
 #6
   - site_id: shinq_compass
