@@ -4852,3 +4852,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://doraever.jp/terms"
+
+  - site_id: lightbaito
+    name: "ライトバイト（コンガルバイト）"
+    module: "nightlife.lightbaito"
+    url: "https://lightbaito.com/category/introduction/"
+    schedule: null
+    enabled: true
+    terms_url: ""
