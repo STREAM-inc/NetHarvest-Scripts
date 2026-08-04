@@ -1,13 +1,14 @@
 """
-夜職倶楽部 (yorushoku.jp) — 全国ナイトワーク求人情報スクレイパー
+夜職倶楽部 (yorushoku.jp) — 全国ナイトワーク店舗情報スクレイパー
 
 取得対象:
-    - 職種カテゴリ別求人（配信者・カウンターレディ・フロアレディー等）
+    - 全国の店舗情報（キャバクラ・ラウンジ・スナック・ガールズバー・コンカフェ等）
 
 取得フロー:
-    1. /job-list/ から 6 カテゴリURLを収集
-    2. 各カテゴリページを /page/N/ でページネーション全件収集
-    3. 各求人の詳細ページ（/introduce/{slug}/）から情報を抽出
+    1. /shops を ?page=N でページネーション全件収集（1ページ200件 · 約79ページ · 約15,677件）
+    2. 各店舗の詳細ページ（/shops/{slug}）から情報を抽出
+       - 名称/住所/都道府県/電話番号は JSON-LD (LocalBusiness) から
+       - 業種はページ見出しのカテゴリ表示から
 
 実行方法:
     # ローカルテスト
@@ -17,9 +18,11 @@
     python bin/run_flow.py --site-id yorushoku
 """
 
+import json
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urljoin
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -29,10 +32,14 @@ from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
 
-BASE_URL = "https://yorushoku.jp"
-INDEX_URL = f"{BASE_URL}/job-list/"
+# sites.yml に登録済みの正規ルート URL（parse() へ渡される）
+ROOT_URL = "https://yorushoku.jp/job-list/"
 
-_CAT_URL_RE = re.compile(r"https://yorushoku\.jp/job/[^/]+/$")
+# 店舗詳細 URL: /shops/{slug}
+_DETAIL_RE = re.compile(r"^/shops/[a-z0-9][a-z0-9_-]*$", re.IGNORECASE)
+
+# 巡回上限（暴走防止・想定 79 ページ）
+_MAX_PAGES = 120
 
 _PREF_PATTERN = re.compile(
     r"^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|"
@@ -52,75 +59,74 @@ def _clean(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def _extract_pref_addr(raw: str) -> tuple[str, str]:
-    """住所テキストから (都道府県, 住所残り) を返す。"""
-    if not raw:
-        return "", ""
-    m = _PREF_PATTERN.match(raw)
-    if m:
-        return m.group(1), raw[m.end():].strip()
-    return "", raw.strip()
+def _strip_pref(pref: str, addr: str) -> str:
+    """住所先頭の都道府県名を取り除いた残りを返す。"""
+    if pref and addr.startswith(pref):
+        return addr[len(pref):].strip()
+    return addr.strip()
 
 
 class YorushokuScraper(StaticCrawler):
-    """夜職倶楽部 (yorushoku.jp) 求人スクレイパー"""
+    """夜職倶楽部 (yorushoku.jp) 店舗スクレイパー"""
 
-    DELAY = 1.5
-    EXTRA_COLUMNS = ["職種", "給与", "応募年齢", "メールアドレス"]
+    DELAY = 1.0
+    EXTRA_COLUMNS = ["業種"]
 
     def parse(self, url: str):
+        # ルート URL の origin から店舗一覧 (/shops) を導出する
+        shops_url = urljoin(url, "/shops")
+
         detail_urls: list[str] = []
         seen: set[str] = set()
 
-        # Step 1: /job-list/ からカテゴリURL収集
-        index_soup = self.get_soup(INDEX_URL)
-        if index_soup is None:
-            self.logger.error("インデックスページ取得失敗: %s", INDEX_URL)
-            return
+        # Step 1: /shops?page=N を順に辿り、店舗詳細 URL を全件収集
+        for page in range(1, _MAX_PAGES + 1):
+            paged_url = shops_url if page == 1 else f"{shops_url}?page={page}"
+            soup = self.get_soup(paged_url)
+            if soup is None:
+                break
 
-        category_urls = []
-        for a in index_soup.select("main a[href]"):
-            href = a.get("href", "")
-            if _CAT_URL_RE.match(href) and href not in category_urls:
-                category_urls.append(href)
+            page_new = 0
+            for a in soup.select("a[href^='/shops/']"):
+                href = a.get("href", "").split("?")[0].split("#")[0]
+                if not _DETAIL_RE.match(href):
+                    continue
+                detail_url = urljoin(shops_url, href)
+                if detail_url not in seen:
+                    seen.add(detail_url)
+                    detail_urls.append(detail_url)
+                    page_new += 1
 
-        self.logger.info("カテゴリ数: %d", len(category_urls))
-
-        # Step 2: 各カテゴリをページネーションで全詳細URLを収集
-        for cat_url in category_urls:
-            page = 1
-            while True:
-                paged_url = cat_url.rstrip("/") + (f"/page/{page}/" if page > 1 else "/")
-                cat_soup = self.get_soup(paged_url)
-                if cat_soup is None:
-                    break
-
-                articles = cat_soup.select("main article")
-                if not articles:
-                    break
-
-                for article in articles:
-                    a_tag = article.select_one("a[href*='/introduce/']")
-                    if a_tag:
-                        detail_url = a_tag.get("href", "")
-                        if detail_url and detail_url not in seen:
-                            seen.add(detail_url)
-                            detail_urls.append(detail_url)
-
-                # 次ページがなければ終了
-                pager = cat_soup.select_one(".wp-pagenavi")
-                if not pager or not pager.select_one(f'a[href*="/page/{page + 1}/"]'):
-                    break
-                page += 1
+            # このページから 1 件も新規リンクが無ければ末尾とみなす
+            if page_new == 0:
+                break
 
         self.total_items = len(detail_urls)
-        self.logger.info("収集した求人数: %d", self.total_items)
+        self.logger.info("収集した店舗数: %d", self.total_items)
 
-        # Step 3: 詳細ページスクレイピング
+        # Step 2: 詳細ページスクレイピング
         for detail_url in detail_urls:
             item = self._scrape_detail(detail_url)
             if item:
                 yield item
+
+    def _extract_localbusiness(self, soup) -> dict:
+        """JSON-LD の LocalBusiness ノードを辞書で返す（無ければ空辞書）。"""
+        for script in soup.find_all("script", type="application/ld+json"):
+            raw = script.string or script.get_text()
+            if not raw or "LocalBusiness" not in raw:
+                continue
+            try:
+                data = json.loads(raw)
+            except (ValueError, TypeError):
+                continue
+            nodes = data.get("@graph", data) if isinstance(data, dict) else data
+            if isinstance(nodes, dict):
+                nodes = [nodes]
+            for node in nodes:
+                if isinstance(node, dict) and node.get("@type") == "LocalBusiness":
+                    return node
+        return {}
 
     def _scrape_detail(self, url: str) -> dict | None:
         soup = self.get_soup(url)
@@ -128,68 +134,43 @@ class YorushokuScraper(StaticCrawler):
             return None
 
         try:
-            # 店名（応募先名）
-            name_el = soup.select_one("li.name")
-            name = _clean(name_el.get_text(strip=True)).replace("応募先", "").strip() if name_el else ""
+            lb = self._extract_localbusiness(soup)
+            address = lb.get("address", {}) if isinstance(lb.get("address"), dict) else {}
 
-            # 業種
-            cat_site = ""
-            for dt in soup.select("dl.overview dt"):
-                if "業種" in dt.get_text():
-                    dd = dt.find_next_sibling("dd")
-                    if dd:
-                        cat_site = _clean(dd.get_text(strip=True))
-                    break
+            # 名称: JSON-LD → h1 フォールバック
+            name = _clean(lb.get("name", ""))
+            if not name:
+                h1 = soup.select_one("h1")
+                name = _clean(h1.get_text(strip=True)) if h1 else ""
 
-            # 職種・給与（概要DLのリスト）
-            job_type = ""
-            salary = ""
-            jobtype_el = soup.select_one("span.jobtype")
-            if jobtype_el:
-                job_type = _clean(jobtype_el.get_text(strip=True))
-            salary_el = soup.select_one("span.salary")
-            if salary_el:
-                salary = _clean(salary_el.get_text(strip=True))
-
-            # テーブルから情報を辞書化（見出し行・複合ヘッダーは除く）
-            info: dict[str, str] = {}
-            for table in soup.select("article table"):
-                for tr in table.select("tr"):
-                    th = tr.select_one("th")
-                    td = tr.select_one("td")
-                    if th and td:
-                        key = _clean(th.get_text(strip=True))
-                        if key and "▼" not in key and key not in info:
-                            info[key] = _clean(td.get_text(strip=True))
-
-            # 給与 fallback: テーブルから
-            if not salary:
-                salary = info.get("給与/報酬", "")
-
-            # 住所・都道府県
-            raw_addr = info.get("勤務地", "")
-            pref, addr = _extract_pref_addr(raw_addr)
-
-            # PREF fallback: h2.shop_name > p
+            # 都道府県・住所: JSON-LD → 「住所」ラベルフォールバック
+            pref = _clean(address.get("addressRegion", ""))
+            raw_addr = _clean(address.get("streetAddress", ""))
+            if not raw_addr:
+                for lbl in soup.find_all("span", class_="font-bold"):
+                    if lbl.get_text(strip=True).startswith("住所"):
+                        block = _clean(lbl.parent.get_text(" ", strip=True))
+                        raw_addr = block.split(":", 1)[-1].strip() if ":" in block else ""
+                        break
             if not pref:
-                pref_el = soup.select_one("h2.shop_name p")
-                if pref_el:
-                    pref_text = _clean(pref_el.get_text(strip=True))
-                    m = _PREF_PATTERN.match(pref_text)
-                    if m:
-                        pref = m.group(1)
+                m = _PREF_PATTERN.match(raw_addr)
+                if m:
+                    pref = m.group(1)
+            addr = _strip_pref(pref, raw_addr)
 
-            # TEL
-            tel = ""
-            tel_a = soup.select_one("li.tel a[href^='tel:']")
-            if tel_a:
-                tel = tel_a.get("href", "").replace("tel:", "").strip()
+            # 電話番号
+            tel = _clean(lb.get("telephone", ""))
+            if not tel:
+                tel_a = soup.select_one("a[href^='tel:']")
+                if tel_a:
+                    tel = tel_a.get("href", "").replace("tel:", "").strip()
 
-            # メールアドレス
-            mail = ""
-            mail_a = soup.select_one("a[href^='mailto:']")
-            if mail_a:
-                mail = mail_a.get("href", "").replace("mailto:", "").split("?")[0].strip()
+            # 業種: 見出し直下のカテゴリ表示 (div.mt-2 内の最初の font-medium span)
+            cat_site = ""
+            for span in soup.find_all("span", class_="font-medium"):
+                if span.find_parent("div", class_="mt-2") is not None:
+                    cat_site = _clean(span.get_text(strip=True))
+                    break
 
             return {
                 Schema.URL:      url,
@@ -197,14 +178,8 @@ class YorushokuScraper(StaticCrawler):
                 Schema.PREF:     pref,
                 Schema.ADDR:     addr,
                 Schema.TEL:      tel,
-                Schema.REP_NM:   info.get("担当", ""),
                 Schema.CAT_SITE: cat_site,
-                Schema.TIME:     info.get("勤務時間", ""),
-                Schema.HOLIDAY:  info.get("休日", ""),
-                "職種":          job_type,
-                "給与":          salary,
-                "応募年齢":      info.get("応募者年齢層", ""),
-                "メールアドレス": mail,
+                "業種":          cat_site,
             }
         except Exception as e:
             self.logger.error("詳細取得失敗 %s: %s", url, e)
@@ -216,7 +191,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     scraper = YorushokuScraper()
-    scraper.execute(INDEX_URL)
+    scraper.execute(ROOT_URL)
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
     print(f"取得件数: {scraper.item_count}")
