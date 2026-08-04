@@ -1,14 +1,18 @@
 """
-食べログ — レストラン・飲食店情報スクレイパー
+食べログ — 新着オープン店舗の全国巡回スクレイパー
 
-取得対象:
-    - 食べログの全国一覧から各店舗の基本情報・詳細情報
-    - エントリ: https://tabelog.com/rstLst/{page}/  (page=1..60, 20件/ページ)
-    - 食べログの全国検索は最大60ページでキャップされるため、取得上限は約 1,200 件
+用途:
+    食べログの都道府県別「新規オープン(ニューオープン順)」一覧を全国47都道府県について
+    巡回し、直近で開店した飲食店(全ジャンル)を優先的に収集する。
 
 取得フロー:
-    一覧ページ (/rstLst/{page}/) を順にクロールし、各 .list-rst の data-detail-url から
-    詳細ページ URL を収集 → 詳細ページから店舗情報テーブルをパースして全カラムを抽出
+    エントリ URL (https://tabelog.com/) を起点に、各都道府県の新着オープン一覧
+        {pref}/rstLst/cond16-00-00/{page}/   (cond16 = ニューオープン順, 20件/ページ)
+    を「ページ番号でラウンドロビン」してクロールする。
+    page=1 は各都道府県で最も新しい開店店舗のため、全県の page=1 → 全県の page=2 …
+    の順に回ることで、直近オープン店舗を全国横断で優先的に取得できる。
+    各一覧の .list-rst → 詳細ページ URL を得て、詳細ページから全カラムを抽出し、
+    fetch 直後に 1 件ずつ yield する (全件収集後 yield は時間切れで 0 件になるため)。
 
 実行方法:
     # ローカルテスト
@@ -43,86 +47,96 @@ _PREF_PATTERN = re.compile(
     r"福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
 )
 
-_MAX_PAGES = 60  # 食べログの全国検索は最大60ページでキャップ
-_STATION_PATTERN = re.compile(r"([^\s、。　]+駅から\s*\d+(?:\.\d+)?\s*[km]+)")
+# 食べログの都道府県 URL スラッグ (47 件)。エントリ URL からの相対で使用する。
+_PREF_SLUGS = [
+    "hokkaido", "aomori", "iwate", "miyagi", "akita", "yamagata", "fukushima",
+    "ibaraki", "tochigi", "gunma", "saitama", "chiba", "tokyo", "kanagawa",
+    "niigata", "toyama", "ishikawa", "fukui", "yamanashi", "nagano",
+    "gifu", "shizuoka", "aichi", "mie",
+    "shiga", "kyoto", "osaka", "hyogo", "nara", "wakayama",
+    "tottori", "shimane", "okayama", "hiroshima", "yamaguchi",
+    "tokushima", "kagawa", "ehime", "kochi",
+    "fukuoka", "saga", "nagasaki", "kumamoto", "oita", "miyazaki",
+    "kagoshima", "okinawa",
+]
+
+# 各都道府県あたりの巡回ページ上限 (食べログは全国/エリア検索を最大60ページでキャップ)。
+_MAX_PAGES = 60
+# 一覧アイテム内の「YYYY年M月D日オープン」/「YYYY年M月オープン」表記からオープン日を拾う
+_LIST_OPEN_PATTERN = re.compile(r"(\d{4}\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?)\s*オープン")
 _HOLIDAY_PATTERN = re.compile(r"定休日[ :：]*([^■]+)")
 _BUDGET_PATTERN = re.compile(r"￥[\d,]+[～〜](?:￥[\d,]+)?")
+# 詳細ページ URL 判定 (関連店舗抽出でチェーン店リンクを拾うため)
+_DETAIL_URL_PATTERN = re.compile(r"https?://tabelog\.com/[a-z]+/[^/]+/[^/]+/\d+/?$")
 
 
 class TabelogScraper(StaticCrawler):
-    """食べログ スクレイパー"""
+    """食べログ 新着オープン店舗スクレイパー"""
 
-    DELAY = 1.5
+    DELAY = 1.0
     EXTRA_COLUMNS = [
-        "サイト定義ジャンル",
-        "予約可否",
-        "交通手段",
-        "最寄駅情報",
+        "席数",
+        "評価点",
+        "口コミ数",
         "予算_夜",
         "予算_昼",
         "予算_口コミ集計",
-        "席数",
-        "最大予約可能人数",
-        "個室",
-        "貸切",
-        "禁煙・喫煙",
-        "駐車場",
-        "空間・設備",
-        "コース",
-        "ドリンク",
-        "料理",
-        "利用シーン",
         "サービス",
-        "お子様連れ",
-        "備考",
-        "評価点",
-        "口コミ数",
-        "保存人数",
+        "関連店舗情報",
     ]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        # 引数 url を唯一のルートとして一覧 URL を派生させる。
-        # 一覧ページ単位でクロールし、各詳細を fetch 直後に yield する
-        # (全件収集してから yield すると時間切れで 0 件になるため)。
+        # 引数 url を唯一のルートとして、新着オープン一覧 URL を派生させる。
+        # ページ番号を外側ループにしたラウンドロビン (全県 page=1 → 全県 page=2 …) で
+        # 各県の最新オープン店舗を全国横断で優先取得する。
         seen: set[str] = set()
         count = 0
         for page in range(1, _MAX_PAGES + 1):
-            list_url = urljoin(url, "rstLst/{page}/".format(page=page))
-            soup = self.get_soup(list_url)
-            if soup is None:
-                self.logger.warning("一覧取得失敗: page=%d", page)
-                break
-            items = soup.select(".list-rst")
-            if not items:
-                self.logger.info("page=%d: 0件 → 終了", page)
-                break
-
-            page_urls: list[str] = []
-            for item in items:
-                detail_url = item.get("data-detail-url") or ""
-                if not detail_url:
-                    a = item.select_one("h3.list-rst__rst-name a")
-                    if a and a.get("href"):
-                        detail_url = a["href"].strip()
-                if detail_url:
-                    detail_url = urljoin(url, detail_url)
-                    if detail_url not in seen:
-                        seen.add(detail_url)
-                        page_urls.append(detail_url)
-
-            self.logger.info("page=%d: %d 件の詳細を取得", page, len(page_urls))
-            for shop_url in page_urls:
-                try:
-                    item = self._scrape_detail(shop_url)
-                    if item:
-                        count += 1
-                        yield item
-                except Exception as e:
-                    self.logger.warning("詳細取得エラー: %s (%s)", shop_url, e)
+            any_items = False
+            for slug in _PREF_SLUGS:
+                list_url = urljoin(
+                    url, "{slug}/rstLst/cond16-00-00/{page}/".format(slug=slug, page=page)
+                )
+                soup = self.get_soup(list_url)
+                if soup is None:
                     continue
+                items = soup.select(".list-rst")
+                if not items:
+                    continue
+                any_items = True
+
+                for item in items:
+                    detail_url = item.get("data-detail-url") or ""
+                    if not detail_url:
+                        a = item.select_one("h3.list-rst__rst-name a")
+                        if a and a.get("href"):
+                            detail_url = a["href"].strip()
+                    if not detail_url:
+                        continue
+                    detail_url = urljoin(url, detail_url)
+                    if detail_url in seen:
+                        continue
+                    seen.add(detail_url)
+
+                    # 一覧に出ているオープン日を fallback として拾う
+                    om = _LIST_OPEN_PATTERN.search(item.get_text(" ", strip=True))
+                    open_hint = re.sub(r"\s+", "", om.group(1)) if om else ""
+
+                    try:
+                        data = self._scrape_detail(detail_url, open_hint)
+                    except Exception as e:
+                        self.logger.warning("詳細取得エラー: %s (%s)", detail_url, e)
+                        continue
+                    if data:
+                        count += 1
+                        yield data
+
+            if not any_items:
+                self.logger.info("page=%d: 全県 0件 → 終了", page)
+                break
         self.logger.info("取得完了: 累計 %d 件", count)
 
-    def _scrape_detail(self, url: str) -> dict | None:
+    def _scrape_detail(self, url: str, open_hint: str = "") -> dict | None:
         soup = self.get_soup(url)
         if soup is None:
             return None
@@ -186,7 +200,6 @@ class TabelogScraper(StaticCrawler):
         genre = _text("ジャンル")
         if genre:
             data[Schema.CAT_SITE] = genre
-            data["サイト定義ジャンル"] = genre
 
         hp_td = fields.get("ホームページ")
         if hp_td:
@@ -205,59 +218,18 @@ class TabelogScraper(StaticCrawler):
             if hm:
                 data[Schema.HOLIDAY] = hm.group(1).strip()
 
-        pay = _text("支払い方法")
-        if pay:
-            data[Schema.PAYMENTS] = pay
-
+        # オープン日 (= 設立年月日)。詳細に無ければ一覧の表記を fallback に使う。
         open_date = _text("オープン日")
+        if not open_date and open_hint:
+            open_date = open_hint
         if open_date:
             data[Schema.OPEN_DATE] = open_date
 
-        # 公式アカウント (Facebook / X / Instagram / LINE / TikTok)
-        official_td = fields.get("公式アカウント")
-        if official_td:
-            for a in official_td.find_all("a", href=True):
-                href = a["href"].strip()
-                if "facebook.com" in href and not data.get(Schema.FB):
-                    data[Schema.FB] = href
-                elif ("twitter.com" in href or "x.com" in href) and not data.get(Schema.X):
-                    data[Schema.X] = href
-                elif "instagram.com" in href and not data.get(Schema.INSTA):
-                    data[Schema.INSTA] = href
-                elif ("line.me" in href or "lin.ee" in href) and not data.get(Schema.LINE):
-                    data[Schema.LINE] = href
-                elif "tiktok.com" in href and not data.get(Schema.TIKTOK):
-                    data[Schema.TIKTOK] = href
-
-        # EXTRA_COLUMNS
-        simple_extras = {
-            "予約可否": "予約可否",
-            "交通手段": "交通手段",
-            "席数": "席数",
-            "最大予約可能人数": "最大予約可能人数",
-            "個室": "個室",
-            "貸切": "貸切",
-            "禁煙・喫煙": "禁煙・喫煙",
-            "駐車場": "駐車場",
-            "空間・設備": "空間・設備",
-            "コース": "コース",
-            "ドリンク": "ドリンク",
-            "料理": "料理",
-            "利用シーン": "利用シーン",
-            "サービス": "サービス",
-            "お子様連れ": "お子様連れ",
-            "備考": "備考",
-        }
-        for src_key, out_key in simple_extras.items():
-            val = _text(src_key)
+        # EXTRA_COLUMNS (単純な th→td マッピング)
+        for key in ("席数", "サービス"):
+            val = _text(key)
             if val:
-                data[out_key] = val
-
-        access = _text("交通手段")
-        if access:
-            sm = _STATION_PATTERN.search(access)
-            if sm:
-                data["最寄駅情報"] = sm.group(1)
+                data[key] = val
 
         budget_td = fields.get("予算")
         if budget_td:
@@ -287,15 +259,41 @@ class TabelogScraper(StaticCrawler):
             if rc:
                 data["口コミ数"] = rc
 
-        save_el = soup.select_one(".rdheader-counts__hozon-target em, .save-count-num")
-        if save_el:
-            sv = re.sub(r"[^0-9]", "", save_el.get_text())
-            if sv:
-                data["保存人数"] = sv
+        # 関連店舗情報 (系列店 / 関連店舗): 同一運営の他店舗名を収集 (無ければ空欄)
+        related = self._extract_related(soup, url, data.get(Schema.NAME, ""))
+        if related:
+            data["関連店舗情報"] = related
 
         if not data.get(Schema.NAME):
             return None
         return data
+
+    @staticmethod
+    def _extract_related(soup, self_url: str, self_name: str) -> str:
+        """「系列店」「関連店舗」見出しの近傍から他店舗名を集めて " / " 連結で返す。"""
+        names: list[str] = []
+        seen_names: set[str] = set()
+        for el in soup.find_all(string=re.compile(r"系列店|関連店舗")):
+            heading = getattr(el, "parent", None)
+            if heading is None:
+                continue
+            # 見出し自体が短いテキストであることを確認 (本文中の言及を誤検出しない)
+            heading_txt = heading.get_text(" ", strip=True)
+            if len(heading_txt) > 30:
+                continue
+            # 見出しの親コンテナ内から店舗詳細リンクを収集する
+            container = heading.parent or heading
+            for a in container.find_all("a", href=True):
+                href = urljoin(self_url, a["href"].strip())
+                if not _DETAIL_URL_PATTERN.match(href):
+                    continue
+                if href.rstrip("/") == self_url.rstrip("/"):
+                    continue
+                nm = a.get_text(strip=True)
+                if nm and nm != self_name and nm not in seen_names:
+                    seen_names.add(nm)
+                    names.append(nm)
+        return " / ".join(names)
 
 
 if __name__ == "__main__":
