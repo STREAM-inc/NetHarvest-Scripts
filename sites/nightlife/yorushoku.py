@@ -33,7 +33,8 @@ from src.const.schema import Schema
 
 
 # sites.yml に登録済みの正規ルート URL（parse() へ渡される）
-ROOT_URL = "https://yorushoku.jp/job-list/"
+# 店舗一覧の起点。/job-list/ は 404 のため /shops が正しい。
+ROOT_URL = "https://yorushoku.jp/shops"
 
 # 店舗詳細 URL: /shops/{slug}
 _DETAIL_RE = re.compile(r"^/shops/[a-z0-9][a-z0-9_-]*$", re.IGNORECASE)
