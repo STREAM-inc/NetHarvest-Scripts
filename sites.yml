@@ -548,15 +548,6 @@ sites:
     enabled: true
     terms_url: "https://job-chocolat.jp/terms/"
 
-#60
-  - site_id: doraever
-    name: "ドラEVER"
-    module: "jobs.doraever"
-    url: "https://doraever.jp/job-lists"
-    schedule: "0 3 22-28 * SAT"
-    enabled: true
-    terms_url: "https://doraever.jp/terms"
-
 #61
   - site_id: jwarm
     name: "ジェイウォーム"
