@@ -4884,3 +4884,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: queen
+    name: "体入Queen（クイーンワーク）関西版"
+    module: "nightlife.queen"
+    url: "https://kansai.queenwork.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://kansai.queenwork.jp/rules.html"
