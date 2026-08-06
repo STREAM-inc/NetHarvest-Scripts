@@ -4900,3 +4900,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: mokken
+    name: "木建市場工務店全国一覧"
+    module: "construction.mokken"
+    url: "https://www.mokken.com/cgi-bin/gyousya/koumuten.cgi"
+    schedule: null
+    enabled: true
+    terms_url: ""
