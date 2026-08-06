@@ -4892,3 +4892,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://kansai.queenwork.jp/rules.html"
+
+  - site_id: farm_navi
+    name: "農園ナビ（全国貸し農園一覧）"
+    module: "leisure.farm_navi"
+    url: "https://farm-navi.com/farms/tokyo/"
+    schedule: null
+    enabled: true
+    terms_url: ""
