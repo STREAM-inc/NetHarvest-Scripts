@@ -4908,3 +4908,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: j_hotel
+    name: "日本ホテル協会 加盟ホテル一覧"
+    module: "travel.j_hotel"
+    url: "https://www.j-hotel.or.jp/memberlist/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.j-hotel.or.jp/policy/"
