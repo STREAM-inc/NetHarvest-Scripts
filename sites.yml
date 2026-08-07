@@ -4916,3 +4916,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.j-hotel.or.jp/policy/"
+
+  - site_id: city
+    name: "横浜市理容所・美容所一覧"
+    module: "government.city"
+    url: "https://www.city.yokohama.lg.jp/kurashi/sumai-kurashi/seikatsu/kaiteki/kankyodata.html"
+    schedule: null
+    enabled: true
+    terms_url: ""
