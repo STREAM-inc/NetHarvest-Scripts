@@ -4932,3 +4932,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://catalog.data.metro.tokyo.lg.jp/pages/terms"
+
+  - site_id: city_2
+    name: "川崎市理容所・美容所一覧"
+    module: "government.city_2"
+    url: "https://www.city.kawasaki.jp/350/page/0000120745.html"
+    schedule: null
+    enabled: true
+    terms_url: ""
