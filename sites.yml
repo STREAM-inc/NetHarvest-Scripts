@@ -4956,3 +4956,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.aqua-mart.jp/information/privacypolicy.html"
+
+  - site_id: snsn
+    name: "スナックブック"
+    module: "nightlife.snsn"
+    url: "https://snsn.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://snsn.jp/terms"
