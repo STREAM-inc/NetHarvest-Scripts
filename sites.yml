@@ -4924,3 +4924,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: catalog
+    name: "東京都理容所・美容所一覧"
+    module: "government.catalog"
+    url: "https://catalog.data.metro.tokyo.lg.jp/dataset/t131202d0000000116"
+    schedule: null
+    enabled: true
+    terms_url: "https://catalog.data.metro.tokyo.lg.jp/pages/terms"
