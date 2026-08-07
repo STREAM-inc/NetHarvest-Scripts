@@ -4948,3 +4948,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://ivry.jp/terms/"
+
+  - site_id: aqua_mart
+    name: "AQUA MART"
+    module: "service.aqua_mart"
+    url: "https://www.aqua-mart.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.aqua-mart.jp/information/privacypolicy.html"
