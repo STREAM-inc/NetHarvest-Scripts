@@ -13,11 +13,17 @@
        都道府県までしか出ないため、詳細ページ遷移が必須。
     3. 各詳細ページの定義リスト (dl) を dt/dd で辞書化し、1 件取得ごとに即 yield。
 
+耐障害性:
+    都道府県単位・ページ単位・詳細ページ単位のいずれかで例外(タイムアウト・5xx・
+    パース失敗等)が発生しても、その単位だけをログ出力してスキップし、クロール
+    全体は継続する(1件の失敗で全体が止まらないようにする)。
+
 実行方法:
     python scripts/sites/corporate/ivry_2.py
     docker compose exec worker python /app/bin/run_flow.py --site-id ivry_2
 """
 
+import logging
 import re
 import sys
 from pathlib import Path
@@ -29,6 +35,8 @@ if str(_project_root) not in sys.path:
 
 from src.framework.static import StaticCrawler
 from src.const.schema import Schema
+
+log = logging.getLogger(__name__)
 
 # 詳細ページ URL (末尾が数字のみ) を判定
 _DETAIL_RE = re.compile(r"/telsearch/\d+/?$")
@@ -43,7 +51,7 @@ _PREF_RE = re.compile(
     r"熊本|大分|宮崎|鹿児島|沖縄)県)"
 )
 
-_MAX_PAGE = 20  # ?page=21 以降は 404 相当 (0 件)
+_MAX_PAGE = 20  # ?page=21 以降は 0 件相当 (実測)
 
 
 class Ivry2(StaticCrawler):
@@ -69,30 +77,45 @@ class Ivry2(StaticCrawler):
                 slugs.append(am.group(1))
 
         for slug in slugs:
-            for page in range(1, _MAX_PAGE + 1):
+            try:
+                yield from self._scrape_area(url, area_base, start_slug, start_soup, slug)
+            except Exception:
+                log.exception("都道府県 slug=%s の処理中に例外が発生したためスキップします", slug)
+                continue
+
+    def _scrape_area(self, url: str, area_base: str, start_slug: str, start_soup, slug: str):
+        for page in range(1, _MAX_PAGE + 1):
+            try:
                 if slug == start_slug and page == 1:
                     list_url = url
                     soup = start_soup
                 else:
                     list_url = f"{area_base}{slug}/" if page == 1 else f"{area_base}{slug}/?page={page}"
                     soup = self.get_soup(list_url)
+            except Exception:
+                log.exception("一覧ページ取得に失敗したため slug=%s はページ %d で打ち切ります", slug, page)
+                return
 
-                detail_paths = []
-                seen = set()
-                for a in soup.select("a[href]"):
-                    href = a.get("href", "")
-                    if _DETAIL_RE.search(href) and href not in seen:
-                        seen.add(href)
-                        detail_paths.append(href)
+            detail_paths = []
+            seen = set()
+            for a in soup.select("a[href]"):
+                href = a.get("href", "")
+                if _DETAIL_RE.search(href) and href not in seen:
+                    seen.add(href)
+                    detail_paths.append(href)
 
-                if not detail_paths:
-                    break  # そのページ以降は無い
+            if not detail_paths:
+                return  # そのページ以降は無い
 
-                for href in detail_paths:
-                    detail_url = urljoin(url, href)
+            for href in detail_paths:
+                detail_url = urljoin(url, href)
+                try:
                     item = self._scrape_detail(detail_url)
-                    if item:
-                        yield item
+                except Exception:
+                    log.exception("詳細ページ取得/パースに失敗したためスキップします: %s", detail_url)
+                    continue
+                if item:
+                    yield item
 
     def _scrape_detail(self, detail_url: str) -> dict | None:
         soup = self.get_soup(detail_url)
