@@ -4981,3 +4981,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: supersento_2
+    name: "全国スーパー銭湯検索"
+    module: "leisure.supersento_2"
+    url: "https://www.supersento.com/kanto/tokyo.html"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.supersento.com/sonota/about.html"
