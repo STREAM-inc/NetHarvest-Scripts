@@ -10,6 +10,8 @@
     1. 都道府県ごとの一覧 /{pref_slug}/?page=N を巡回 (1ページ約20件)
     2. 各ページから shop-detail_{id}.html リンクを収集し、shop_id で dedup
     3. 詳細ページから table(店舗名/住所/担当TEL/衣装) + dl(給与/勤務時間/勤務日/応募資格/その他待遇) を抽出
+    4. 都道府県ごとに「一覧収集→詳細取得→yield」を完結させてから次の都道府県へ進む
+       (全国分を集め切ってから yield すると、テスト実行のfetch上限内に1件もyieldされないため)
 
 実行方法:
     python scripts/sites/nightlife/cabaito.py
@@ -20,6 +22,8 @@ import re
 import sys
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
+
+import urllib3
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -69,6 +73,7 @@ _PREF_PATTERN = re.compile(
 _REWARD_PATTERN = re.compile(r"謝礼金[^\d]{0,40}(\d{1,3}(?:,\d{3})*)\s*円")
 _SHOP_ID_PATTERN = re.compile(r"/shop-detail_(\d+)\.html")
 _NAME_SUFFIX_PATTERN = re.compile(r"の(?:[^の]{1,10}?)求人情報$")
+_TITLE_GENRE_PATTERN = re.compile(r"の([^|｜]{1,12}?)求人情報")
 
 
 def _clean(text: str) -> str:
@@ -122,16 +127,32 @@ class CabaitoScraper(StaticCrawler):
         "その他待遇",
         "体験入店に必要なもの",
         "レポート謝礼金額",
+        "担当TEL",
+        "お店電話",
     ]
 
+    def _setup(self):
+        """cabaito.jp は SSL 中間証明書が欠落しており requests の証明書検証が必ず失敗する。
+
+        検証を有効のままにすると全リクエストが CERTIFICATE_VERIFY_FAILED となり
+        get_soup() が常に None を返す (セレクタの問題ではない)。
+        サーバ側のチェーン不備が原因のため、このサイトに限り TLS 検証を無効化する。
+        """
+        super()._setup()
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        self.session.verify = False
+
     def parse(self, url: str):
-        shop_items: list[tuple[str, str, str, str]] = []
         seen: set[str] = set()
+        total = 0
+        root = url if url.endswith("/") else url + "/"
 
         for region, pref_slug, pref_ja in PREFECTURES:
-            base = f"{BASE_URL}/{pref_slug}/"
+            base = urljoin(root, f"{pref_slug}/")
             self.logger.info("一覧収集: %s (%s)", pref_ja, base)
-            for detail_url in self._collect_from_listing(base):
+
+            detail_urls: list[str] = []
+            for detail_url in self._collect_from_listing(base, root):
                 m = _SHOP_ID_PATTERN.search(detail_url)
                 if not m:
                     continue
@@ -139,21 +160,24 @@ class CabaitoScraper(StaticCrawler):
                 if sid in seen:
                     continue
                 seen.add(sid)
-                shop_items.append((detail_url, region, pref_ja, pref_slug))
+                detail_urls.append(detail_url)
 
-        self.total_items = len(shop_items)
-        self.logger.info("収集した店舗数: %d", self.total_items)
+            self.logger.info("%s: 一覧収集 %d 件", pref_ja, len(detail_urls))
 
-        for detail_url, region, pref_ja, pref_slug in shop_items:
-            try:
-                item = self._scrape_detail(detail_url, region, pref_ja, pref_slug)
-            except Exception:
-                self.logger.exception("詳細取得失敗: %s", detail_url)
-                continue
-            if item:
-                yield item
+            for detail_url in detail_urls:
+                try:
+                    item = self._scrape_detail(detail_url, region, pref_ja, pref_slug)
+                except Exception:
+                    self.logger.exception("詳細取得失敗: %s", detail_url)
+                    continue
+                if item:
+                    total += 1
+                    yield item
 
-    def _collect_from_listing(self, base_url: str) -> list[str]:
+        self.total_items = total
+        self.logger.info("収集した店舗数(合計): %d", total)
+
+    def _collect_from_listing(self, base_url: str, root: str) -> list[str]:
         urls: list[str] = []
         page = 1
         while page <= 50:
@@ -161,7 +185,7 @@ class CabaitoScraper(StaticCrawler):
             soup = self.get_soup(page_url)
             if soup is None:
                 break
-            page_urls = self._extract_shop_urls(soup)
+            page_urls = self._extract_shop_urls(soup, root)
             if not page_urls:
                 break
             urls.extend(page_urls)
@@ -170,13 +194,13 @@ class CabaitoScraper(StaticCrawler):
             page += 1
         return urls
 
-    def _extract_shop_urls(self, soup) -> list[str]:
+    def _extract_shop_urls(self, soup, root: str) -> list[str]:
         out: list[str] = []
         for a in soup.select('a[href*="shop-detail_"]'):
             href = a.get("href") or ""
             if not href:
                 continue
-            abs_url = urljoin(BASE_URL, href)
+            abs_url = urljoin(root, href)
             if "cabaito.jp" in abs_url and "/shop-detail_" in abs_url:
                 out.append(abs_url)
         return list(dict.fromkeys(out))
@@ -210,7 +234,9 @@ class CabaitoScraper(StaticCrawler):
             if not k:
                 continue
             v = _multiline(td.get_text("\n", strip=True))
-            if k == "店舗名" and not name:
+            # 「店舗名」th は material-icon の private-use 文字が前置されるため
+            # 完全一致ではなく部分一致で判定する。
+            if "店舗名" in k and not name:
                 raw = _clean(v.replace("\n", " "))
                 if "/" in raw:
                     parts = [p.strip() for p in raw.split("/", 1)]
@@ -228,6 +254,16 @@ class CabaitoScraper(StaticCrawler):
                 raw = _clean(h1.get_text(" ", strip=True))
                 name = _NAME_SUFFIX_PATTERN.sub("", raw)
 
+        # 業種タグの補完: <title> は
+        # 「{店名} | {エリア}の{業種}求人情報【キャバイト】」形式で全ページ共通のため、
+        # 店舗名テーブルから取れなかった場合のフォールバックに使う。
+        if not business_type:
+            title_tag = soup.select_one("title")
+            if title_tag:
+                m = _TITLE_GENRE_PATTERN.search(title_tag.get_text())
+                if m:
+                    business_type = _clean(m.group(1))
+
         dl_info: dict[str, str] = {}
         for dl in soup.select("dl"):
             dts = dl.select("dt")
@@ -240,11 +276,26 @@ class CabaitoScraper(StaticCrawler):
                 if k not in dl_info:
                     dl_info[k] = v
 
-        tel = table_info.get("担当TEL", "")
-        if not tel:
-            tel_a = soup.select_one('a[href^="tel:"]')
-            if tel_a:
-                tel = tel_a.get("href", "").replace("tel:", "").strip()
+        # telList: 1件(担当TELのみ)または2件(採用担当直通+お店電話)のパターンがある。
+        # th の文言は「担当TEL」「採用担当直通：24時間OK」「お店電話：10時～24時」等ゆれるため、
+        # data-type="tel_1"/"tel_2" 属性を主キーに、th文言で「お店」を含むものだけ店舗電話とみなす。
+        staff_tel = ""
+        shop_tel = ""
+        tel_list = soup.select_one(".telList")
+        if tel_list:
+            for tr in tel_list.select("tr"):
+                ths = tr.select("th")
+                tds = tr.select("td")
+                for th_el, td_el in zip(ths, tds):
+                    label = _clean(th_el.get_text(" ", strip=True))
+                    a_el = td_el.select_one("a")
+                    num = _clean((a_el or td_el).get_text(" ", strip=True))
+                    if not num:
+                        continue
+                    if "お店" in label:
+                        shop_tel = num
+                    else:
+                        staff_tel = staff_tel or num
 
         address_raw = table_info.get("住所", "")
         pref_from_addr, addr_rest = _split_pref(address_raw)
@@ -275,7 +326,7 @@ class CabaitoScraper(StaticCrawler):
             Schema.NAME: name,
             Schema.PREF: pref_final,
             Schema.ADDR: addr_rest,
-            Schema.TEL: tel,
+            Schema.TEL: shop_tel,
             Schema.CAT_SITE: business_type,
             Schema.TIME: hours,
             Schema.HOLIDAY: holiday,
@@ -290,6 +341,8 @@ class CabaitoScraper(StaticCrawler):
             "その他待遇": benefits,
             "体験入店に必要なもの": required_items,
             "レポート謝礼金額": reward,
+            "担当TEL": staff_tel,
+            "お店電話": shop_tel,
         }
 
 
