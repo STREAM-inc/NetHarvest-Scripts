@@ -4989,3 +4989,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.supersento.com/sonota/about.html"
+
+  - site_id: spa_2
+    name: "日本温泉協会会員企業一覧"
+    module: "service.spa_2"
+    url: "https://www.spa.or.jp/company/"
+    schedule: null
+    enabled: true
+    terms_url: ""
