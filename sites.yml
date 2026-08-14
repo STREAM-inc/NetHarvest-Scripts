@@ -5013,3 +5013,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: jobhouse_2
+    name: "ジョブハウス工場"
+    module: "jobs.jobhouse_2"
+    url: "https://jobhouse.jp/factory"
+    schedule: null
+    enabled: true
+    terms_url: ""
