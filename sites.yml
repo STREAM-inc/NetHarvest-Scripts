@@ -5005,3 +5005,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.zehitomo.com/static/pdf/terms-of-use-clients-20250303.pdf"
+
+  - site_id: shain_2
+    name: "助太刀社員"
+    module: "jobs.shain_2"
+    url: "https://shain.suke-dachi.jp/"
+    schedule: null
+    enabled: true
+    terms_url: ""
