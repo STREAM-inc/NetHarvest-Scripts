@@ -4997,3 +4997,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: zehitomo_2
+    name: "ゼヒトモ"
+    module: "service.zehitomo_2"
+    url: "https://www.zehitomo.com/business/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.zehitomo.com/static/pdf/terms-of-use-clients-20250303.pdf"
