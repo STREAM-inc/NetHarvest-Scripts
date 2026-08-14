@@ -4972,3 +4972,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://powerwork.jp/policy?policy_no=7"
+
+  - site_id: tenshoku_3
+    name: "クリエイト転職"
+    module: "jobs.tenshoku_3"
+    url: "https://tenshoku.create-jobs.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://tenshoku.create-jobs.com/support/terms/"
