@@ -5021,3 +5021,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: r30_2
+    name: "R30ナイトバイト（キャバジョブ）"
+    module: "nightlife.r30_2"
+    url: "https://www.caba-job.com/area/?pref=tokyo"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.caba-job.com/company/"
