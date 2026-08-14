@@ -4973,3 +4973,11 @@ sites:
     enabled: true
     terms_url: "https://powerwork.jp/policy?policy_no=7"
 
+
+  - site_id: night_job
+    name: "ナイトジョブ(Night Job)"
+    module: "nightlife.night_job"
+    url: "https://nightjob.info/"
+    schedule: null
+    enabled: true
+    terms_url: ""
