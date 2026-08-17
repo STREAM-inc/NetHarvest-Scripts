@@ -5029,3 +5029,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.caba-job.com/company/"
+
+  - site_id: 04510_2
+    name: "工場ワークス"
+    module: "jobs.04510_2"
+    url: "https://04510.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://04510.jp/policy/"
