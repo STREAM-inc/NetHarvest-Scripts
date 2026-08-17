@@ -20,6 +20,8 @@
     docker compose exec worker python /app/bin/run_flow.py --site-id atsumaru
 """
 
+# 手動再取得トリガー (STREAMREQ-11069, 2026-08-17): 依頼者指示により旧データ不使用で再取得。ロジック変更なし。
+
 import json
 import re
 import sys
