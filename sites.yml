@@ -5037,3 +5037,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://04510.jp/policy/"
+
+  - site_id: hikakaku_3
+    name: "ヒカカク出張買取業者一覧"
+    module: "service.hikakaku_3"
+    url: "https://hikakaku.com/company/kaitoriinfo/field/keishiki/syuccho/"
+    schedule: null
+    enabled: true
+    terms_url: "https://hikakaku.com/利用規約/"
