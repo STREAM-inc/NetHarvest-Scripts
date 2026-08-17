@@ -5045,3 +5045,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://hikakaku.com/利用規約/"
+
+  - site_id: keibi_baito
+    name: "ケイサーチ！"
+    module: "jobs.keibi_baito"
+    url: "https://www.keibi-baito.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.keibi-baito.com/contents/kiyaku/"
