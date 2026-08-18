@@ -5053,3 +5053,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.keibi-baito.com/contents/kiyaku/"
+
+  - site_id: host_king
+    name: "ホスキン(HOST KING)"
+    module: "nightlife.host_king"
+    url: "https://hos-kin.com/hostclub"
+    schedule: null
+    enabled: true
+    terms_url: "https://hos-kin.com/terms"
