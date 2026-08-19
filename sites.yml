@@ -5101,3 +5101,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: e_nenpi_6
+    name: "e燃費"
+    module: "auto.e_nenpi_6"
+    url: "https://e-nenpi.com/gs/shoplist"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
