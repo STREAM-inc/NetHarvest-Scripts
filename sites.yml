@@ -5093,3 +5093,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: travel
+    name: "楽天トラベル"
+    module: "travel.travel"
+    url: "https://travel.rakuten.co.jp/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
