@@ -5189,3 +5189,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://menesth-job.jp/terms-of-service/"
+
+  - site_id: esjob_3
+    name: "エスタマ"
+    module: "nightlife.esjob_3"
+    url: "https://esjob.jp/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
