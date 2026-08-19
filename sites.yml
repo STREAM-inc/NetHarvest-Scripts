@@ -5157,3 +5157,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: data_3
+    name: "京都オープンデータサイトの環境衛生関係施設一覧"
+    module: "government.data_3"
+    url: "https://data.city.kyoto.lg.jp/dataset/00530/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
