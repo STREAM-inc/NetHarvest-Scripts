@@ -5125,3 +5125,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: opendata_2
+    name: "千葉県オープンデータサイト環境衛生関係施設一覧"
+    module: "government.opendata_2"
+    url: "https://opendata.pref.chiba.lg.jp/datasets/6"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
