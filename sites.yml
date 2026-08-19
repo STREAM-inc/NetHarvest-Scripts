@@ -5133,3 +5133,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: city_6
+    name: "水戸市オープンデータサイトの環境衛生関係施設一覧"
+    module: "government.city_6"
+    url: "https://www.city.mito.lg.jp/site/open-data/4496.html"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
