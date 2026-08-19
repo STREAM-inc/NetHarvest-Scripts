@@ -5141,3 +5141,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: ckan_2
+    name: "札幌市オープンデータサイトの環境衛生関係施設一覧"
+    module: "government.ckan_2"
+    url: "https://ckan.pf-sapporo.jp/dataset/sapporo_environmental_hygiene_services"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
