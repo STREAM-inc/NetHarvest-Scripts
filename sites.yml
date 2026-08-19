@@ -5165,3 +5165,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: mapion
+    name: "マピオン電話帳_興信所探偵事務所_関西3府県"
+    module: "service.mapion"
+    url: "https://www.mapion.co.jp/phonebook/M10037/27/"
+    schedule: null
+    enabled: true
+    terms_url: "https://help.mapion.co.jp/mapionterms.html"
