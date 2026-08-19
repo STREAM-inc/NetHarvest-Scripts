@@ -5117,3 +5117,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: city_5
+    name: "川崎市 環境衛生関係営業施設一覧"
+    module: "government.city_5"
+    url: "https://www.city.kawasaki.jp/350/page/0000120745.html"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
