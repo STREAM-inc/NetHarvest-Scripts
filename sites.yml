@@ -5149,3 +5149,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: data_4
+    name: "三重県オープンデータサイトの環境衛生関係施設一覧"
+    module: "government.data_4"
+    url: "https://data.bodik.jp/dataset/49c61983-4e87-451e-b5f1-e1b014b22a61"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
