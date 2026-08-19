@@ -5069,3 +5069,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: farm_navi_2
+    name: "農園ナビ"
+    module: "leisure.farm_navi_2"
+    url: "https://farm-navi.com/farms/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
