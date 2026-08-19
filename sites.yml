@@ -5173,3 +5173,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://help.mapion.co.jp/mapionterms.html"
+
+  - site_id: j_startup
+    name: "J-Startup"
+    module: "government.j_startup"
+    url: "https://www.j-startup.go.jp/startups/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.j-startup.go.jp/"
