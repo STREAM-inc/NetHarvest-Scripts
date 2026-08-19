@@ -5197,3 +5197,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: nightjob
+    name: "ナイトジョブ"
+    module: "nightlife.nightjob"
+    url: "https://nightjob.info/"
+    schedule: null
+    enabled: true
+    terms_url: ""
