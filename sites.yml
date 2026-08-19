@@ -5077,3 +5077,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: j_hotel_2
+    name: "日本ホテル協会"
+    module: "travel.j_hotel_2"
+    url: "https://www.j-hotel.or.jp/memberlist/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
