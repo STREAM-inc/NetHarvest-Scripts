@@ -5109,3 +5109,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: hikakaku_4
+    name: "ヒカカク！"
+    module: "service.hikakaku_4"
+    url: "https://hikakaku.com/company/kaitoriinfo/field/keishiki/syuccho/"
+    schedule: null
+    enabled: true
+    terms_url: ""
