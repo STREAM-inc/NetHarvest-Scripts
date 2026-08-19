@@ -5085,3 +5085,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: ryokan
+    name: "やど日本"
+    module: "travel.ryokan"
+    url: "https://www.ryokan.or.jp/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
