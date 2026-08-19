@@ -5181,3 +5181,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.j-startup.go.jp/"
+
+  - site_id: menesth_job
+    name: "リラクジョブ"
+    module: "nightlife.menesth_job"
+    url: "https://menesth-job.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://menesth-job.jp/terms-of-service/"
