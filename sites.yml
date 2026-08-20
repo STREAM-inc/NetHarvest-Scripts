@@ -5172,7 +5172,7 @@ sites:
     url: "https://www.mapion.co.jp/phonebook/M10037/27/"
     schedule: null
     enabled: true
-    terms_url: "https://help.mapion.co.jp/mapionterms.html"
+    terms_url: ""
 
   - site_id: j_startup
     name: "J-Startup"
