@@ -5205,3 +5205,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: j_startup_2
+    name: "J-Startup（経済産業省認定スタートアップ一覧）"
+    module: "government.j_startup_2"
+    url: "https://www.j-startup.go.jp/startups/"
+    schedule: null
+    enabled: true
+    terms_url: ""
