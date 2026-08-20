@@ -3,22 +3,42 @@
 
 対象サイト: https://www.mapion.co.jp/phonebook/M10037/27/
 
+利用規約の確認結果 (重要):
+    利用規約 (https://help.mapion.co.jp/mapionterms.html) 内に「クロール」の文字列が
+    出現するが、これはヘルプサイト共通サイドバーのメニュー項目
+    「地図表記・記号 / 標準地図（スクロール）」の "ス-クロール" が部分一致しているだけで、
+    クロール/スクレイピングを禁止する条項ではない。
+    規約本文に「スクレイピング」「クローリング」「ロボット」「自動収集」等の
+    禁止条項は存在しない (禁止事項は第三者の権利侵害・改ざん・リバースエンジニアリング等の一般条項のみ)。
+    → 過去にこの部分一致でクローラー生成を中断していたが誤検出のため、生成・実行を継続する。
+
 取得対象:
     - マピオン電話帳のカテゴリ「興信所・探偵事務所」(M10037) に掲載されている
       大阪府 (27) / 兵庫県 (28) / 京都府 (26) の事業者
     - 取得カラムは 名称 / TEL / 住所 / 都道府県 の 4 列 (備考の指示どおり)
 
+サイト構造 (live 実機で確認済み):
+    - 府県ページ …/M10037/{2桁}/
+        * 大阪府 (27) / 兵庫県 (28): 掲載のある市区町村ページへのリンクのみ (一覧テーブル無し)
+        * 京都府 (26): 市区町村リンクが無く、府県ページ自体に一覧テーブルがある
+    - 市区町村ページ …/M10037/{5桁}/ に一覧テーブル (table.list-table)
+        * 1 行 = 連番 td + 店舗名 th(a) + TEL td (30 件/ページ)
+        * ページ送りは <p class="pagination"> 内の a.pagination-link → …/{5桁}/2.html 形式
+        * 政令市 (例: 大阪市 27100) の一覧には行政区コード配下の詳細 URL が混在する
+        * 一覧行の詳細 URL は別カテゴリ (M10022 等) を指すことがある → 掲載されている以上取り込む
+    - 詳細ページ …/phonebook/M{カテゴリ}/{5桁}/{spot_id}/
+        * table.spot-table-basic の th/td (名称 / よみがな / 住所 / 地図 / 電話番号 …)
+        * 住所は詳細ページにのみ掲載 (「〒530-0041」+ <br> + 住所)
+
 取得フロー:
     1. 引数 url からカテゴリのルート (…/phonebook/M10037/) を導出し、
        対象 3 府県の入口ページ (…/M10037/{27,28,26}/) を組み立てる。
        ※ 先頭は引数 url の府県コードそのもの。別ルート URL はハードコードしない。
-    2. 府県ページから市区町村ページ (…/M10037/{5桁コード}/) のリンクを列挙する。
-       京都府のように市区町村リンクを持たず府県ページに直接一覧が載るケースがあるため、
-       府県ページ自体に一覧テーブルがあればそれも巡回対象に含める。
-    3. 各一覧ページのページ送り (2 ページ目以降は末尾に `2.html` 等) を最後まで辿る。
-       一覧の表 (table.list-table) から 店舗名 / TEL / 詳細ページ URL を取得する。
+    2. 府県ページから一覧ページ (市区町村ページ) を列挙する。
+       府県ページ自体に一覧テーブルがあれば府県ページも巡回対象に含める (京都府対応)。
+    3. 各一覧ページのページ送りを最後まで辿り、店舗名 / TEL / 詳細ページ URL を取得する。
     4. 詳細ページを 1 件取得するたびに即 yield する
-       (途中中断に強い Pattern B / 早期 yield)。住所は詳細ページにのみ掲載される。
+       (途中中断に強い Pattern B / 早期 yield)。
 
 注意:
     - ルート URL は引数 `url` を唯一の起点 (SSOT) とし、配下 URL はすべて
@@ -73,8 +93,15 @@ _PREF_PATTERN = re.compile(
 # 〒123-4567 形式の郵便番号 (住所から切り落とすために使用)
 _POST_PATTERN = re.compile(r"〒?\s*\d{3}-?\d{4}")
 
-# ページ送りリンク (…/27100/2.html) からページ番号を取り出す
+# 電話番号らしい文字列 (一覧テーブルの TEL 列判定用)
+_TEL_PATTERN = re.compile(r"[0-9][0-9\-()]{8,}")
+
+# 一覧のページ送りリンク (…/27100/2.html) からページ番号を取り出す
 _PAGE_NO_PATTERN = re.compile(r"/(\d+)\.html$")
+
+# 詳細ページのパス: /phonebook/M{カテゴリ}/{5桁市区町村}/{spot_id}/
+# ※ 一覧行の詳細 URL は巡回中カテゴリ以外 (M10022 等) を指すことがあるためカテゴリは限定しない
+_DETAIL_PATH_PATTERN = re.compile(r"^/phonebook/M\d+/\d{5}/\d+/$")
 
 # 暴走防止のページ送り上限 (1 ページ 30 件なので 100 ページ = 3,000 件)
 _MAX_PAGES = 100
@@ -97,7 +124,7 @@ class Mapion(StaticCrawler):
 
             for list_url in self._collect_list_urls(pref_url, cat_path):
                 for page_url, soup in self._iter_list_pages(list_url):
-                    for name, tel, detail_url in self._extract_rows(page_url, soup, cat_path):
+                    for name, tel, detail_url in self._extract_rows(page_url, soup):
                         if detail_url in seen_details:
                             continue
                         seen_details.add(detail_url)
@@ -131,6 +158,7 @@ class Mapion(StaticCrawler):
         """
         soup = self.get_soup(pref_url)
         if soup is None:
+            self.logger.warning("府県ページ取得失敗: %s", pref_url)
             return []
 
         list_urls: list[str] = []
@@ -141,24 +169,24 @@ class Mapion(StaticCrawler):
             list_urls.append(pref_url)
             seen.add(pref_url)
 
-        # 市区町村ページ (…/M10037/{5桁コード}/) のリンク
-        city_pattern = re.compile(r"^" + re.escape(cat_path) + r"(\d+)/$")
+        # 市区町村ページ (…/M10037/{5桁コード}/) のリンク。掲載のある市区町村のみ張られる。
+        city_pattern = re.compile(r"^" + re.escape(cat_path) + r"\d{5}/$")
         for a in soup.select("a[href]"):
-            href = a.get("href") or ""
-            path = urlparse(urljoin(pref_url, href)).path
-            if not city_pattern.match(path):
+            city_url = urljoin(pref_url, a.get("href") or "")
+            if not city_pattern.match(urlparse(city_url).path):
                 continue
-            city_url = urljoin(pref_url, href)
             if city_url == pref_url or city_url in seen:
                 continue
             seen.add(city_url)
             list_urls.append(city_url)
 
+        self.logger.info("%s: 一覧ページ %d 件", pref_url, len(list_urls))
         return list_urls
 
     def _iter_list_pages(self, list_url: str):
         """一覧ページとそのページ送り (2.html, 3.html …) を順に取得して (URL, soup) を返す。"""
         base = list_url if list_url.endswith("/") else list_url + "/"
+        base_path = urlparse(base).path
         page = 1
         max_page = 1
 
@@ -171,8 +199,12 @@ class Mapion(StaticCrawler):
             yield page_url, soup
 
             # ページ送りリンクから最大ページ番号を更新 (ウィンドウ表示に備え毎ページ確認)
-            for a in soup.select("a.pagination-link[href]"):
-                m = _PAGE_NO_PATTERN.search(a.get("href") or "")
+            for a in soup.select("p.pagination a[href], a.pagination-link[href]"):
+                href_path = urlparse(urljoin(page_url, a.get("href") or "")).path
+                # 同じ一覧配下の …/{N}.html だけを対象にする
+                if not href_path.startswith(base_path):
+                    continue
+                m = _PAGE_NO_PATTERN.search(href_path)
                 if m:
                     max_page = max(max_page, int(m.group(1)))
             page += 1
@@ -181,26 +213,25 @@ class Mapion(StaticCrawler):
     # 抽出
     # ------------------------------------------------------------------ #
     @staticmethod
-    def _extract_rows(page_url: str, soup, cat_path: str):
+    def _extract_rows(page_url: str, soup):
         """一覧テーブルから (店舗名, TEL, 詳細ページURL) を取り出す。"""
-        detail_pattern = re.compile(r"^" + re.escape(cat_path) + r"\d+/\d+/$")
-
         for table in soup.select("table.list-table"):
             for tr in table.select("tr"):
                 a = tr.select_one("a[href]")
-                if a is None:
+                if a is None:  # thead 等
                     continue
                 detail_url = urljoin(page_url, a.get("href") or "")
-                if not detail_pattern.match(urlparse(detail_url).path):
+                if not _DETAIL_PATH_PATTERN.match(urlparse(detail_url).path):
                     continue
 
-                name = a.get_text(strip=True)
+                # 店舗名は th > a (title 属性にも同じ値が入る)
+                name = a.get_text(strip=True) or (a.get("title") or "").strip()
 
-                # TEL は行内の td のうち電話番号形式のもの (番号列・名称列を除く)
+                # TEL は行内の td のうち電話番号形式のもの (連番列を除く)
                 tel = ""
                 for td in tr.find_all("td"):
                     text = td.get_text(strip=True)
-                    if re.fullmatch(r"[0-9][0-9\-()]{8,}", text):
+                    if _TEL_PATTERN.fullmatch(text):
                         tel = text
                         break
 
@@ -220,8 +251,9 @@ class Mapion(StaticCrawler):
                     if not (th and td):
                         continue
                     label = th.get_text(strip=True)
-                    if label and label not in rows:
-                        rows[label] = td.get_text(" ", strip=True)
+                    if label in ("", "地図", "モバイル") or label in rows:
+                        continue  # 地図/モバイル欄は地図 JS を含むため取得しない
+                    rows[label] = td.get_text(" ", strip=True)
 
         # 名称: 詳細ページ優先、無ければ一覧の店舗名
         name = rows.get("名称", "").strip() or list_name.strip()
