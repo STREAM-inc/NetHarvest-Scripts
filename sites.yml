@@ -5221,3 +5221,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: job_7
+    name: "エステラブワーク"
+    module: "jobs.job_7"
+    url: "https://job.eslove.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://job.eslove.jp/terms"
