@@ -5213,3 +5213,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: bar_navi_2
+    name: "BAR-NAVI"
+    module: "food.bar_navi_2"
+    url: "https://bar-navi.suntory.co.jp/"
+    schedule: null
+    enabled: true
+    terms_url: ""
