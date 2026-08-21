@@ -5229,3 +5229,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://job.eslove.jp/terms"
+
+  - site_id: re_4
+    name: "Re就活キャンパス【採用】"
+    module: "jobs.re_4"
+    url: "https://www.gakujo.ne.jp/campus/search"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.gakujo.ne.jp/regist/rule.html"
