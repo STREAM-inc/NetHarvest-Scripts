@@ -5237,3 +5237,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.gakujo.ne.jp/regist/rule.html"
+
+  - site_id: cake_jp
+    name: "CAKE*JP"
+    module: "ec.cake_jp"
+    url: "https://cake.jp/shops/?category=decoration-cake"
+    schedule: null
+    enabled: true
+    terms_url: "https://cake.jp/about/terms_of_use/"
