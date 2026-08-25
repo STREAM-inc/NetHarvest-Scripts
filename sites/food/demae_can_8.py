@@ -52,6 +52,11 @@
 
     # Prefect Flow 経由
     docker compose exec worker python /app/bin/run_flow.py --site-id demae_can_8
+
+再実行メモ (STREAMREQ-11823 / 2026-08-25):
+    前回本番実行 (2026-06-17) は live 遮断のみでアーカイブ未実装の旧コードで走り、
+    全 5,845 件が "Access Denied" となった。本コード (Wayback フォールバック実装済み)
+    での再実行により正常なデータへ更新する。
 """
 
 import html as html_mod
