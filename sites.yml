@@ -5245,3 +5245,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://cake.jp/about/terms_of_use/"
+
+  - site_id: xn_pckua2a7gp15o89zb_4
+    name: "求人ボックス（建設・土木の仕事）"
+    module: "jobs.xn_pckua2a7gp15o89zb_4"
+    url: "https://xn--pckua2a7gp15o89zb.com/建設の仕事"
+    schedule: null
+    enabled: true
+    terms_url: "https://xn--pckua2a7gp15o89zb.com/terms"
