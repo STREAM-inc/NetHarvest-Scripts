@@ -56,28 +56,22 @@ class QzinScraper(StaticCrawler):
     EXTRA_COLUMNS = ["地域", "エリア", "職種", "勤務地", "勤務日", "交通", "応募資格", "待遇"]
 
     def parse(self, url: str):
-        shop_urls: list[str] = []
         seen: set[str] = set()
 
         for base in REGION_SUBDOMAINS:
             area_urls = self._collect_area_urls(base)
             self.logger.info("%s: %d エリア検出", base, len(area_urls))
             for area_url in area_urls:
-                for shop_url in self._collect_shop_urls(area_url, base):
-                    if shop_url not in seen:
-                        seen.add(shop_url)
-                        shop_urls.append(shop_url)
-
-        self.total_items = len(shop_urls)
-        self.logger.info("店舗URL収集完了: %d 件", len(shop_urls))
-
-        for shop_url in shop_urls:
-            try:
-                item = self._scrape_detail(shop_url)
-                if item:
-                    yield item
-            except Exception as e:
-                self.logger.warning("詳細取得失敗 %s: %s", shop_url, e)
+                for shop_url in self._iter_shop_urls(area_url, base):
+                    if shop_url in seen:
+                        continue
+                    seen.add(shop_url)
+                    try:
+                        item = self._scrape_detail(shop_url)
+                        if item:
+                            yield item
+                    except Exception as e:
+                        self.logger.warning("詳細取得失敗 %s: %s", shop_url, e)
 
     def _collect_area_urls(self, base: str) -> list[str]:
         soup = self.get_soup(base + "/")
@@ -101,8 +95,7 @@ class QzinScraper(StaticCrawler):
                 results.append(full)
         return results
 
-    def _collect_shop_urls(self, area_url: str, base: str) -> list[str]:
-        shop_urls: list[str] = []
+    def _iter_shop_urls(self, area_url: str, base: str):
         seen: set[str] = set()
 
         def extract_shops(soup):
@@ -119,13 +112,13 @@ class QzinScraper(StaticCrawler):
                     continue
                 if full_url not in seen:
                     seen.add(full_url)
-                    shop_urls.append(full_url)
+                    yield full_url
 
         # 1ページ目取得 & 最終ページ番号を把握
         soup = self.get_soup(area_url)
         if soup is None:
-            return shop_urls
-        extract_shops(soup)
+            return
+        yield from extract_shops(soup)
         time.sleep(self.DELAY)
 
         pager_next_links = soup.select(".pager-item.next a")
@@ -141,10 +134,8 @@ class QzinScraper(StaticCrawler):
             soup = self.get_soup(page_url)
             if soup is None:
                 continue
-            extract_shops(soup)
+            yield from extract_shops(soup)
             time.sleep(self.DELAY)
-
-        return shop_urls
 
     def _scrape_detail(self, url: str) -> dict | None:
         soup = self.get_soup(url)
