@@ -5253,3 +5253,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://xn--pckua2a7gp15o89zb.com/terms"
+
+  - site_id: gai_rou
+    name: "外国人労働者ドットコム"
+    module: "corporate.gai_rou"
+    url: "https://www.gai-rou.com/"
+    schedule: "0 9 14 * *"
+    enabled: true
+    terms_url: "https://www.gai-rou.com/terms/"
