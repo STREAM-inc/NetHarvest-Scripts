@@ -5269,3 +5269,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://happyhotel.jp/contents/regulations"
+
+  - site_id: couples
+    name: "カップルズ"
+    module: "travel.couples"
+    url: "https://couples.jp/prefectures/via-hotelareas"
+    schedule: null
+    enabled: true
+    terms_url: "https://couples.jp/user-terms"
