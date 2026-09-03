@@ -5261,3 +5261,11 @@ sites:
     schedule: "0 9 14 * *"
     enabled: true
     terms_url: "https://www.gai-rou.com/terms/"
+
+  - site_id: happyhotel_2
+    name: "ハッピーホテル"
+    module: "travel.happyhotel_2"
+    url: "https://happyhotel.jp/search/address/pref/1"
+    schedule: null
+    enabled: true
+    terms_url: "https://happyhotel.jp/contents/regulations"
