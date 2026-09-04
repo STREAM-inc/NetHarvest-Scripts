@@ -2879,7 +2879,7 @@ sites:
     module: "jobs.baitoru_2"
     url: "https://www.baitoru.com/"
     schedule: "0 11 8-14 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://www.baitoru.com/about/kiyaku_base.html"
 
 #324
