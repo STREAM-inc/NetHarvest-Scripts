@@ -5277,3 +5277,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://couples.jp/user-terms"
+
+  - site_id: retty
+    name: "retty"
+    module: "food.retty"
+    url: "https://retty.me/"
+    schedule: null
+    enabled: true
+    terms_url: "https://retty.me/announce/tos/"
