@@ -886,7 +886,7 @@ sites:
     name: "ぐるなび"
     module: "food.gnavi"
     url: "https://www.gnavi.co.jp/"
-    schedule: "20 6 1-7 * SUN"
+    schedule: "20 6 1-7,15-21 * SUN"
     enabled: true
     terms_url: "https://corporate.gnavi.co.jp/agreement/"
 
@@ -1246,7 +1246,7 @@ sites:
     name: "オズモール（レストラン）"
     module: "food.ozmall_2"
     url: "https://www.ozmall.co.jp/restaurant/list/"
-    schedule: "20 5 8-14 * SAT"
+    schedule: "20 5 * * SAT"
     enabled: true
     terms_url: "https://www.ozmall.co.jp/introduction/14118/"
 
