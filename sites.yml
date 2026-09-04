@@ -5219,7 +5219,7 @@ sites:
     module: "food.bar_navi_2"
     url: "https://bar-navi.suntory.co.jp/"
     schedule: null
-    enabled: false
+    enabled: true
     terms_url: ""
 
   - site_id: job_7
