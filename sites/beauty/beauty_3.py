@@ -36,6 +36,8 @@
     docker compose exec worker python /app/bin/run_flow.py --site-id beauty_3
 """
 
+# re-run trigger: 2026-09-04 (STREAMREQ-13537 差分納品用の新規クロール実行)
+
 import re
 import sys
 from pathlib import Path
