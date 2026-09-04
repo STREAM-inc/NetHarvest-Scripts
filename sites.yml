@@ -5285,3 +5285,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://retty.me/announce/tos/"
+
+  - site_id: com_2
+    name: "一休.comレストラン"
+    module: "food.com_2"
+    url: "https://restaurant.ikyu.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.ikyu.com/terms/service/"
