@@ -1174,7 +1174,7 @@ sites:
     name: "オズモール（ヘアサロン）"
     module: "beauty.ozmall"
     url: "https://www.ozmall.co.jp/hairsalon"
-    schedule: "0 6 1-7 * SAT"
+    schedule: "0 6 * * SAT"
     enabled: true
     terms_url: "https://www.ozmall.co.jp/introduction/14118/"
 
