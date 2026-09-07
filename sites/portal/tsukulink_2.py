@@ -1,19 +1,24 @@
-# scripts/sites/portal/tsukulink_2.py
 """
-ツクリンクリスト (tsukulink.net) — 建設業者 一覧→詳細 スクレイパー
+ツクリンクリスト (tsukulink.net) — 建設業者 一覧→詳細 スクレイパー（北陸3県版）
 
 取得対象:
-    全国の建設業者（約 123,164 件）。一覧ページで基本情報を取得し、
-    各社の詳細ページに遷移して会社概要（資本金・従業員数・設立年月日・
-    対応可能エリア・保有建設機材・技術者資格 等）の構造化情報を取得する。
+    富山県・石川県・福井県を拠点とする建設業者（富山 7,681 件 / 石川 8,568 件 /
+    福井 6,229 件 = 計 22,478 件）。一覧ページで基本情報を取得し、各社の詳細
+    ページに遷移して会社概要（資本金・従業員数・設立年月日・対応可能エリア・
+    保有建設機材・技術者資格 等）の構造化情報を取得する。
 
     ※ 既存の `tsukulink`（一覧のみ）に対し、本クローラーは詳細ページまで
       巡回して会社概要の構造化フィールドを追加取得する拡充版。
 
 取得フロー:
-    /companies?page=N （一覧, 1ページ20件）
-      └─ 各社 /{pref}/city_{code}/{company_id} （詳細）へ遷移
+    /{pref_slug} （県別一覧, 1ページ20件, ?page=N で「次へ」がある限りページ送り）
+      ├─ toyama → ishikawa → fukui の順で順次処理
+      └─ 各社 /{pref_slug}/city_{code}/{company_id} （詳細）へ遷移
          → 1件取得するごとに即 yield（Pattern B）
+
+注意:
+    /{pref_slug} 一覧ページは Accept ヘッダが無いと HTTP 400 を返すため、
+    _setup() でブラウザ相当の Accept / Accept-Language を付与している。
 
 著作権配慮:
     会社紹介文・事業内容・募集案件本文など「自由記述の長文プロース」は
@@ -33,6 +38,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Generator
+from urllib.parse import urljoin
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -47,16 +53,24 @@ _PREF_RE = re.compile(r"^(東京都|北海道|(?:.+?[都道府県]))")
 # 建設業許可番号（例: 茨城県知事許可-第30410号 / 国土交通大臣許可-第12345号）
 _PERMIT_RE = re.compile(r"((?:\S+?知事|国土交通大臣)許可[-－]?第?\s*[0-9０-９]+\s*号)")
 
+# 郵便番号（例: 〒916-0001）
+_POSTCODE_RE = re.compile(r"〒\s*([0-9０-９]{3}[-－][0-9０-９]{4})")
+
 
 class TsukulinkListScraper(StaticCrawler):
-    """ツクリンクリスト 建設業者（一覧→詳細）スクレイパー"""
+    """ツクリンクリスト 建設業者（北陸3県 一覧→詳細）スクレイパー"""
 
     DELAY = 1.5
     START_PAGE = 1  # 再開時はここを変更
+
+    # 巡回対象の県（この順で順次処理）
+    PREF_SLUGS = ["toyama", "ishikawa", "fukui"]
+
     EXTRA_COLUMNS = [
         "評価点",          # 一覧の星評価スコア（例: 3.57）
         "企業ラベル",       # 受発注両方 / プレミアム など
         "認証・許可ラベル",  # 認証済｜法人 / インボイス登録あり / 建設業許可 / 社会保険 など
+        "インボイス登録有無",  # 認証・許可ラベルに「インボイス登録あり」を含むか（あり/なし）
         "主力工事",        # 一覧
         "工事区分",        # 一覧（新築改修両方 など）
         "対応可能工事種別",  # 詳細
@@ -83,15 +97,38 @@ class TsukulinkListScraper(StaticCrawler):
         "主要取引先",
     }
 
+    def _setup(self):
+        """セッション初期化後、ブラウザ相当のヘッダを付与する。
+
+        /{pref_slug} 一覧ページは Accept ヘッダが無いと HTTP 400 で拒否される。
+        """
+        super()._setup()
+        self.session.headers.update({
+            "Accept": (
+                "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                "image/avif,image/webp,*/*;q=0.8"
+            ),
+            "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+            "Upgrade-Insecure-Requests": "1",
+        })
+
     # ------------------------------------------------------------------
-    # 一覧巡回
+    # 一覧巡回（富山 → 石川 → 福井）
     # ------------------------------------------------------------------
     def parse(self, url: str) -> Generator[dict, None, None]:
-        base_url = url.rstrip("/")
+        base_url = url if url.endswith("/") else url + "/"
+
+        for pref_slug in self.PREF_SLUGS:
+            pref_url = urljoin(base_url, pref_slug)
+            self.logger.info("県別一覧の巡回開始: %s", pref_url)
+            yield from self._parse_pref(pref_url, base_url)
+
+    def _parse_pref(self, pref_url: str, base_url: str) -> Generator[dict, None, None]:
+        """1県分の一覧をページ送りしながら巡回する。"""
         page = self.START_PAGE
         while True:
-            list_url = f"{base_url}/companies?page={page}"
-            self.logger.info("一覧ページ取得: page=%d", page)
+            list_url = f"{pref_url}?page={page}"
+            self.logger.info("一覧ページ取得: %s page=%d", pref_url, page)
 
             try:
                 soup = self.get_soup(list_url)
@@ -100,14 +137,16 @@ class TsukulinkListScraper(StaticCrawler):
                 break
 
             if soup is None:
-                self.logger.warning("soup取得失敗（スキップ）: page=%d", page)
+                self.logger.warning("soup取得失敗（スキップ）: %s page=%d", pref_url, page)
                 page += 1
                 time.sleep(self.DELAY)
                 continue
 
-            # 初回ページで総件数を拾って進捗表示を有効化
-            if self.total_items is None:
-                self.total_items = self._extract_total(soup)
+            # 各県の1ページ目で総件数を拾って進捗表示に加算
+            if page == self.START_PAGE:
+                total = self._extract_total(soup)
+                if total:
+                    self.total_items = (self.total_items or 0) + total
 
             items = soup.select("li.p-companies-list-item")
             if not items:
@@ -147,22 +186,16 @@ class TsukulinkListScraper(StaticCrawler):
             return None
 
         href = name_a.get("href", "")
-        detail_url = base_url + href if href.startswith("/") else href
+        detail_url = urljoin(base_url, href) if href else ""
         item = {
             Schema.NAME: name_a.get_text(strip=True),
             Schema.URL: detail_url,
         }
 
-        # 住所 → 都道府県 / 市区町村以降
+        # 住所 → 郵便番号 / 都道府県 / 市区町村以降
         addr_div = li.select_one("div.p-companies-list-item__address")
         if addr_div:
-            addr_raw = addr_div.get_text(strip=True)
-            m = _PREF_RE.match(addr_raw)
-            if m:
-                item[Schema.PREF] = m.group(1)
-                item[Schema.ADDR] = addr_raw[m.end():]
-            else:
-                item[Schema.ADDR] = addr_raw
+            self._set_address(item, addr_div.get_text(" ", strip=True))
 
         # 代表者名（"代表　梁川 貴正" → "梁川 貴正"）
         rep_div = li.select_one("div.p-companies-list-item__ceo-container .c-t-dark")
@@ -187,7 +220,7 @@ class TsukulinkListScraper(StaticCrawler):
         if header_labels:
             item["企業ラベル"] = " / ".join(header_labels)
 
-        # 認証・許可ラベル
+        # 認証・許可ラベル ＋ インボイス登録有無
         cert_labels = [
             s.get_text(strip=True)
             for s in li.select(".c-companies-certified-labels__container span")
@@ -195,6 +228,9 @@ class TsukulinkListScraper(StaticCrawler):
         ]
         if cert_labels:
             item["認証・許可ラベル"] = " / ".join(cert_labels)
+        item["インボイス登録有無"] = (
+            "あり" if any("インボイス登録あり" in lb for lb in cert_labels) else "なし"
+        )
 
         # 一覧の dl（業種 / 主力工事 / 工事区分）
         for dl in li.select("dl.p-companies-list-item__job-list-item"):
@@ -223,6 +259,27 @@ class TsukulinkListScraper(StaticCrawler):
 
         return item
 
+    @staticmethod
+    def _set_address(item: dict, addr_raw: str) -> None:
+        """住所文字列から 郵便番号 / 都道府県 / 市区町村以降 を分解して格納する。"""
+        addr_raw = re.sub(r"[\s　]+", " ", addr_raw.replace("\xa0", " ")).strip()
+        if not addr_raw:
+            return
+
+        m_zip = _POSTCODE_RE.search(addr_raw)
+        if m_zip:
+            item.setdefault(Schema.POST_CODE, m_zip.group(1).replace("－", "-"))
+            addr_raw = _POSTCODE_RE.sub("", addr_raw, count=1).strip()
+
+        m = _PREF_RE.match(addr_raw)
+        if m:
+            item.setdefault(Schema.PREF, m.group(1))
+            rest = addr_raw[m.end():].strip()
+            if rest:
+                item.setdefault(Schema.ADDR, rest)
+        elif addr_raw:
+            item.setdefault(Schema.ADDR, addr_raw)
+
     # ------------------------------------------------------------------
     # 詳細ページ解析
     # ------------------------------------------------------------------
@@ -230,6 +287,11 @@ class TsukulinkListScraper(StaticCrawler):
         soup = self.get_soup(url)
         if soup is None:
             return
+
+        # 郵便番号付き住所（一覧には郵便番号が無いため詳細から補完）
+        addr_div = soup.select_one(".p-companies-show-profile__info-address")
+        if addr_div:
+            self._set_address(item, addr_div.get_text(" ", strip=True))
 
         # 会社概要の h4 見出し → 直後の兄弟要素群（次の見出しまで）をまとめてテキスト化
         for h4 in soup.select("h4.p-companies-show-detail__heading--small"):
@@ -251,9 +313,16 @@ class TsukulinkListScraper(StaticCrawler):
                 item.setdefault(label, value)
 
         # 建設業許可番号（許認可セクションのテキストから抽出）
-        m = _PERMIT_RE.search(soup.get_text(" ", strip=True))
+        page_text = soup.get_text(" ", strip=True)
+        m = _PERMIT_RE.search(page_text)
         if m:
             item.setdefault("建設業許可番号", re.sub(r"\s+", "", m.group(1)))
+
+        # 郵便番号がまだ取れていなければページ全体から抽出
+        if not item.get(Schema.POST_CODE):
+            m_zip = _POSTCODE_RE.search(page_text)
+            if m_zip:
+                item[Schema.POST_CODE] = m_zip.group(1).replace("－", "-")
 
         # 代表者名が一覧で取れていなければ詳細から補完
         if not item.get(Schema.REP_NM):
@@ -301,7 +370,7 @@ if __name__ == "__main__":
 
     scraper = TsukulinkListScraper()
     scraper.START_PAGE = args.start_page
-    scraper.execute("https://tsukulink.net")
+    scraper.execute("https://tsukulink.net/")
 
     print(f"\n出力ファイル: {scraper.output_filepath}")
     print(f"取得件数: {scraper.item_count}")
