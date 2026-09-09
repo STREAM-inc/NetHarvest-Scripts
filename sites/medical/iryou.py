@@ -2,7 +2,10 @@
 医療情報ネット（ナビイ） — 厚生労働省 全国医療機関検索
 
 取得対象:
-    - 全国の病院・診療所・歯科診療所等の医療機関詳細
+    - 全国の病院・診療所（kikanKbn=1/2）の医療機関詳細
+      ※ 歯科診療所（kikanKbn=3）・薬局等は対象外。一覧から詳細URLを列挙する
+        段階で除外し、詳細ページへのリクエスト自体を発行しない
+        （対象件数を減らし、47都道府県を実行時間内に完走させるため）
     - 施設特定・連絡先: 正式名称 / フリガナ / 郵便番号 / 所在地 / 案内用電話番号 /
       案内用FAX番号 / ホームページURL / 取得URL
     - 開設者詳細（開設者名・フリガナ・開設者種別）/ 管理者詳細（管理者名・フリガナ）
@@ -106,6 +109,19 @@ PREFECTURES = [
 
 # 住所先頭から都道府県を切り出す
 _PREF_PATTERN = re.compile(r"^(北海道|東京都|(?:大阪|京都)府|.{2,3}県)")
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 機関区分（詳細URL の kikanKbn パラメータ）による取得対象の絞り込み
+#   1 = 病院 / 2 = 診療所 / 3 = 歯科診療所 / 4 = 助産所等
+#   （薬局は iyakuKbn=2 側の検索結果にのみ現れるため、本クローラーの検索
+#     条件 iyakuKbn=1 では元々ヒットしない。念のため許可リスト方式とする）
+# 取得対象は「病院・診療所」のみ。歯科診療所・薬局等は 一覧から詳細URLを
+# 列挙する段階で除外し、詳細ページへのリクエスト自体を発行しない。
+# （全国 ~18万件のうち歯科が約1/3〜1/2 を占めるため、除外により 47 都道府県を
+#   実行時間内に完走できる）
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+_TARGET_KIKAN_KBN = {"1", "2"}
+_KIKAN_KBN_PATTERN = re.compile(r"[?&]kikanKbn=(\d+)")
 
 # 診療科目ごとの曜日リスト（祝日カラムは生成しない）
 _DAYS = ["月", "火", "水", "木", "金", "土", "日"]
@@ -265,11 +281,19 @@ class IryouScraper(StaticCrawler):
         # 一覧／検索は都道府県ごとの専用セッション（メインスレッドで生成）、詳細取得
         # （重い・件数多い）は各ワーカー専用のスレッドローカルセッションで実行する
         # （クッキー保存領域を分離）。root_url（引数 url）は検索コンテキスト初期化に使う。
+        # 取得済み件数の累計（都道府県ごとの進捗ログで参照する）。
+        # 途中で打ち切られても「どの県まで・何件取れたか」がログに残るようにする。
+        self._yielded_count = 0
+
         detail_urls = self._iter_detail_urls(url, search_url, list_url)
         yield from self._fetch_details(detail_urls)
 
     def _iter_detail_urls(self, root_url: str, search_url: str, list_url: str) -> Generator[str, None, None]:
         """47都道府県を所在地検索し、全ページをめくって施設詳細 URL を生成する。
+
+        生成するのは 病院・診療所（kikanKbn が _TARGET_KIKAN_KBN）の詳細 URL のみ。
+        歯科診療所（kikanKbn=3）・薬局等はここで捨てるため、詳細ページへの
+        リクエストは一切発行されない（対象件数を減らし 47 県を完走させるため）。
 
         ⚠ 「北海道しか取れない（≒先頭県だけ ≈4781件 で頭打ち）」の真因と対策:
             iryoSearch が返す検索IDは セッションの SESSION/AWSALB（＝サーバ側の検索
@@ -282,7 +306,7 @@ class IryouScraper(StaticCrawler):
             各県が独立した検索IDを得て、47県分＝全国を網羅できる。
         """
         seen: set[str] = set()
-        total = 0
+        total = 0  # 取得対象（病院・診療所）の詳細URL 累計 = ETA 用の母数
 
         for pref in PREFECTURES:
             # 都道府県ごとに独立した検索コンテキストを得るため、専用セッションで
@@ -295,25 +319,21 @@ class IryouScraper(StaticCrawler):
                 continue
 
             page = 0
-            counted = False
-            pref_new = 0
+            pref_new = 0      # この県で yield した 病院・診療所 の詳細URL 数
+            pref_skipped = 0  # 歯科診療所・薬局等として除外した件数
             while True:
                 page_url = f"{list_url}?id={search_id}&page={page}&sortNo=1"
                 soup = self._get_soup(session, page_url)
                 if soup is None:
                     break
 
-                if not counted:
-                    m = re.search(r"([\d,]+)\s*件", soup.get_text())
-                    if m:
-                        total += int(m.group(1).replace(",", ""))
-                        self.total_items = total
-                    counted = True
-
                 links = soup.select('a[href*="S2430/initialize"]')
                 if not links:
                     break
 
+                # ページ送りの継続判定は「未見の詳細URLがあったか」で行う。
+                # 除外分（歯科等）も seen に入れて new_on_page に数えることで、
+                # 歯科ばかりのページで打ち切られる事故を防ぐ。
                 new_on_page = 0
                 for a in links:
                     href = a.get("href", "").strip()
@@ -324,14 +344,29 @@ class IryouScraper(StaticCrawler):
                         continue
                     seen.add(detail_url)
                     new_on_page += 1
+
+                    # 病院・診療所 以外（歯科診療所 kikanKbn=3 / 薬局等）は
+                    # 詳細ページを取得せずここで捨てる
+                    m = _KIKAN_KBN_PATTERN.search(detail_url)
+                    if not m or m.group(1) not in _TARGET_KIKAN_KBN:
+                        pref_skipped += 1
+                        continue
+
                     pref_new += 1
+                    total += 1
+                    self.total_items = total
                     yield detail_url
 
                 if len(links) < 20 or new_on_page == 0:
                     break
                 page += 1
 
-            self.logger.info("%s: 詳細URL %d 件を抽出", pref, pref_new)
+            # 都道府県ごとの進捗（途中で打ち切られても どこまで進んだか がログに残る）。
+            # 取得件数は詳細取得が並行して走るため、この時点までの累計。
+            self.logger.info(
+                "%s 完了: 対象URL %d 件（除外 %d 件）/ 累計対象 %d 件 / 累計取得 %d 件",
+                pref, pref_new, pref_skipped, total, self._yielded_count,
+            )
 
     def _fetch_details(self, urls) -> Generator[dict, None, None]:
         """詳細 URL を WORKERS 本で並行取得し、完了したものから yield する。"""
@@ -352,10 +387,12 @@ class IryouScraper(StaticCrawler):
                     for f in done:
                         item = f.result()
                         if item and item.get(Schema.NAME):
+                            self._yielded_count += 1
                             yield item
             for f in as_completed(pending):
                 item = f.result()
                 if item and item.get(Schema.NAME):
+                    self._yielded_count += 1
                     yield item
 
     # ------------------------------------------------------------------ search
