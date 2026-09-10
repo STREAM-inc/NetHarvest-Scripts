@@ -5317,3 +5317,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: www2_3
+    name: "さんぱい"
+    module: "government.www2_3"
+    url: "https://www2.sanpainet.or.jp/index_u3.php"
+    schedule: null
+    enabled: true
+    terms_url: ""
