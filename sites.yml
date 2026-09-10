@@ -5325,3 +5325,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: www2_4
+    name: "さんぱい２"
+    module: "government.www2_4"
+    url: "https://www2.sanpainet.or.jp/searchprm.php?Param1=01"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
