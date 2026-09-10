@@ -96,6 +96,23 @@ class EparkDentalScraper(StaticCrawler):
         "院長名",
         "担当者",
         "担当者役職",
+        "エリア",
+        "業種",
+        "法人番号",
+        "代表者役職",
+        "代表者",
+        "資本金",
+        "売上",
+        "従業員数",
+        "設立日",
+        "事業内容",
+        "FAX",
+        "メール",
+        "HP",
+        "Instagram",
+        "Facebook",
+        "X",
+        "LINE公式",
     ]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
