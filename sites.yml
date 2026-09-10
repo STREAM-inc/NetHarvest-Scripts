@@ -5309,3 +5309,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://tsukulink.net/term"
+
+  - site_id: easier
+    name: "イージア掲載事業者"
+    module: "corporate.easier"
+    url: "https://easier.jp/sitemap-index.xml"
+    schedule: null
+    enabled: true
+    terms_url: ""
