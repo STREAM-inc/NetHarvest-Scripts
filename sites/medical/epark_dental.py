@@ -40,8 +40,12 @@ _PREF_RE = re.compile(
     r"愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)"
 )
 _TEL_RE = re.compile(r"0\d{1,4}-\d{1,4}-\d{3,4}")
+_RATE_RE = re.compile(r"([\d.]+)")
 
 MAX_PAGES_PER_PREF = 1000
+
+# 治療内容フラグ（要望: 4項目 × 「有無」/「特集の有無」= 8カラム）
+TREATMENTS = ["インプラント", "矯正歯科", "ホワイトニング", "小児矯正"]
 
 
 def _clean(s) -> str:
@@ -50,11 +54,18 @@ def _clean(s) -> str:
     return re.sub(r"\s+", " ", str(s).replace("\xa0", " ")).strip()
 
 
+def _mins(t: str) -> int:
+    h, m = t.split(":")
+    return int(h) * 60 + int(m)
+
+
 class EparkDentalScraper(StaticCrawler):
     """EPARK歯科 医院情報スクレイパー（haisha-yoyaku.jp）
 
     全国47都道府県の一覧をページネーションで辿り、医院詳細ページから
-    名称・都道府県・住所・TEL・診療項目・アクセス・営業時間・定休日を取得する。
+    名称・都道府県・住所・TEL・診療項目・アクセス・営業時間・定休日に加え、
+    診療受付時間の午前/午後4分割、インタビュー掲載有無（プラン判定の入力）、
+    治療内容8フラグ、院長名/担当者、EPARK口コミを取得する。
     """
 
     # Chrome / Firefox の UA は 403 で弾かれる。Safari の UA のみ 200 が返る。
@@ -64,7 +75,28 @@ class EparkDentalScraper(StaticCrawler):
     )
     DELAY = 0.5
     ITEM_DELAY = 0  # 待機はページ取得側 (DELAY) に寄せる
-    EXTRA_COLUMNS = ["診療項目", "アクセス"]
+    EXTRA_COLUMNS = [
+        "診療項目",
+        "アクセス",
+        "診療受付時間_午前開始",
+        "診療受付時間_午前終了",
+        "診療受付時間_午後開始",
+        "診療受付時間_午後終了",
+        "インタビュー掲載有無",
+        "治療内容_インプラント",
+        "治療内容_インプラント特集",
+        "治療内容_矯正歯科",
+        "治療内容_矯正歯科特集",
+        "治療内容_ホワイトニング",
+        "治療内容_ホワイトニング特集",
+        "治療内容_小児矯正",
+        "治療内容_小児矯正特集",
+        "EPARK口コミ件数",
+        "EPARK口コミ評価",
+        "院長名",
+        "担当者",
+        "担当者役職",
+    ]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         seen: set[str] = set()
@@ -165,6 +197,13 @@ class EparkDentalScraper(StaticCrawler):
         if not data.get(Schema.TIME):
             data[Schema.TIME] = self._parse_hours(soup.select_one("table.treatment_reception_table"))
 
+        self._set_reception_slots(data, soup)
+        self._set_treatments(data, soup)
+        self._set_review(data, soup)
+        self._set_staff(data, soup)
+        # プラン判定の入力。インタビュー(Q&A)セクションの有無で 有/無 を立てる。
+        data["インタビュー掲載有無"] = "有" if soup.select_one("#rich_interview") else "無"
+
         return data
 
     @staticmethod
@@ -218,6 +257,102 @@ class EparkDentalScraper(StaticCrawler):
 
         parts = [f"{d}: {','.join(v)}" for d, v in schedule.items() if v]
         return " / ".join(parts)
+
+    @staticmethod
+    def _set_reception_slots(data: dict, soup) -> None:
+        """診療受付時間を午前/午後の4値に分解する。
+
+        開始が 13:00 より前の枠を午前、それ以降を午後とする。曜日ごとに枠が
+        違う医院があるため「最も広い枠」を採るが、単純な最長どうしだと
+        午前終了 > 午後開始 の矛盾が出るので、午前終了 <= 午後開始 を満たす
+        組み合わせのうち合計が最長のものを選ぶ。
+        """
+        table = soup.select_one("table.treatment_reception_table")
+        rows: list[tuple[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+        scope = table if table is not None else soup
+        for th in scope.select("th"):
+            m = re.match(r"^(\d{1,2}:\d{2})[～~](\d{1,2}:\d{2})$", _clean(th.get_text()))
+            if not m:
+                continue
+            pair = (m.group(1), m.group(2))
+            if pair not in seen:
+                seen.add(pair)
+                rows.append(pair)
+
+        morning = [r for r in rows if _mins(r[0]) < 13 * 60]
+        afternoon = [r for r in rows if _mins(r[0]) >= 13 * 60]
+
+        def dur(r):
+            return _mins(r[1]) - _mins(r[0])
+
+        am = pm = None
+        if morning and afternoon:
+            pairs = [(m, a) for m in morning for a in afternoon
+                     if _mins(m[1]) <= _mins(a[0])]
+            if pairs:
+                am, pm = max(pairs, key=lambda p: dur(p[0]) + dur(p[1]))
+            else:
+                am = max(morning, key=dur)
+        elif morning:
+            am = max(morning, key=dur)
+        elif afternoon:
+            # 午後枠しかない医院は午前側に入れる（要望の指定）
+            am = max(afternoon, key=dur)
+
+        data["診療受付時間_午前開始"] = am[0] if am else ""
+        data["診療受付時間_午前終了"] = am[1] if am else ""
+        data["診療受付時間_午後開始"] = pm[0] if pm else ""
+        data["診療受付時間_午後終了"] = pm[1] if pm else ""
+
+    @staticmethod
+    def _set_treatments(data: dict, soup) -> None:
+        """治療内容タブの4項目と、その「特集」掲載有無を 有/無 で立てる。"""
+        subj_wrap = soup.select_one("div.detail_top_subject_wrap")
+        subj = _clean(subj_wrap.get_text(" ")) if subj_wrap else data.get("診療項目", "")
+
+        feat_wrap = soup.select_one("div.detail_top_header_category_wrap3")
+        feats: list[str] = []
+        if feat_wrap and "特集" in _clean(feat_wrap.get_text(" ")):
+            feats = [_clean(a.get_text()) for a in feat_wrap.select("span.item a")]
+        feat = " ".join(feats)
+
+        for t in TREATMENTS:
+            data[f"治療内容_{t}"] = "有" if t in subj else "無"
+            data[f"治療内容_{t}特集"] = "有" if t in feat else "無"
+
+    @staticmethod
+    def _set_review(data: dict, soup) -> None:
+        cnt = soup.select_one("p.column2_kuchikomi a.count")
+        data["EPARK口コミ件数"] = _clean(cnt.get_text()) if cnt else ""
+        star = soup.select_one("p.totalStar")
+        if star:
+            m = _RATE_RE.search(_clean(star.get_text()))
+            data["EPARK口コミ評価"] = m.group(1) if m else ""
+        else:
+            data["EPARK口コミ評価"] = ""
+
+    @staticmethod
+    def _set_staff(data: dict, soup) -> None:
+        """スタッフ紹介から院長名と、院長以外の担当者1名（＋肩書）を取る。"""
+        data["院長名"] = ""
+        data["担当者"] = ""
+        data["担当者役職"] = ""
+        for p in soup.select("p.rich_staff_doctor_name"):
+            title_el = p.select_one("span.rich_staff_doctor_title")
+            if not title_el:
+                continue
+            title = _clean(title_el.get_text())
+            full = _clean(p.get_text(" "))
+            name = _clean(full[len(title):]) if full.startswith(title) else full
+            if not name:
+                continue
+            if "院長" in title and "副院長" not in title:
+                if not data["院長名"]:
+                    data["院長名"] = name
+            elif not data["担当者"]:
+                data["担当者"] = name
+                data["担当者役職"] = title
 
 
 if __name__ == "__main__":
