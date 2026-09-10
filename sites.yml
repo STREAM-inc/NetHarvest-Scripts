@@ -5301,3 +5301,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: tsukulink_4
+    name: "ツクリンク北陸3県"
+    module: "construction.tsukulink_4"
+    url: "https://tsukulink.net/toyama"
+    schedule: null
+    enabled: true
+    terms_url: "https://tsukulink.net/term"
