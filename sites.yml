@@ -5293,3 +5293,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.ikyu.com/terms/service/"
+
+  - site_id: www2_2
+    name: "産廃情報ネット行政情報検索"
+    module: "government.www2_2"
+    url: "https://www2.sanpainet.or.jp/sanpai/"
+    schedule: null
+    enabled: true
+    terms_url: ""
