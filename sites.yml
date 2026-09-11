@@ -5333,3 +5333,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: tsukulink_6
+    name: "ツクリンク全件"
+    module: "construction.tsukulink_6"
+    url: "https://tsukulink.net/?utm_source=google&utm_medium=cpc&utm_campaign=sonota&gad_source=1&gad_campaignid=13352243896&gbraid=0AAAAABWZ-zqWusLqprjBy1cag1-B1cjZI&gclid=Cj0KCQjwkt_UBhDMARIsALpnOAwjPMjZVkVmvnqQ-Es2jFxTJkRtXts_Q8o2wdTN9uwkb3qLPXjFOlAaAmCWEALw_wcB"
+    schedule: null
+    enabled: true
+    terms_url: ""
