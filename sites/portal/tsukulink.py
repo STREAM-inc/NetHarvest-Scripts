@@ -5,6 +5,7 @@
 取得対象:
     全国の建設業者一覧（企業名、住所、業種、代表者名）
     + 各社の詳細ページから 許認可・従業員数・設立年月日・資本金・HP・Instagram
+      および会員バッジ（有料プラン表記）・掲載ページURL
 
 取得フロー:
     /companies?page=N → 一覧ページからデータ取得
@@ -41,12 +42,29 @@ _DATE_RE = re.compile(r"(\d{4})年(\d{1,2})月(\d{1,2})日")
 # 許認可カラム（Schema 未定義のサイト固有カラム）
 LICENSE_COL = "許認可"
 
+# 会員バッジ（プレミアム / 認証済）カラム（Schema 未定義のサイト固有カラム）
+PLAN_LABEL_COL = "有料プラン表記"
+
+# 会社詳細ページ URL の複製カラム（Schema.URL「取得URL」とは別カラムとして出力）
+PAGE_URL_COL = "掲載ページURL"
+
+# バッジ検出用: class 名に現れる有料プラン / 認証済の手掛かり
+_PREMIUM_CLASS_RE = re.compile(r"premium", re.I)
+_CERTIFIED_CLASS_RE = re.compile(r"verified|certified", re.I)
+
+# バッジ検出用: ラベルテキスト（「認証済｜法人」のように接尾が付く）
+_PREMIUM_TEXT_RE = re.compile(r"プレミアム")
+_CERTIFIED_TEXT_RE = re.compile(r"認証済")
+
+# 未認証（グレーアウト表示）のバッジに付与される class
+_NOT_CERTIFIED_CLASS = "not-certified"
+
 
 class TsukulinkScraper(StaticCrawler):
     """ツクリンク 建設業者スクレイパー"""
 
     DELAY = 1.5
-    EXTRA_COLUMNS = [LICENSE_COL]
+    EXTRA_COLUMNS = [LICENSE_COL, PLAN_LABEL_COL, PAGE_URL_COL]
     START_PAGE = 1  # 再開時はここを変更
 
     def parse(self, url: str) -> Generator[dict, None, None]:
@@ -142,12 +160,16 @@ class TsukulinkScraper(StaticCrawler):
 
         取得項目:
             許認可・従業員数・設立年月日・資本金・HP（ウェブサイト）・Instagram
+            ＋ 有料プラン表記（会員バッジ）・掲載ページURL
         詳細ページの会社情報は `h4.p-companies-show-detail__heading--small`
         （見出し）と、その直後の兄弟要素（値）のペアで構成されている。
         """
         detail_url = item.get(Schema.URL)
         if not detail_url:
             return
+
+        # 掲載ページURL（取得URL と同一値を別カラムにも複製する）
+        item[PAGE_URL_COL] = detail_url
 
         time.sleep(self.DELAY)  # 詳細ページ取得分の負荷軽減
         try:
@@ -157,6 +179,9 @@ class TsukulinkScraper(StaticCrawler):
             return
         if soup is None:
             return
+
+        # 有料プラン表記（会社名近くの会員バッジ: プレミアム / 認証済）
+        item[PLAN_LABEL_COL] = self._extract_plan_labels(soup)
 
         # 許認可（「業種の許認可確認」リストの項目を結合）
         licenses = self._extract_licenses(soup)
@@ -197,6 +222,60 @@ class TsukulinkScraper(StaticCrawler):
                     text = re.sub(r"[\s　]+", " ", sib.get_text(" ", strip=True)).strip()
                     return text or None
         return None
+
+    def _extract_plan_labels(self, soup) -> str:
+        """会社名近くの会員バッジ（プレミアム / 認証済）を「,」区切りで返す。
+
+        - プレミアム: `span.c-label-premium`（有料会員プラン）
+        - 認証済   : 認証ラベル群の「認証済｜法人」「認証済｜個人事業主」等
+        認証されていない会社にもラベル自体は描画されるが `not-certified`
+        class が付与されグレー表示になるため、その場合は検出しない。
+        どちらも見つからなければ空文字を返す。
+        """
+        area = soup.select_one("main.p-companies-show") or soup
+        found: list[str] = []
+
+        # バッジ候補（class 名 / テキストの両面から拾う）。
+        # サイドバーの「おすすめ会社」カードにも同じバッジが出るため、
+        # 会社名まわりのラベル群コンテナに限定する。
+        containers = area.select(
+            ".c-companies-header-labels, .c-companies-certified-labels"
+        )
+        candidates = [
+            el
+            for c in containers
+            for el in c.select(
+                "span[class*=c-label-], [class*=premium], [class*=verified],"
+                " [class*=certified]"
+            )
+        ]
+        for el in candidates:
+            # 内側にバッジを持つ要素はラベル群のコンテナなので除外
+            if el.select_one("[class*=c-label-]"):
+                continue
+
+            classes = el.get("class") or []
+            # 未認証（グレーアウト）バッジ。内側のテキスト要素からも辿れるよう
+            # 自身と祖先の両方を確認する。
+            if _NOT_CERTIFIED_CLASS in classes or el.find_parent(
+                class_=_NOT_CERTIFIED_CLASS
+            ):
+                continue
+
+            class_str = " ".join(classes)
+            text = el.get_text(" ", strip=True)
+            if _PREMIUM_TEXT_RE.search(text) or _PREMIUM_CLASS_RE.search(class_str):
+                label = "プレミアム"
+            elif _CERTIFIED_TEXT_RE.search(text) or _CERTIFIED_CLASS_RE.search(class_str):
+                label = "認証済"
+            else:
+                continue
+
+            if label not in found:
+                found.append(label)
+
+        # 出力順を「プレミアム,認証済」で固定する
+        return ",".join(l for l in ("プレミアム", "認証済") if l in found)
 
     def _extract_licenses(self, soup) -> str | None:
         """「業種の許認可確認」リストの許認可種別を「、」で結合して返す。"""
