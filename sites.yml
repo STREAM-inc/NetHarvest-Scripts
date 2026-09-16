@@ -5341,3 +5341,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: toto
+    name: "TOTOリモデルクラブ"
+    module: "construction.toto"
+    url: "https://jp.toto.com/reform/remodelclub/result/"
+    schedule: null
+    enabled: true
+    terms_url: "https://jp.toto.com/sp/"
