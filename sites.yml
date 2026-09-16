@@ -5349,3 +5349,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://jp.toto.com/sp/"
+
+  - site_id: panasonic
+    name: "Panasonicリフォームクラブ"
+    module: "construction.panasonic"
+    url: "https://reform-club.panasonic.com/shop/pref.php?id=hokkaido"
+    schedule: null
+    enabled: true
+    terms_url: "https://holdings.panasonic/jp/terms-of-use.html"
