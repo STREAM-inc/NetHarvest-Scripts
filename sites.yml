@@ -5357,3 +5357,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://holdings.panasonic/jp/terms-of-use.html"
+
+  - site_id: partnershop
+    name: "タカラスタンダードパートナーショップ"
+    module: "construction.partnershop"
+    url: "https://partnershop.takara-standard.co.jp/shop"
+    schedule: null
+    enabled: true
+    terms_url: "https://partnershop.takara-standard.co.jp/terms"
