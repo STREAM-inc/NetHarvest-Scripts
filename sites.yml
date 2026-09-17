@@ -5421,3 +5421,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: tsukulink_7
+    name: "ツクリンク（関東）"
+    module: "construction.tsukulink_7"
+    url: "https://tsukulink.net/"
+    schedule: null
+    enabled: true
+    terms_url: ""
