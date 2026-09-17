@@ -5373,3 +5373,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.denko-navi.com/policy?policy_no=9"
+
+  - site_id: kenshoku_bank
+    name: "建職バンク"
+    module: "jobs.kenshoku_bank"
+    url: "https://kenshoku-bank.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://kenshoku-bank.com/terms"
