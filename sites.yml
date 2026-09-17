@@ -5413,3 +5413,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://domonet.jp/info/agreement"
+
+  - site_id: itszai
+    name: "イツザイ（関東）"
+    module: "jobs.itszai"
+    url: "https://www.itszai.jp/"
+    schedule: null
+    enabled: true
+    terms_url: ""
