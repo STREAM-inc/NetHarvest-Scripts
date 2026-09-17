@@ -5389,3 +5389,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://pcareer.m3.com/help/content#06"
+
+  - site_id: koujishi_2
+    name: "工事ドットコム"
+    module: "construction.koujishi_2"
+    url: "https://koujishi.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://koujishi.com/page/rules/"
