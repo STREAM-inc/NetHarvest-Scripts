@@ -5365,3 +5365,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://partnershop.takara-standard.co.jp/terms"
+
+  - site_id: denko_navi
+    name: "電工ナビ"
+    module: "jobs.denko_navi"
+    url: "https://www.denko-navi.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.denko-navi.com/policy?policy_no=9"
