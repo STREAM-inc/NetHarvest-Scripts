@@ -5397,3 +5397,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://koujishi.com/page/rules/"
+
+  - site_id: elecareer
+    name: "エレキャリア"
+    module: "jobs.elecareer"
+    url: "https://elecareer.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://elecareer.com/articles/static%2Dgroup/static%2Dcategory/terms"
