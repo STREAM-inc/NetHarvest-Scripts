@@ -5405,3 +5405,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://elecareer.com/articles/static%2Dgroup/static%2Dcategory/terms"
+
+  - site_id: domonet_2
+    name: "DOMONET"
+    module: "jobs.domonet_2"
+    url: "https://domonet.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://domonet.jp/info/agreement"
