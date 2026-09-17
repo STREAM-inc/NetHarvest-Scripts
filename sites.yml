@@ -5381,3 +5381,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://kenshoku-bank.com/terms"
+
+  - site_id: pcareer
+    name: "薬キャリ"
+    module: "jobs.pcareer"
+    url: "https://pcareer.m3.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://pcareer.m3.com/help/content#06"
