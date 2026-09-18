@@ -10,7 +10,15 @@ GUPPY (グッピー, www.guppy.jp) — 全職種・事業所単位 求人スク�
 取得カラム:
     Schema (11): URL(=初出求人URL), NAME, PREF, ADDR, HP, CAT_SITE,
                  TIME, LOB, REP_NM, EMP_NUM, OPEN_DATE
-    EXTRA  (3): 最寄駅, アクセス, 初出時の職種コード
+    EXTRA (21): 最寄駅, アクセス, 初出時の職種コード,
+                募集職種, 募集人数, 雇用形態, 給与, 給与補足, 諸手当, 仕事内容,
+                応募資格, 勤務時間・休憩, 休日休暇, 年間休日, 加入保険, 社会保険,
+                選考プロセス,
+                休診日, 募集求人 (勤務先情報 dl), 法人名, 本社住所 (法人情報 dl)
+                （各 dl の役割は dt ラベルで判定。募集要項/応募方法の項目は部分一致で引当）
+
+    ※ 本社住所は法人情報 dl の「住所」(郵便番号つき) で、勤務先住所 (Schema.ADDR) とは別物。
+      ADDR を上書きせず独立カラムとして保持する。
 
 取得フロー:
     for code in CATEGORY_CODES:
@@ -77,6 +85,69 @@ _PREF_PATTERN = re.compile(
 
 _ADDRESS_NOISE_PATTERN = re.compile(r"Googleマップで表示|Googleマップで見る")
 
+# 募集要項 (dl.l-def[0]) / 応募方法 (dl.l-def[3]) から引き当てる EXTRA カラム。
+# 値は照合候補ラベルで、先頭から順に「完全一致 → 部分一致」で探す。
+# サイト側のラベル表記ゆれ（「諸手当の内訳」「選考の流れ」等）を部分一致で吸収する。
+_JOB_FIELD_LABELS: dict[str, list[str]] = {
+    "募集職種": ["募集職種", "職種"],
+    "募集人数": ["募集人数", "採用人数", "募集数", "人数"],
+    "雇用形態": ["雇用形態", "勤務形態"],
+    "給与": ["給与", "給与について", "給料", "報酬", "月給"],
+    "給与補足": ["給与補足", "給与の補足", "給与備考"],
+    "諸手当": ["諸手当", "諸手当の内訳", "待遇・福利厚生", "福利厚生", "手当"],
+    "仕事内容": ["仕事内容", "業務内容", "職務内容"],
+    "応募資格": ["応募資格", "必要資格", "募集資格", "求める人材", "資格"],
+    "勤務時間・休憩": ["勤務時間・休憩", "勤務時間", "就業時間", "勤務時間帯"],
+    "休日休暇": ["休日休暇", "休日・休暇", "休暇", "休日"],
+    "年間休日": ["年間休日"],
+    "加入保険": ["加入保険", "各種保険", "保険"],
+    "社会保険": ["社会保険", "社会保険完備"],
+    "選考プロセス": ["選考プロセス", "選考の流れ", "選考方法", "選考"],
+}
+
+# 部分一致のときに「他カラムの正式ラベル」を横取りしないための除外集合。
+# 例: 「給与」の部分一致が「給与補足」を拾ってしまうのを防ぐ。
+_JOB_FIELD_EXCLUSIVE_LABELS: dict[str, set[str]] = {
+    column: {
+        label
+        for other, labels in _JOB_FIELD_LABELS.items()
+        if other != column
+        for label in labels
+    }
+    for column in _JOB_FIELD_LABELS
+}
+
+# 勤務先情報 dl から引き当てる EXTRA カラム（表記ゆれを部分一致で吸収）
+_PLACE_FIELD_LABELS: dict[str, list[str]] = {
+    "休診日": ["休診日", "定休日", "休業日", "休診"],
+    "募集求人": ["募集求人", "募集中の求人"],
+}
+
+# 法人情報 dl から引き当てる EXTRA カラム。
+# 「本社住所」は法人情報 dl の「住所」(郵便番号つき) を指し、
+# 勤務先住所 (Schema.ADDR) とは別カラムとして保持する。
+_CORP_FIELD_LABELS: dict[str, list[str]] = {
+    "法人名": ["法人名", "法人"],
+    "本社住所": ["住所", "本社住所", "所在地"],
+}
+
+# dl.l-def の役割判定に使う dt ラベル。位置インデックス固定だと
+# dl が 4 つ未満のページでカラムがずれるため、ラベルで役割を決める。
+_DL_ROLE_MARKERS: list[tuple[str, tuple[str, ...]]] = [
+    ("place", ("勤務先名",)),
+    ("corp", ("法人名", "代表者")),
+    ("apply", ("選考プロセス", "選考方法", "提出書類")),
+    ("req", ("募集職種", "雇用形態", "給与")),
+]
+
+# ラベル判定が空振りしたときのフォールバック位置（従来の固定インデックス）
+_DL_ROLE_FALLBACK_INDEX: dict[str, int] = {
+    "req": 0,
+    "place": 1,
+    "corp": 2,
+    "apply": 3,
+}
+
 
 class GuppyScraper(StaticCrawler):
     """GUPPY 全職種・事業所単位 スクレイパー"""
@@ -86,6 +157,9 @@ class GuppyScraper(StaticCrawler):
         "最寄駅",
         "アクセス",
         "初出時の職種コード",
+        *_JOB_FIELD_LABELS.keys(),
+        *_PLACE_FIELD_LABELS.keys(),
+        *_CORP_FIELD_LABELS.keys(),
     ]
 
     def parse(self, url: str):
@@ -203,10 +277,30 @@ class GuppyScraper(StaticCrawler):
         item: dict = {Schema.URL: detail_url, "初出時の職種コード": code}
 
         # dl.l-def は想定 4 つ: 募集要項 / 勤務先情報 / 法人情報 / 応募方法
+        # dl 個数が 4 未満のページでもズレないよう dt ラベルで役割を判定する
         dls = soup.select("dl.l-def")
         dl_dicts = [self._dl_to_dict(dl) for dl in dls]
-        place: dict = dl_dicts[1] if len(dl_dicts) >= 2 else {}
-        corp: dict = dl_dicts[2] if len(dl_dicts) >= 3 else {}
+        roles = self._classify_dls(dl_dicts)
+        req: dict = roles["req"]
+        place: dict = roles["place"]
+        corp: dict = roles["corp"]
+        apply_: dict = roles["apply"]
+
+        # 募集要項 / 応募方法 の項目（ラベル表記ゆれは部分一致で吸収）
+        for column in _JOB_FIELD_LABELS:
+            value = self._pick_label(req, column) or self._pick_label(apply_, column)
+            if value:
+                item[column] = value
+
+        # 勤務先情報 / 法人情報 の追加項目
+        for column in _PLACE_FIELD_LABELS:
+            value = self._pick_label(place, column, _PLACE_FIELD_LABELS)
+            if value:
+                item[column] = value
+        for column in _CORP_FIELD_LABELS:
+            value = self._pick_label(corp, column, _CORP_FIELD_LABELS)
+            if value:
+                item[column] = value
 
         name = place.get("勤務先名", "")
         if name:
@@ -244,12 +338,82 @@ class GuppyScraper(StaticCrawler):
             item[Schema.REP_NM] = corp["代表者"]
         if corp.get("従業員"):
             item[Schema.EMP_NUM] = corp["従業員"]
-        if corp.get("設立"):
-            item[Schema.OPEN_DATE] = corp["設立"]
+        # 設立年月日: 法人情報の「設立」優先、無ければ勤務先情報の「設立年」で補完
+        open_date = corp.get("設立") or place.get("設立年") or place.get("設立")
+        if open_date:
+            item[Schema.OPEN_DATE] = open_date
 
         if Schema.NAME not in item:
             return None
         return item
+
+    @staticmethod
+    def _classify_dls(dl_dicts: list[dict[str, str]]) -> dict[str, dict[str, str]]:
+        """dl.l-def 群を dt ラベルで役割（req/place/corp/apply）に振り分ける。
+
+        _DL_ROLE_MARKERS のいずれかを dt ラベルが含む dl を、その役割に割り当てる
+        （1 dl は 1 役割まで）。該当が無い役割は従来の位置インデックス
+        （_DL_ROLE_FALLBACK_INDEX）にフォールバックする。
+        """
+        roles: dict[str, dict[str, str]] = {}
+        used: set[int] = set()
+
+        for role, markers in _DL_ROLE_MARKERS:
+            for i, d in enumerate(dl_dicts):
+                if i in used or not d:
+                    continue
+                if any(marker in label for label in d for marker in markers):
+                    roles[role] = d
+                    used.add(i)
+                    break
+
+        for role, index in _DL_ROLE_FALLBACK_INDEX.items():
+            if role in roles:
+                continue
+            if index < len(dl_dicts) and index not in used:
+                roles[role] = dl_dicts[index]
+                used.add(index)
+            else:
+                roles[role] = {}
+        return roles
+
+    @staticmethod
+    def _pick_label(
+        d: dict[str, str],
+        column: str,
+        label_map: dict[str, list[str]] | None = None,
+    ) -> str:
+        """dl 辞書から column に対応する値を取り出す。
+
+        label_map（既定は _JOB_FIELD_LABELS）の候補ラベルを先頭から順に
+        「完全一致 → 部分一致（label が候補を含む / 候補が label を含む）」で照合する。
+        部分一致では同じ label_map 内の他カラムの正式ラベル
+        （例 給与 に対する 給与補足）を除外して値のズレを防ぐ。
+        見つからなければ空文字。
+        """
+        if not d:
+            return ""
+        if label_map is None or label_map is _JOB_FIELD_LABELS:
+            label_map = _JOB_FIELD_LABELS
+            blocked = _JOB_FIELD_EXCLUSIVE_LABELS.get(column, set())
+        else:
+            blocked = {
+                label
+                for other, labels in label_map.items()
+                if other != column
+                for label in labels
+            }
+        candidates = label_map.get(column, [column])
+        for cand in candidates:
+            if d.get(cand):
+                return d[cand]
+        for cand in candidates:
+            for label, value in d.items():
+                if not value or label in blocked:
+                    continue
+                if cand in label or label in cand:
+                    return value
+        return ""
 
     @staticmethod
     def _facility_key(item: dict) -> tuple[str, str] | None:
