@@ -5429,3 +5429,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: coeteco
+    name: "コエテコ"
+    module: "service.coeteco"
+    url: "https://coeteco.jp/prefecture/hokkaido"
+    schedule: null
+    enabled: true
+    terms_url: ""
