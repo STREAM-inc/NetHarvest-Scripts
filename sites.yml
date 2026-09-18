@@ -5445,3 +5445,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: sanguro
+    name: "sanguro"
+    module: "corporate.sanguro"
+    url: "https://www.sungrove.co.jp/works/"
+    schedule: null
+    enabled: true
+    terms_url: ""
