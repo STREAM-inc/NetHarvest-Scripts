@@ -5437,3 +5437,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: kaitori_daikichi
+    name: "買取大吉"
+    module: "service.kaitori_daikichi"
+    url: "https://www.kaitori-daikichi.jp/open/category/new/"
+    schedule: null
+    enabled: true
+    terms_url: ""
