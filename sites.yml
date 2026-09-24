@@ -5517,3 +5517,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://locajob.net/privacy"
+
+  - site_id: informa_japan
+    name: "食品開発展出展社リスト"
+    module: "corporate.informa_japan"
+    url: "https://www.informa-japan.com/hi/complist/"
+    schedule: null
+    enabled: true
+    terms_url: ""
