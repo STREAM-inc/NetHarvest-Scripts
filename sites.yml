@@ -5453,3 +5453,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: pps_net_2
+    name: "新電力ネット小売電気事業者一覧"
+    module: "corporate.pps_net_2"
+    url: "https://pps-net.org/ppscompany_reg/retail"
+    schedule: null
+    enabled: true
+    terms_url: "https://pps-net.org/copyright"
