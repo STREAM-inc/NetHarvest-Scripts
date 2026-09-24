@@ -17,10 +17,14 @@
        同一セクション内テキストのペアで構成されるため、ラベル駆動で抽出する。
        ジャンル/カナは <title> ("店名 (カナ) - エリア/ジャンル [一休.comレストラン]") から補う。
 
-    ⚠ アクセス上の注意 (2026-09 時点):
-      Fastly edge が User-Agent とヘッダ構成を見ており、requests の既定ヘッダでは
-      全パス 403 になる。実ブラウザ相当のヘッダ (UA/Accept/Accept-Language/
-      Sec-Fetch-*) を付けると 200 で取得できる。IP 起因の恒久ブロックではない。
+    ⚠ アクセス上の注意 (2026-09-24 再調査):
+      Fastly edge が User-Agent を見ており、**Chrome UA は全パス 403** になった
+      (2026-09 前半までは Chrome UA + Sec-Fetch-* で 200 だったが仕様変更)。
+      現在 200 になるのは **Safari UA** (デスクトップ / iPhone いずれも可) のみ。
+      Chrome 専用の sec-ch-ua* ヘッダは UA と矛盾するため付けない。
+      IP 起因のブロックではない (同一 IP でも Safari UA なら 200)。
+      なお restaurant.ikyu.com は Wayback Machine 除外・Common Crawl も 403 のため、
+      アーカイブ系フォールバックは使えない。UA を退行させないこと。
 
 実行方法:
     python scripts/sites/food/com_2.py
@@ -73,22 +77,18 @@ class IkyuRestaurant(StaticCrawler):
     SEARCH_INPUT = {"visitorsCount": 2, "sortOrder": "RECOMMEND"}
     MAX_OFFSET = 60_000  # 暴走ガード
 
-    # 実ブラウザ相当のヘッダを付けないと Fastly WAF に 403 で弾かれる
+    # Fastly WAF は UA を見ている。Chrome UA / 既定 UA は全パス 403、Safari UA のみ 200。
     USER_AGENT = (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+        "(KHTML, like Gecko) Version/17.4 Safari/605.1.15"
     )
     BROWSER_HEADERS = {
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
         "Upgrade-Insecure-Requests": "1",
         "Sec-Fetch-Dest": "document",
         "Sec-Fetch-Mode": "navigate",
         "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "sec-ch-ua": '"Chromium";v="140", "Not=A?Brand";v="24"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"macOS"',
     }
 
     EXTRA_COLUMNS = [
@@ -278,6 +278,16 @@ class IkyuRestaurant(StaticCrawler):
         station = (node.get("nearestStation") or {}).get("name")
         if station:
             item["最寄駅"] = station.strip()
+
+        # area.mediumName は都道府県名 (例: 東京都)。住所から取れないときの保険。
+        pref = ((node.get("area") or {}).get("mediumName") or "").strip()
+        if pref and _PREF_RE.match(pref):
+            item[Schema.PREF] = pref
+
+        parking = node.get("parking") or {}
+        note = (parking.get("note") or "").strip()
+        if note:
+            item["駐車場"] = re.sub(r"\s*\r?\n\s*", " ", note)
 
     def _apply_detail(self, item: dict, soup: BeautifulSoup):
         h1 = soup.select_one("h1")
