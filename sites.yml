@@ -5485,3 +5485,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.fabex.jp/"
+
+  - site_id: food_selection_2
+    name: "地方銀行フードセレクション"
+    module: "corporate.food_selection_2"
+    url: "https://www.food-selection.com/list.php"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.food-selection.com/"
