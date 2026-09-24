@@ -5469,3 +5469,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://xn--pckua2a7gp15o89zb.com/利用規約"
+
+  - site_id: tsuhanexpo
+    name: "通販食品展示商談会出展者一覧"
+    module: "ec.tsuhanexpo"
+    url: "https://tsuhanexpo.com/exhibitor/"
+    schedule: null
+    enabled: true
+    terms_url: "https://tsuhanexpo.com/"
