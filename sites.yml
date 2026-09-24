@@ -5501,3 +5501,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://autoc-one.jp/kiyaku/"
+
+  - site_id: zeirishikensaku
+    name: "税理士情報検索サイト"
+    module: "government.zeirishikensaku"
+    url: "https://www.zeirishikensaku.jp/NzSearchDetail"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.zeirishikensaku.jp/"
