@@ -5461,3 +5461,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://pps-net.org/copyright"
+
+  - site_id: xn_pckua2a7gp15o89zb_5
+    name: "求人ボックス（フードデリバリー代理店・加盟店開拓）"
+    module: "jobs.xn_pckua2a7gp15o89zb_5"
+    url: "https://xn--pckua2a7gp15o89zb.com/出前館代理店の仕事"
+    schedule: null
+    enabled: true
+    terms_url: "https://xn--pckua2a7gp15o89zb.com/利用規約"
