@@ -5493,3 +5493,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.food-selection.com/"
+
+  - site_id: mota
+    name: "MOTA車買取加盟店一覧"
+    module: "auto.mota"
+    url: "https://autoc-one.jp/ullo/shopList/"
+    schedule: null
+    enabled: true
+    terms_url: "https://autoc-one.jp/kiyaku/"
