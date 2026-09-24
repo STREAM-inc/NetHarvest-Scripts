@@ -5509,3 +5509,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.zeirishikensaku.jp/"
+
+  - site_id: locajob
+    name: "ロカジョブ"
+    module: "jobs.locajob"
+    url: "https://locajob.net/"
+    schedule: null
+    enabled: true
+    terms_url: "https://locajob.net/privacy"
