@@ -5477,3 +5477,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://tsuhanexpo.com/"
+
+  - site_id: fabex
+    name: "FABEX出展社検索"
+    module: "corporate.fabex"
+    url: "https://nissyoku.my.salesforce-sites.com/fabex/searchExhibitor?ev=fbx"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.fabex.jp/"
