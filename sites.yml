@@ -5557,3 +5557,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: car
+    name: "楽天Car車検"
+    module: "auto.car"
+    url: "https://car.rakuten.co.jp/shaken/"
+    schedule: null
+    enabled: true
+    terms_url: ""
