@@ -5549,3 +5549,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: itszai_3
+    name: "イツザイ（三重）"
+    module: "jobs.itszai_3"
+    url: "https://www.itszai.jp/"
+    schedule: null
+    enabled: true
+    terms_url: ""
