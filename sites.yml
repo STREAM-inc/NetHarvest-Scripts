@@ -5541,3 +5541,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://help.mapion.co.jp/mapionterms.html"
+
+  - site_id: koujuren_2
+    name: "高住連届出紹介事業者検索"
+    module: "government.koujuren_2"
+    url: "https://koujuren.jp/search.php"
+    schedule: null
+    enabled: true
+    terms_url: ""
