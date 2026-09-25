@@ -5525,3 +5525,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: itszai_2
+    name: "イツザイ（長野）"
+    module: "jobs.itszai_2"
+    url: "https://www.itszai.jp/"
+    schedule: null
+    enabled: true
+    terms_url: ""
