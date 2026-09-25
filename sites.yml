@@ -5533,3 +5533,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: mapion_2
+    name: "マピオン電話帳_興信所探偵事務所_14都県(関東甲信越東海)"
+    module: "service.mapion_2"
+    url: "https://www.mapion.co.jp/phonebook/M10037/13/"
+    schedule: null
+    enabled: true
+    terms_url: "https://help.mapion.co.jp/mapionterms.html"
