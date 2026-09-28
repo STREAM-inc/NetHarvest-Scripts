@@ -5631,7 +5631,7 @@ sites:
     terms_url: "https://datosabiertos.gob.ec/dataset/catastro-turistico-total"
 
   - site_id: koujuren_3
-    name: "全国有料老人ホーム協会"
+    name: "全国有料老人ホーム協会 高住連"
     module: "government.koujuren_3"
     url: "https://koujuren.jp/search.php#search_content"
     schedule: null
