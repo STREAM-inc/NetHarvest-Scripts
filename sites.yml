@@ -5605,3 +5605,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: zeirishikensaku_2
+    name: "税理士情報検索サイト（日本税理士会連合会）"
+    module: "government.zeirishikensaku_2"
+    url: "https://www.zeirishikensaku.jp/"
+    schedule: null
+    enabled: true
+    terms_url: ""
