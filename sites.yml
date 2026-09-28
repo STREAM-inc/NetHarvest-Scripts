@@ -5629,3 +5629,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://datosabiertos.gob.ec/dataset/catastro-turistico-total"
+
+  - site_id: koujuren_3
+    name: "全国有料老人ホーム協会"
+    module: "government.koujuren_3"
+    url: "https://koujuren.jp/search.php#search_content"
+    schedule: null
+    enabled: true
+    terms_url: ""
