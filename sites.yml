@@ -5575,7 +5575,7 @@ sites:
     terms_url: ""
 
   - site_id: club_of_mozambique_travel_tourism
-    name: "Club of Mozambique ビジネスディレクトリ（Travel & Tourism）"
+    name: "Club of Mozambique ビジネスディレクトリ（Travel and Tourism）"
     module: "travel.club_of_mozambique_travel_tourism"
     url: "https://clubofmozambique.com/business-directory/"
     schedule: null
