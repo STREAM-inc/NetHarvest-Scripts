@@ -5597,3 +5597,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: shta_3
+    name: "SHTA会員名簿(シント・マールテン)"
+    module: "travel.shta_3"
+    url: "https://shta.com/shta-member-directory/"
+    schedule: null
+    enabled: true
+    terms_url: ""
