@@ -5613,3 +5613,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: sernatur
+    name: "SERNATUR チリ旅行代理店登録"
+    module: "travel.sernatur"
+    url: "https://portalserviciosturisticos.sernatur.cl/"
+    schedule: null
+    enabled: true
+    terms_url: "https://portalserviciosturisticos.sernatur.cl/robots.txt"
