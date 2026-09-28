@@ -5581,3 +5581,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: anta_3
+    name: "ANTA会員一覧(ナミビア旅行代理店協会)"
+    module: "travel.anta_3"
+    url: "https://anta.com.na/"
+    schedule: null
+    enabled: true
+    terms_url: ""
