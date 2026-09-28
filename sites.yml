@@ -5589,3 +5589,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: natta_3
+    name: "NATTA会員名簿(ネパール旅行代理店協会)"
+    module: "travel.natta_3"
+    url: "https://natta.org.np/members/"
+    schedule: null
+    enabled: true
+    terms_url: ""
