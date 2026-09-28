@@ -5573,3 +5573,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: club_of_mozambique_travel_tourism
+    name: "Club of Mozambique ビジネスディレクトリ（Travel & Tourism）"
+    module: "travel.club_of_mozambique_travel_tourism"
+    url: "https://clubofmozambique.com/business-directory/"
+    schedule: null
+    enabled: true
+    terms_url: ""
