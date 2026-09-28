@@ -5565,3 +5565,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: umta_3
+    name: "UMTA会員名簿(ミャンマー旅行代理店協会)"
+    module: "travel.umta_3"
+    url: "https://www.umtanet.org/index.php/en/members/membership-directory"
+    schedule: null
+    enabled: true
+    terms_url: ""
