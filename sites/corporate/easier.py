@@ -4,11 +4,14 @@
 取得対象:
     - easier.jp に PR ページ / コンテンツページを掲載している事業者 (約866社)
     - 事業者名・代表者名・郵便番号・都道府県・住所・TEL・公式サイトURL・掲載サービス名
+    - 更新日 (sitemap の <lastmod> の最大値。後工程で「直近1年以内」の絞り込みに使う)
     - 1事業者1行 (8文字英数字の事業者IDでユニーク化)
 
 取得フロー:
     sitemap-index.xml → 3本のサブ sitemap → 各 <loc> の第1パス要素 (8文字ID) で
     事業者単位にグルーピングする (サイトにディレクトリ一覧ページが存在しないため)。
+    同時に各 <url> の <lastmod> を拾い、事業者配下の全URL (トップ / content / pr 等)
+    のうち最新の日付を「更新日」として採用する。
     事業者ごとに 掲載ページを1〜4件だけ取得し、
       1) og:site_name / <title> から 事業者表示名・掲載サービス名
       2) 「特定商取引法に基づく表記」ブロック (会社名/代表者/所在地/電話番号 等) から会社情報
@@ -57,6 +60,9 @@ _URL_RE = re.compile(r"https?://[^\s\"'<>）\)]+")
 
 # 事業者ID = URL 第1パス要素の8文字英数字
 _ID_RE = re.compile(r"^https?://easier\.jp/([0-9A-Za-z_-]{8})(?:/|$)")
+
+# <lastmod> の日付部分 (2026-09-28 / 2026-09-28T10:00:00+09:00 のどちらにも対応)
+_LASTMOD_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 
 # 404 ページはステータス200で返るため本文で判定する
 _NOT_FOUND_TEXT = "お探しのページは見つかりませんでした"
@@ -153,29 +159,54 @@ class Easier(StaticCrawler):
     # 1事業者あたりに取得するページ数の上限 (会社情報が揃うまでフォールバック)
     MAX_PAGES_PER_COMPANY = 4
     # サイト固有列。記事本文などのプロース列は著作権配慮のため含めない
-    EXTRA_COLUMNS = ["事業者ID", "サイト表示名", "掲載ページ数", "特定商取引法ページURL"]
+    EXTRA_COLUMNS = ["事業者ID", "サイト表示名", "更新日", "掲載ページ数", "特定商取引法ページURL"]
 
     # ------------------------------------------------------------------ 列挙
-    def _sitemap_locs(self, sitemap_url: str) -> list[str]:
-        """sitemap (index / urlset) の <loc> を返す。"""
+    def _sitemap_entries(self, sitemap_url: str) -> list[tuple[str, str]]:
+        """sitemap (index / urlset) の (loc, lastmod) を返す。
+
+        <sitemap> / <url> のどちらの要素でも 子の <loc> と <lastmod> を対にして返す。
+        lastmod が無いエントリは空文字を入れる。
+        """
         soup = self.get_soup(sitemap_url)
         if soup is None:
             return []
-        return [loc.get_text(strip=True) for loc in soup.find_all("loc") if loc.get_text(strip=True)]
+        entries: list[tuple[str, str]] = []
+        for node in soup.find_all(["url", "sitemap"]):
+            loc_tag = node.find("loc")
+            if loc_tag is None:
+                continue
+            loc = loc_tag.get_text(strip=True)
+            if not loc:
+                continue
+            lastmod_tag = node.find("lastmod")
+            m = _LASTMOD_RE.search(lastmod_tag.get_text(strip=True)) if lastmod_tag else None
+            entries.append((loc, m.group(1) if m else ""))
+        return entries
 
-    def _collect_companies(self, url: str) -> dict[str, list[str]]:
-        """sitemap-index から 事業者ID → 掲載URL一覧 の辞書を組み立てる。"""
+    def _collect_companies(self, url: str) -> tuple[dict[str, list[str]], dict[str, str]]:
+        """sitemap-index から 事業者ID → 掲載URL一覧 / 事業者ID → 更新日 を組み立てる。
+
+        更新日は その事業者配下の全URL (トップ / content / pr 等) の <lastmod> の最大値。
+        """
         companies: dict[str, list[str]] = {}
-        sub_sitemaps = [loc for loc in self._sitemap_locs(url) if loc.endswith(".xml")]
+        lastmods: dict[str, str] = {}
+        index_entries = self._sitemap_entries(url)
+        sub_sitemaps = [loc for loc, _ in index_entries if loc.endswith(".xml")]
         if not sub_sitemaps:
             # 引数 url が urlset そのものだった場合のフォールバック
             sub_sitemaps = [url]
         for sub in sub_sitemaps:
-            for loc in self._sitemap_locs(sub):
+            for loc, lastmod in self._sitemap_entries(sub):
                 m = _ID_RE.match(loc)
-                if m:
-                    companies.setdefault(m.group(1), []).append(loc)
-        return companies
+                if not m:
+                    continue
+                company_id = m.group(1)
+                companies.setdefault(company_id, []).append(loc)
+                # ISO8601 (YYYY-MM-DD) は辞書順比較がそのまま日付順比較になる
+                if lastmod > lastmods.get(company_id, ""):
+                    lastmods[company_id] = lastmod
+        return companies, lastmods
 
     # ------------------------------------------------------------------ 取得
     def _get_page(self, page_url: str) -> bs4.BeautifulSoup | None:
@@ -251,7 +282,7 @@ class Easier(StaticCrawler):
     def _clean_rep(value: str) -> str:
         line = Easier._first_line(value, 24)
         # 見出し・キャッチコピーの誤検出を弾く (氏名に数字/装飾記号は入らない)
-        if not line or re.search(r"[。！？「」【】0-9０-９●■◆★]", line):
+        if not line or re.search(r"[。！？「」【】0-90-9●■◆★]", line):
             return ""
         if re.match(r"^[はがのをにでとも、]", line):
             return ""
@@ -332,7 +363,7 @@ class Easier(StaticCrawler):
         return ""
 
     # ------------------------------------------------------------------ 本体
-    def _build_item(self, company_id: str, page_urls: list[str]) -> dict | None:
+    def _build_item(self, company_id: str, page_urls: list[str], lastmod: str = "") -> dict | None:
         """1事業者分の行を組み立てる (掲載ページを最大 MAX_PAGES_PER_COMPANY 件取得)。"""
         # トップページ → /pr/ → /content/ の順で当たる
         ordered = sorted(page_urls, key=lambda u: (u.count("/") != 3, "/content/" in u))
@@ -433,6 +464,7 @@ class Easier(StaticCrawler):
             Schema.TIKTOK: sns.get(Schema.TIKTOK, ""),
             "事業者ID": company_id,
             "サイト表示名": display_name,
+            "更新日": lastmod,
             Schema.EMAIL: self._clean_mail(kv.get("mail", "")),
             "掲載ページ数": str(len(page_urls)),
             "特定商取引法ページURL": used_tokusho or tokusho_url,
@@ -440,13 +472,13 @@ class Easier(StaticCrawler):
         return item
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        companies = self._collect_companies(url)
+        companies, lastmods = self._collect_companies(url)
         self.total_items = len(companies)
         self.logger.info("事業者ID: %d 件 (sitemap 総URL数から集約)", len(companies))
 
         for company_id, page_urls in companies.items():
             try:
-                item = self._build_item(company_id, page_urls)
+                item = self._build_item(company_id, page_urls, lastmods.get(company_id, ""))
             except Exception as e:  # noqa: BLE001 — 1社の失敗で全体を止めない
                 self.logger.warning("事業者 %s の取得に失敗: %s", company_id, e)
                 continue
