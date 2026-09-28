@@ -5621,3 +5621,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://portalserviciosturisticos.sernatur.cl/robots.txt"
+
+  - site_id: catastro_turistico
+    name: "Catastro Turístico エクアドル観光事業者台帳"
+    module: "government.catastro_turistico"
+    url: "https://servicios.turismo.gob.ec/catastro-turistico/"
+    schedule: null
+    enabled: true
+    terms_url: "https://datosabiertos.gob.ec/dataset/catastro-turistico-total"
