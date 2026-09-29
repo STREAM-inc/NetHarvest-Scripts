@@ -5,12 +5,17 @@
     - トップページ (https://www.atpress.ne.jp/) に掲載された新着プレスリリースから
       到達できる各配信企業の会社概要ページ (/news/company/{id})
     - 会社名・所在地・代表者名・設立年月日・従業員数・HP・業種など
+    - 併せて、その企業に到達した元のプレスリリース記事の配信日 (EXTRA「配信日」) と
+      記事自体の URL (EXTRA「プレスリリースURL」)。
+      Schema.URL は会社概要ページ URL のままで、記事 URL とは別カラムに保持する。
 
 取得フロー (一覧→中間→詳細 / Pattern B: 1 社ずつ即 yield):
     引数 url (トップページ = sites.yml の url) を唯一のルートとして使う。
       1. トップページの新着プレスリリースカード (/news/{id}) を列挙
-      2. 各プレスリリース詳細ページから配信企業リンク (/news/company/{id}) を抽出
+      2. 各プレスリリース詳細ページから配信企業リンク (/news/company/{id}) と
+         配信日時 (span#published-at / JSON-LD datePublished) を抽出
       3. 企業 ID を重複排除し、会社概要ページを取得して 1 社ずつ即 yield
+         (会社概要 + その企業を辿る元になったプレスリリースの配信日・URL を付与)
     ※ 会社概要ページは埋め込み JSON-LD (Organization) と概要グリッドの両方に
       データがあり、requests で静的取得できるため StaticCrawler で実装する。
     ※ プレスリリース一覧サイトマップ (sitemap-news.xml) の先頭は会社リンクを持たない
@@ -32,6 +37,7 @@
 import json
 import re
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -48,6 +54,14 @@ _RELEASE_RE = re.compile(r'/news/(\d+)(?:["/?#]|$)')
 _COMPANY_RE = re.compile(r'/news/company/(\d+)')
 # 会社概要グリッドで拾うラベル
 _GRID_LABELS = {"所在地", "代表者名", "URL", "設立年月日", "従業員数"}
+# 記事ページの配信日時表示 "2026年9月29日 10:00" (span#published-at)
+_PUB_TEXT_RE = re.compile(r"(\d{4})年(\d{1,2})月(\d{1,2})日(?:\s*(\d{1,2}):(\d{2}))?")
+# JST (JSON-LD datePublished は UTC なので表示に合わせて変換する)
+_JST = timezone(timedelta(hours=9))
+
+# --- EXTRA カラム (Schema に該当定数が無いためサイト固有カラムとして追加) ---
+_COL_PUB_DATE = "配信日"
+_COL_RELEASE_URL = "プレスリリースURL"
 # 都道府県 (住所先頭の分割用フォールバック)
 _PREF_RE = re.compile(
     r"^(北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|"
@@ -62,7 +76,8 @@ class Press(StaticCrawler):
     """＠Press (atpress.ne.jp) スクレイパー"""
 
     DELAY = 1.5
-    EXTRA_COLUMNS = []  # すべて Schema にマッピングできるため EXTRA は無し
+    # 会社概要項目は Schema にマッピングできるが、配信日/記事 URL は該当定数が無い
+    EXTRA_COLUMNS = [_COL_PUB_DATE, _COL_RELEASE_URL]
 
     def parse(self, url: str):
         soup = self.get_soup(url)
@@ -91,6 +106,9 @@ class Press(StaticCrawler):
                 company_url = urljoin(url, f"/news/company/{cid}")
                 item = self._scrape_company(company_url)
                 if item:
+                    # 企業に到達した元のプレスリリース記事の情報を付与
+                    item[_COL_PUB_DATE] = self._extract_published_at(rsoup)
+                    item[_COL_RELEASE_URL] = release_url
                     yield item
             except Exception as exc:  # noqa: BLE001 個別失敗はログして続行
                 self.logger.warning("skip release %s: %s", rid, exc)
@@ -158,6 +176,44 @@ class Press(StaticCrawler):
             Schema.HP: hp,
             Schema.CAT_SITE: cat_site,
         }
+
+    @staticmethod
+    def _extract_published_at(soup) -> str:
+        """プレスリリース記事の配信日時を "YYYY-MM-DD HH:MM" 形式で返す。
+
+        1. 画面表示の span#published-at ("2026年9月29日 10:00")
+        2. 無ければ JSON-LD NewsArticle の datePublished (UTC) を JST に変換
+        """
+        span = soup.select_one("#published-at")
+        if span:
+            m = _PUB_TEXT_RE.search(span.get_text(" ", strip=True))
+            if m:
+                y, mo, d, hh, mm = m.groups()
+                date = f"{int(y):04d}-{int(mo):02d}-{int(d):02d}"
+                return f"{date} {int(hh):02d}:{mm}" if hh else date
+
+        for s in soup.find_all("script", type="application/ld+json"):
+            raw = s.string or s.get_text() or ""
+            if not raw.strip():
+                continue
+            try:
+                data = json.loads(raw)
+            except (ValueError, TypeError):
+                continue
+            for it in data if isinstance(data, list) else [data]:
+                if not isinstance(it, dict):
+                    continue
+                iso = it.get("datePublished")
+                if not iso:
+                    continue
+                try:
+                    dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+                except ValueError:
+                    return str(iso)
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone(_JST)
+                return dt.strftime("%Y-%m-%d %H:%M")
+        return ""
 
     @staticmethod
     def _extract_org_ld(soup) -> dict:
