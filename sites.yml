@@ -5725,3 +5725,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_18747btb_tour_operator_directory
+    name: "【STREAMREQ-18747】BTB Tour Operator Directory（ベリーズ）"
+    module: "travel.streamreq_18747btb_tour_operator_directory"
+    url: "https://www.belizetourismboard.org/tour-operator/"
+    schedule: null
+    enabled: true
+    terms_url: ""
