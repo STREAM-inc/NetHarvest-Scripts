@@ -5709,3 +5709,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_17785
+    name: "【STREAMREQ-17785】政府認可旅行代理店一覧（ニューカレドニア）"
+    module: "government.streamreq_17785"
+    url: "https://decat.gouv.nc/professionnels-professions-reglementees-agent-de-tourisme-et-de-voyage/les-agences-de-tourisme-et-de"
+    schedule: null
+    enabled: true
+    terms_url: ""
