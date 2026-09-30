@@ -5685,3 +5685,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: kaigojob
+    name: "ウェルミージョブ沖縄福祉介護"
+    module: "jobs.kaigojob"
+    url: "https://www.kaigojob.com/okinawa"
+    schedule: null
+    enabled: true
+    terms_url: "https://policy.bm-sms.co.jp/consumer/terms/kaigojob-com"
