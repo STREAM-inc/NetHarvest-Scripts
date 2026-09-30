@@ -5741,3 +5741,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_18751rnt
+    name: "【STREAMREQ-18751】RNT オープンデータ（コロンビア）"
+    module: "travel.streamreq_18751rnt"
+    url: "https://www.datos.gov.co/resource/thwd-ivmp.json"
+    schedule: null
+    enabled: true
+    terms_url: ""
