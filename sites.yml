@@ -5781,3 +5781,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_18916tafi
+    name: "【STREAMREQ-18916】TAFI インド旅行代理店連盟 会員ディレクトリ（インド）"
+    module: "travel.streamreq_18916tafi"
+    url: "https://tafionline.com/"
+    schedule: null
+    enabled: true
+    terms_url: ""
