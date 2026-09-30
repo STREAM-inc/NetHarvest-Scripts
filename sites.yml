@@ -5845,3 +5845,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: coeteco_2
+    name: "コエテコキャンパス"
+    module: "service.coeteco_2"
+    url: "https://coeteco.jp/campus/categories/generative-ai-school"
+    schedule: null
+    enabled: true
+    terms_url: "https://coeteco.jp/kiyaku"
