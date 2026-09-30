@@ -5717,3 +5717,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_17786jntotravel_agents
+    name: "【STREAMREQ-17786】JNTO公式Travel Agents（ニュージーランド）"
+    module: "travel.streamreq_17786jntotravel_agents"
+    url: "https://www.japan.travel/en/au/travel-agents/"
+    schedule: null
+    enabled: true
+    terms_url: ""
