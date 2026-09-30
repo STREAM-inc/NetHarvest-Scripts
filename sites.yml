@@ -5773,3 +5773,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_18914jnto_tour_operators_in_india
+    name: "【STREAMREQ-18914】JNTOインド公式サイト Tour Operators in India（インド）"
+    module: "travel.streamreq_18914jnto_tour_operators_in_india"
+    url: "https://www.japan.travel/en/in/travel-agency/"
+    schedule: null
+    enabled: true
+    terms_url: ""
