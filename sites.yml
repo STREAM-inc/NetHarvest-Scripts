@@ -5701,3 +5701,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_17779fnavm
+    name: "【STREAMREQ-17779】FNAVM（モロッコ）"
+    module: "travel.streamreq_17779fnavm"
+    url: "http://www.fnavm.org.ma"
+    schedule: null
+    enabled: true
+    terms_url: ""
