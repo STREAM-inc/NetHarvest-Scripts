@@ -5813,3 +5813,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_18922_caa_atol_csv
+    name: "【STREAMREQ-18922】英国民間航空局 CAA ATOL保有者一覧 CSV（マン島）"
+    module: "travel.streamreq_18922_caa_atol_csv"
+    url: "https://aircraftapi.caa.co.uk/api/checkanatol/contactdetails"
+    schedule: null
+    enabled: true
+    terms_url: ""
