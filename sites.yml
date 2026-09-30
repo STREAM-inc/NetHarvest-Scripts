@@ -5661,3 +5661,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: livex_inc
+    name: "ライヴェックス（貸事務所・賃貸オフィス検索）"
+    module: "realestate.livex_inc"
+    url: "https://www.livex-inc.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.livex-inc.com/regulation/"
