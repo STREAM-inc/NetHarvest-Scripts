@@ -5805,3 +5805,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_18921feramalastofa
+    name: "【STREAMREQ-18921】Ferðamálastofa アイスランド観光局 旅行会社有効免許一覧（アイスランド）"
+    module: "travel.streamreq_18921feramalastofa"
+    url: "https://www.ferdamalastofa.is/is/leyfi/utgefin-leyfi/ferdaskrifstofur-utgefin-leyfi"
+    schedule: null
+    enabled: true
+    terms_url: ""
