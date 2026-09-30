@@ -5653,3 +5653,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: sernatur_2
+    name: "SERNATUR"
+    module: "travel.sernatur_2"
+    url: "https://portalserviciosturisticos.sernatur.cl/"
+    schedule: null
+    enabled: true
+    terms_url: ""
