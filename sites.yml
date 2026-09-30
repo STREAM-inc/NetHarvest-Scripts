@@ -5757,3 +5757,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_18754rejsegarantifonden
+    name: "【STREAMREQ-18754】Rejsegarantifonden 会員名簿（デンマーク）"
+    module: "travel.streamreq_18754rejsegarantifonden"
+    url: "https://www.rejsegarantifonden.dk/medlem/"
+    schedule: null
+    enabled: true
+    terms_url: ""
