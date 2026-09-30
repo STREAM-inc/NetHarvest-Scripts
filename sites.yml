@@ -5765,3 +5765,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_18755catastro_turistico
+    name: "【STREAMREQ-18755】Catastro Turístico オープンデータ（エクアドル）"
+    module: "government.streamreq_18755catastro_turistico"
+    url: "https://datosabiertos.gob.ec/dataset/catastro-turistico-total"
+    schedule: null
+    enabled: true
+    terms_url: ""
