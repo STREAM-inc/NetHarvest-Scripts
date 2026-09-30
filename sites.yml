@@ -5829,3 +5829,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: pr_times
+    name: "PR TIMES"
+    module: "corporate.pr_times"
+    url: "https://prtimes.jp/"
+    schedule: null
+    enabled: true
+    terms_url: ""
