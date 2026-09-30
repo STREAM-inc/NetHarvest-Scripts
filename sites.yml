@@ -5837,3 +5837,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: press_2
+    name: "@Press（アットプレス）"
+    module: "corporate.press_2"
+    url: "https://www.atpress.ne.jp/"
+    schedule: null
+    enabled: true
+    terms_url: ""
