@@ -5693,3 +5693,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://policy.bm-sms.co.jp/consumer/terms/kaigojob-com"
+
+  - site_id: asita
+    name: "ASITA"
+    module: "travel.asita"
+    url: "https://asita.id/anggota/"
+    schedule: null
+    enabled: true
+    terms_url: ""
