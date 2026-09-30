@@ -5645,3 +5645,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: rnav_2
+    name: "RNAV"
+    module: "travel.rnav_2"
+    url: "https://agenciasdeviajes.ar/"
+    schedule: null
+    enabled: true
+    terms_url: ""
