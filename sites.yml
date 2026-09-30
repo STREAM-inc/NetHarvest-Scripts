@@ -5821,3 +5821,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_18923isleofman_com_travel_agents
+    name: "【STREAMREQ-18923】isleofman.com ビジネスディレクトリ「travel agents」（マン島）"
+    module: "travel.streamreq_18923isleofman_com_travel_agents"
+    url: "https://www.isleofman.com/businesses?search=travel%20agents&page=1"
+    schedule: null
+    enabled: true
+    terms_url: ""
