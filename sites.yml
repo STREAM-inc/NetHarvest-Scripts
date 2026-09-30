@@ -5669,3 +5669,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.livex-inc.com/regulation/"
+
+  - site_id: tic
+    name: "TIC"
+    module: "travel.tic"
+    url: "https://www.tichk.org/en/agents/find-agent?combine=&nature%5B66%5D=66&nature%5B67%5D=67&nature%5B68%5D=68&nature%5B69%5D=69&nature%5B70%5D=70&nature%5B71%5D=71&nature%5B72%5D=72&nature%5B73%5D=73&nature%5B74%5D=74&find-ta-location=&page=N"
+    schedule: null
+    enabled: true
+    terms_url: ""
