@@ -5789,3 +5789,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_18917_nidhi_classified
+    name: "【STREAMREQ-18917】インド観光省 NIDHI+ 認定旅行会社 Classified（インド）"
+    module: "travel.streamreq_18917_nidhi_classified"
+    url: "https://nidhi.tourism.gov.in/home/classified?categoryCode=02&pageno=1"
+    schedule: null
+    enabled: true
+    terms_url: ""
