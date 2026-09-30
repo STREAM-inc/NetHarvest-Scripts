@@ -5677,3 +5677,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: astindo
+    name: "ASTINDO"
+    module: "travel.astindo"
+    url: "https://astindo.org/about-astindo/anggota-astindo/"
+    schedule: null
+    enabled: true
+    terms_url: ""
