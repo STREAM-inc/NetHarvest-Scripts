@@ -5749,3 +5749,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_18753mmr
+    name: "【STREAMREQ-18753】MMR 旅行会社登録簿（チェコ）"
+    module: "government.streamreq_18753mmr"
+    url: "https://mmr.gov.cz/cs/ministerstvo/cestovni-ruch/seznam-cestovnich-kancelari"
+    schedule: null
+    enabled: true
+    terms_url: ""
