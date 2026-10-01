@@ -5853,3 +5853,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://coeteco.jp/kiyaku"
+
+  - site_id: green_building_pgm
+    name: "建築物環境計画書制度システム"
+    module: "construction.green_building_pgm"
+    url: "https://green-building-pgm.metro.tokyo.lg.jp/KSE00101"
+    schedule: null
+    enabled: true
+    terms_url: ""
