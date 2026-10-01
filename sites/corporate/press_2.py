@@ -51,7 +51,7 @@ import sys
 import unicodedata
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -122,12 +122,19 @@ class Press2(StaticCrawler):
     EXTRA_COLUMNS = [_COL_RELEASE_URL, _COL_COMPANY_URL, _COL_PUB_DATE]
 
     def parse(self, url: str):
+        # 任意のクエリで分割実行・期間絞り込みができる (Prefect の url パラメータで渡す):
+        #   nh_shard=K/N  … リリースIDを N で割った余りが K-1 のものだけ取る (並列実行用)
+        #   nh_since=YYYY-MM-DD … サイトマップの lastmod がこの日以降のものだけ取る
+        # クエリ無しなら従来どおり全件。
+        root, shard_k, shard_n, since = self._parse_run_options(url)
         seen: set[str] = set()
-        for release_url in self._iter_release_urls(url):
+        for release_url in self._iter_release_urls(root, since):
             rid = release_url.rstrip("/").rsplit("/", 1)[-1]
             if rid in seen:
                 continue
             seen.add(rid)
+            if shard_n > 1 and int(rid) % shard_n != shard_k - 1:
+                continue
             try:
                 item = self._scrape_release(release_url)
             except Exception as exc:  # noqa: BLE001 個別失敗はログして継続
@@ -137,8 +144,28 @@ class Press2(StaticCrawler):
                 yield item
 
     # ------------------------------------------------------------------ 列挙
-    def _iter_release_urls(self, root: str):
-        """トップページの新着 → sitemap-news.xml の順にリリース URL を列挙する。"""
+    @staticmethod
+    def _parse_run_options(url: str) -> tuple[str, int, int, str]:
+        parts = urlsplit(url)
+        qs = parse_qs(parts.query)
+        root = f"{parts.scheme}://{parts.netloc}{parts.path or '/'}"
+        shard_k, shard_n = 1, 1
+        if "nh_shard" in qs:
+            k, n = qs["nh_shard"][0].split("/", 1)
+            shard_k, shard_n = int(k), int(n)
+            if not 1 <= shard_k <= shard_n:
+                raise ValueError(f"nh_shard が不正です: {qs['nh_shard'][0]}")
+        since = qs.get("nh_since", [""])[0]
+        if since:
+            datetime.strptime(since, "%Y-%m-%d")  # 形式チェック
+        return root, shard_k, shard_n, since
+
+    def _iter_release_urls(self, root: str, since: str = ""):
+        """トップページの新着 → sitemap-news.xml の順にリリース URL を列挙する。
+
+        since 指定時は lastmod がそれより前の URL を除く。サイトマップは新しい順なので、
+        lastmod が since を下回った時点で以降のファイルも含めて打ち切る。
+        """
         soup = self.get_soup(root)
         if soup is not None:
             for rid in dict.fromkeys(_RELEASE_RE.findall(str(soup))):
@@ -157,6 +184,10 @@ class Press2(StaticCrawler):
             if sm is None:
                 continue
             for loc in sm.find_all("loc"):
+                if since:
+                    lastmod = loc.find_next_sibling("lastmod")
+                    if lastmod is None or lastmod.get_text(strip=True)[:10] < since:
+                        return
                 m = _RELEASE_RE.search(loc.get_text(strip=True) + "/")
                 if m:
                     yield urljoin(root, f"/news/{m.group(1)}")
