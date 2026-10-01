@@ -5861,3 +5861,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: syokunin_doh_2
+    name: "職人働"
+    module: "jobs.syokunin_doh_2"
+    url: "https://www.syokunin-doh.com/recruitpost-sitemap.xml"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.syokunin-doh.com/terms"
