@@ -1,33 +1,48 @@
 """
-ヒカカク！ 出張買取業者一覧 (hikakaku.com) スクレイパー
+ヒカカク！ 買取業者一覧 (hikakaku.com) スクレイパー
 
 取得対象:
-    https://hikakaku.com/company/kaitoriinfo/field/keishiki/syuccho/
-    出張買取 (訪問買取) に対応する買取業者の一覧 (全国分・都道府県絞り込みリンク無し)
+    買取形式別の業者一覧 3 本 (出張 / 宅配 / 店頭) の和集合。
+    ルート URL (sites.yml の url = 出張一覧) から他の 2 本を派生させる。
+        出張: https://hikakaku.com/company/kaitoriinfo/field/keishiki/syuccho/
+        宅配: https://hikakaku.com/company/kaitoriinfo/field/keishiki/takuhai/
+        店頭: https://hikakaku.com/company/kaitoriinfo/field/keishiki/tentou/
 
 取得フロー:
-    1. ルート URL をページネーション (?page=N) で巡回。1 ページ 20 件、
-       カードが 0 件になったページで終了する。
-       2026-08 時点の実測: 最終ページ = 322 (9 件)、合計約 6,429 件。
+    1. 3 本の一覧をそれぞれ ?page=N で巡回する。1 ページ 20 件、カードが 0 件になった
+       ページで打ち切る (ページ数は固定値で見積もらず実測で最終ページまで回す)。
     2. 一覧カード (section.coSummaryStore-Wrapper) から
        業者名 / 掲載ページURL / 業者ID / 買取形式 / 対応地域 / 古物商許可番号 / 住所 /
        電話番号 (PR 掲載枠のみ) / 評価スコア / クチコミ件数 / 査定実績件数 を抽出
-    3. 業者詳細ページ (/company/{id}/) を 1 件ずつ取得し、
-       運営会社 / 運営会社の住所 / 屋号の運営代表者名 / 本店の住所 / 本店の営業時間 /
-       本店の定休日 / 法人買取対応 / LINE査定 / 公式サイト / X アカウントを補完
-    4. 1 件取得ごとに即 yield (Pattern B)
+    3. 掲載ページURL (= 業者詳細 URL) をキーに重複除去する。3 本の一覧に同じ業者が
+       現れても処理するのは最初の 1 回だけで、詳細ページへも 1 回しかアクセスしない。
+    4. 業者詳細ページ (/company/{id}/) から 取扱ジャンル / 運営会社 / 運営会社の住所 /
+       屋号の運営代表者名 / 本店の住所 / 本店の営業時間 / 本店の定休日 / 法人買取対応 /
+       LINE査定 / 公式サイト / X アカウントを補完
+    5. 1 件取得ごとに即 yield (Pattern B)
+
+買取形式について:
+    一覧カードの span.keishiki には対応形式に is_true、非対応形式に is_false が付く
+    (詳細ページの「買取形式」は非対応の形式も列挙されるため採用しない)。
+    よって 1 枚のカードからその業者が対応する全形式が分かり、
+    「出張/店頭」のように "/" 区切りで格納する。
 
 フィルター (備考の指示):
-    買取形式に「出張」を含む業者のみを yield する。
-    (一覧 URL 自体が出張買取での絞り込みだが、念のためコード側でも担保する)
+    住所の都道府県が 東京都 / 神奈川県 / 埼玉県 / 千葉県 の業者のみを yield する。
+    住所が取得できない (「未記載」等) 業者は、対応地域に「東京」「神奈川」「埼玉」
+    「千葉」のいずれかを含む場合に限り残す。
+    都道府県が確定した時点で対象外と分かる業者は詳細ページを取得しない
+    (詳細側の住所は一覧に住所が無いときの補完にしか使わないため結果は変わらない)。
 
 構造上の注意点:
-    - 買取形式は span.keishiki に is_true / is_false のフラグが付く。
-      is_false は「非対応」を意味するため、is_true のものだけを採用する。
     - 詳細ページのラベル/値は li.companyShow-InfoCompanyUnorderedList_ListItem の
       **同一 li 内**に格納されている。値要素は <p> と <div> の 2 パターンがあるため、
       「ラベルから次の div を探す」実装では <p> の値がスキップされてラベルと値が
       ズレる (例: 「送料」に古物商許可番号の値が入る)。必ず li 単位で対応付けること。
+    - 取扱ジャンルは業者情報リストには無く、「{業者名}の取扱い商品」見出し (h2.headline_bu)
+      直後の div.tag_list のリンクにある。詳細ページには同クラスの div が十数個あり
+      (関連商品・関連業者の枠) 先頭から取ると別業者の商品名を拾うため、必ず
+      「取扱い商品」見出しの直後の 1 つだけを採用する。
     - 一覧の住所は「神奈川県神奈川県横浜市…」のように都道府県が重複することがあるため
       正規化してから PREF / ADDR に分割する。
     - 電話番号は PR 掲載枠にのみ表示され、詳細ページには存在しない
@@ -75,6 +90,16 @@ _COMPANY_ID_RE = re.compile(r"/company/(\d+)/?$")
 # サイトが「値なし」を表すプレースホルダ
 _EMPTY_TOKENS = {"", "未記載", "ー", "-", "―", "−", "なし・未記載"}
 
+# 巡回する買取形式別一覧 (ルート URL から派生させる。表示順もこの順)
+_KEISHIKI_SLUGS = ("syuccho", "takuhai", "tentou")
+
+# 買取形式の並び順 (カードの span 出現順は 宅配/店頭/出張 なので明示的に並べ替える)
+_METHOD_ORDER = ("出張", "宅配", "店頭")
+
+# 備考の指示による絞り込み条件
+_TARGET_PREFS = {"東京都", "神奈川県", "埼玉県", "千葉県"}
+_TARGET_AREA_KEYWORDS = ("東京", "神奈川", "埼玉", "千葉")
+
 # 一覧ページが 0 件になる前に止めるための安全弁 (実測の最終ページ 322 に余裕を持たせた値)
 _MAX_PAGES = 500
 
@@ -95,7 +120,7 @@ def _norm_label(text: str | None) -> str:
 
 
 class Hikakaku3Scraper(StaticCrawler):
-    """ヒカカク！ 出張買取業者一覧スクレイパー"""
+    """ヒカカク！ 買取業者一覧 (出張/宅配/店頭) スクレイパー"""
 
     # 既定 UA (Chrome/94) は古いため、実際のブラウザに近い UA を明示する
     USER_AGENT = (
@@ -107,6 +132,7 @@ class Hikakaku3Scraper(StaticCrawler):
     EXTRA_COLUMNS = [
         "業者ID",
         "買取形式",
+        "取扱ジャンル",
         "対応地域",
         "古物商許可番号",
         "運営会社",
@@ -141,39 +167,89 @@ class Hikakaku3Scraper(StaticCrawler):
     }
 
     def parse(self, url: str):
-        """ルート url (= sites.yml の url) を唯一の起点にページネーションを巡回する。"""
+        """ルート url (= sites.yml の url) を起点に買取形式別 3 一覧を巡回する。"""
+        seen: set[str] = set()
         total = 0
 
+        for list_url in self._list_urls(url):
+            total += yield from self._crawl_list(list_url, seen)
+
+        self.logger.info("全一覧の巡回を終了しました (出力=%d件 / 一覧出現=%d件)", total, len(seen))
+
+    @staticmethod
+    def _list_urls(url: str) -> list[str]:
+        """ルート url から買取形式別の一覧 URL 3 本を導出する (ルート自身を先頭に置く)。"""
+        root = url if url.endswith("/") else url + "/"
+        urls = [urljoin(root, f"../{slug}/") for slug in _KEISHIKI_SLUGS]
+
+        # 引数で渡された URL を必ず起点として扱う (重複は除く)
+        ordered = [url] + [u for u in urls if u.rstrip("/") != url.rstrip("/")]
+        return ordered
+
+    def _crawl_list(self, list_url: str, seen: set[str]):
+        """一覧 1 本をページ送りで最後まで巡回する。戻り値は yield した件数。"""
+        count = 0
+
         for page in range(1, _MAX_PAGES + 1):
-            page_url = url if page == 1 else f"{url}?page={page}"
+            page_url = list_url if page == 1 else f"{list_url}?page={page}"
             soup = self.get_soup(page_url)
             if soup is None:
-                self.logger.warning("一覧ページを取得できませんでした (中断): %s", page_url)
-                return
+                self.logger.warning("一覧ページを取得できませんでした (この一覧を中断): %s", page_url)
+                return count
 
             cards = soup.select("section.coSummaryStore-Wrapper")
             if not cards:
-                self.logger.info("カードが 0 件のため終了しました (page=%d, 累計=%d件)", page, total)
-                return
+                self.logger.info(
+                    "カードが 0 件のため一覧を終了しました (%s page=%d, 出力=%d件)",
+                    list_url, page, count,
+                )
+                return count
 
-            self.logger.info("一覧 page=%d: %d件", page, len(cards))
+            self.logger.info("一覧 %s page=%d: %d件", list_url, page, len(cards))
 
             for card in cards:
                 item = self._parse_card(card, page_url)
                 if item is None:
                     continue
 
-                # 備考の指示: 出張買取に対応する業者のみを対象とする
-                if "出張" not in item["買取形式"]:
-                    self.logger.debug("出張買取に非対応のためスキップ: %s", item[Schema.NAME])
+                # 3 本の一覧に同じ業者が載るため、掲載ページURL で重複除去する
+                detail_url = item[Schema.URL]
+                if detail_url in seen:
+                    continue
+                seen.add(detail_url)
+
+                item = self._build_item(item)
+                if item is None:
                     continue
 
-                # 詳細ページで業者情報を補完してから即 yield (Pattern B)
-                self._enrich_from_detail(item)
-                total += 1
+                count += 1
                 yield item
 
-        self.logger.warning("上限ページ数 %d に到達したため終了しました (累計=%d件)", _MAX_PAGES, total)
+        self.logger.warning(
+            "上限ページ数 %d に到達したため一覧を終了しました (%s, 出力=%d件)",
+            _MAX_PAGES, list_url, count,
+        )
+        return count
+
+    def _build_item(self, item: dict) -> dict | None:
+        """絞り込み条件を適用し、対象であれば詳細ページで補完した item を返す。"""
+        pref = item[Schema.PREF]
+
+        if pref:
+            # 一覧に住所がある場合、詳細側で上書きされることはないのでここで判定できる
+            if pref not in _TARGET_PREFS:
+                return None
+        elif not any(kw in item["対応地域"] for kw in _TARGET_AREA_KEYWORDS):
+            # 住所が無く対応地域にも関東 4 都県が出てこない業者は対象外
+            return None
+
+        self._enrich_from_detail(item)
+
+        # 詳細ページで住所が判明した場合は、その都道府県で改めて判定する
+        if item[Schema.PREF] and item[Schema.PREF] not in _TARGET_PREFS:
+            return None
+
+        return item
 
     # ------------------------------------------------------------------
     # 一覧カード
@@ -196,8 +272,8 @@ class Hikakaku3Scraper(StaticCrawler):
         values = self._extract_list_values(card)
 
         # 買取形式: is_true が付いた形式のみが対応中 (is_false は非対応)
-        methods = [_clean(span.get_text()) for span in card.select("span.keishiki.is_true")]
-        buy_methods = "/".join(m for m in methods if m)
+        methods = {_clean(span.get_text()) for span in card.select("span.keishiki.is_true")}
+        buy_methods = "/".join(m for m in _METHOD_ORDER if m in methods)
 
         # 電話番号は PR 掲載枠の tel: リンクにのみ存在する
         tel_link = card.select_one('a[href^="tel:"]')
@@ -229,7 +305,7 @@ class Hikakaku3Scraper(StaticCrawler):
             Schema.ADDR: addr,
             Schema.TEL: tel,
             Schema.REP_NM: "",
-            Schema.CAT_SITE: buy_methods,
+            Schema.CAT_SITE: "",
             Schema.HP: "",
             Schema.X: "",
             Schema.TIME: "",
@@ -238,6 +314,7 @@ class Hikakaku3Scraper(StaticCrawler):
             Schema.REV_SCR: review_count,
             "業者ID": company_id,
             "買取形式": buy_methods,
+            "取扱ジャンル": "",
             "対応地域": values.get("areas", ""),
             "古物商許可番号": values.get("kobutsu", ""),
             "運営会社": "",
@@ -303,6 +380,11 @@ class Hikakaku3Scraper(StaticCrawler):
         item["LINE査定"] = values.get("line", "")
         item["法人買取対応"] = values.get("corporate", "")
 
+        # 取扱ジャンル (Schema.CAT_SITE = サイト定義ジャンル にも同じ値を入れる)
+        genres = self._extract_genres(soup)
+        item["取扱ジャンル"] = genres
+        item[Schema.CAT_SITE] = genres
+
         # 一覧に住所・古物商許可番号が無い場合は詳細側で補完する
         if not item["古物商許可番号"]:
             item["古物商許可番号"] = values.get("kobutsu", "")
@@ -343,6 +425,28 @@ class Hikakaku3Scraper(StaticCrawler):
 
             values[key] = _clean(answer_node.get_text(" "))
         return values
+
+    @staticmethod
+    def _extract_genres(soup) -> str:
+        """「{業者名}の取扱い商品」見出し直後の div.tag_list からジャンル名を集める。
+
+        同じ div.tag_list は関連商品・関連業者の枠にも使われているため、
+        見出しを手がかりに当該業者の 1 ブロックだけを採用する。
+        """
+        for heading in soup.select("h2.headline_bu, h3.headline_bu"):
+            text = _norm_label(heading.get_text())
+            if "取扱い商品" not in text and "取扱商品" not in text:
+                continue
+
+            tag_list = heading.find_next_sibling("div", class_="tag_list")
+            if tag_list is None:
+                continue
+
+            genres = [a.get_text(" ", strip=True) for a in tag_list.select("a")]
+            genres = [g for g in (_clean(g) for g in genres) if g]
+            if genres:
+                return "/".join(dict.fromkeys(genres))
+        return ""
 
     # ------------------------------------------------------------------
     # ヘルパー
