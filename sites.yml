@@ -5869,3 +5869,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.syokunin-doh.com/terms"
+
+  - site_id: oikura
+    name: "おいくら リサイクルショップ検索(1都3県)"
+    module: "service.oikura"
+    url: "https://oikura.jp/shop/pref13.html"
+    schedule: null
+    enabled: true
+    terms_url: "https://oikura.jp/guide/kiyaku.html"
