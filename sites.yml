@@ -5901,3 +5901,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://buysell-technologies.com/terms/"
+
+  - site_id: tsukulink_9
+    name: "ツクリンク【福岡】"
+    module: "construction.tsukulink_9"
+    url: "https://tsukulink.net/fukuoka"
+    schedule: null
+    enabled: true
+    terms_url: "https://tsukulink.net/term"
