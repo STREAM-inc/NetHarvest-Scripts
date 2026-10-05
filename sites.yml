@@ -5885,3 +5885,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: streamreq_2117620261005
+    name: "ツクリンク【滋賀】"
+    module: "construction.streamreq_2117620261005"
+    url: "https://tsukulink.net/shiga/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
