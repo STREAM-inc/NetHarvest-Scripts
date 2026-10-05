@@ -5893,3 +5893,11 @@ sites:
     schedule: "0 9 1 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: wakaba_shop
+    name: "買取店わかば 新規オープン情報"
+    module: "service.wakaba_shop"
+    url: "https://wakaba-shop.jp/news/"
+    schedule: null
+    enabled: true
+    terms_url: "https://buysell-technologies.com/terms/"
