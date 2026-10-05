@@ -5909,3 +5909,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://tsukulink.net/term"
+
+  - site_id: tsukulink_10
+    name: "ツクリンク【長崎】"
+    module: "construction.tsukulink_10"
+    url: "https://tsukulink.net/nagasaki/city_"
+    schedule: null
+    enabled: true
+    terms_url: "https://tsukulink.net/term"
