@@ -5877,3 +5877,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://oikura.jp/guide/kiyaku.html"
+
+  - site_id: streamreq_2117320261005
+    name: "ツクリンク【京都】"
+    module: "construction.streamreq_2117320261005"
+    url: "https://tsukulink.net/kyoto/"
+    schedule: "0 9 1 * *"
+    enabled: true
+    terms_url: ""
