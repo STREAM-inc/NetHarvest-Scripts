@@ -5933,3 +5933,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://coworking-search.jp/terms/"
+
+  - site_id: kireibiz
+    name: "キレイビズ"
+    module: "jobs.kireibiz"
+    url: "https://kireibiz.jp/jobs/"
+    schedule: null
+    enabled: true
+    terms_url: "https://kireibiz.jp/informations/rules/"
