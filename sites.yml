@@ -5949,3 +5949,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://dental-worker.com/sitepolicy/"
+
+  - site_id: drivers_work
+    name: "ドライバーズワーク"
+    module: "jobs.drivers_work"
+    url: "https://www.drivers-work.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://miraiyu.co.jp/service-statement/"
