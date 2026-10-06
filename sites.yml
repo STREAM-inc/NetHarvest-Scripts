@@ -5917,3 +5917,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://tsukulink.net/term"
+
+  - site_id: tsukulink_12
+    name: "ツクリンク（近畿）"
+    module: "construction.tsukulink_12"
+    url: "https://tsukulink.net/osaka"
+    schedule: null
+    enabled: true
+    terms_url: "https://tsukulink.net/term"
