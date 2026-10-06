@@ -5925,3 +5925,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://tsukulink.net/term"
+
+  - site_id: coworking_search
+    name: "コワーキングスペース検索"
+    module: "realestate.coworking_search"
+    url: "https://coworking-search.jp/zenkoku/"
+    schedule: null
+    enabled: true
+    terms_url: "https://coworking-search.jp/terms/"
