@@ -5941,3 +5941,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://kireibiz.jp/informations/rules/"
+
+  - site_id: dental_worker
+    name: "デンタルワーカー"
+    module: "jobs.dental_worker"
+    url: "https://dental-worker.com/batch/sitemap-detail-job/"
+    schedule: null
+    enabled: true
+    terms_url: "https://dental-worker.com/sitepolicy/"
