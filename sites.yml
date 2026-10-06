@@ -5957,3 +5957,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://miraiyu.co.jp/service-statement/"
+
+  - site_id: tsukulink_13
+    name: "ツクリンク【佐賀】"
+    module: "construction.tsukulink_13"
+    url: "https://tsukulink.net/saga/city_"
+    schedule: null
+    enabled: true
+    terms_url: "https://tsukulink.net/term"
