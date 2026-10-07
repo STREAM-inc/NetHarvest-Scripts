@@ -5973,3 +5973,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://cdn.p.recruit.co.jp/terms/hpj-t-1001/index.html"
+
+  - site_id: tokyo_takken
+    name: "東京都宅建協会会員検索"
+    module: "realestate.tokyo_takken"
+    url: "https://www.tokyo-takken.or.jp/search-member"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.tokyo-takken.or.jp/about/privacy-policy/"
