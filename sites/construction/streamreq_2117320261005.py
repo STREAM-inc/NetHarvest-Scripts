@@ -17,14 +17,33 @@
 
 取得フロー:
     1. 引数 url (京都府の企業一覧) を唯一の起点として {url}?page=N を 1 ページずつ取得
-    2. li.p-companies-list-item から会社ID・詳細URL・プレミアムラベル・主力工事・工事区分を拾う
-    3. 詳細ページを 1 件取得するごとに即 yield (Pattern B)
-    4. 会社IDで重複排除し、詳細ページの住所が京都府でないものは除外する
+    2. 1 ページ目の「N件中」表示から総ページ数を確定し、その最終ページで巡回を終える
+    3. li.p-companies-list-item から会社ID・詳細URL・プレミアムラベル・主力工事・工事区分を拾う
+    4. 詳細ページを 1 件取得するごとに即 yield (Pattern B)
+    5. 会社IDで重複排除し、詳細ページの住所が京都府でないものは除外する
+
+空ページを巡回しないための設計 (2026-10-07 改修):
+    - 以前は京都府一覧に加えて市区町村別一覧 (/kyoto/city_NNNNNN/) 37 本も巡回していたが、
+      市区町村別一覧は京都府一覧の部分集合でしかなく、新規会社が 1 件も出ない
+      「空振りページ」を約 1,260 ページ踏むだけだった。実測 (2026-10-07):
+        京都府一覧          16,289 件 / 815 ページ
+        市区町村別一覧の合計 25,233 件 … ただし京都市 (9,023 件) = 11 行政区の合計で二重計上。
+                                        実体は 16,210 件で京都府一覧に完全に含まれる
+        市区町村別一覧の各社の詳細 URL は必ず自市区町村配下 (/kyoto/city_NNNNNN/{id}) で、
+        対応可能エリアではなく所在地で分類されている = 京都府一覧と同一母集団
+      よって起点 (京都府一覧) のみを巡回する。出力される会社の集合は従来と変わらない。
+    - 範囲外ページ (page=816 以降) は 200 + 0 件で返るが、総件数から最終ページが判るので
+      そもそも叩かない。総件数が取れなかった場合のみ従来どおり 0 件ページで終端判定する。
+    - 保険として「新規会社が 1 件も増えないページ」が _MAX_STALE_PAGES 回続いたら打ち切る
+      (一覧が範囲外で 1 ページ目に巻き戻る等の仕様変更で無限に空回りしないようにする)
 
 サイト仕様メモ:
     - 一覧・詳細とも Accept ヘッダが無いと HTTP 400 を返すため _setup() で付与する
-    - 一覧の ?page=N は範囲外になると 200 + 0 件で返るので終端判定に使う
-      (2026-10 時点 page=815 が 8 件、page=816 以降は 0 件)
+    - 一覧の ?page=N は範囲外になると 200 + 0 件で返る
+      (2026-10 時点 page=815 が 9 件、page=816 以降は 0 件)
+    - 短時間に高頻度でアクセスすると HTTP 403 を返す (約 2 分で自動解除)。
+      815 ページ + 16,000 件の詳細という長丁場で 1 回の 403 が全滅に繋がるため、
+      get_soup() を 403 のみバックオフ再試行するようにラップしている
     - 一覧は「プレミアム会員が先頭、以降は非会員」の並びになっており、
       プレミアムバッジ (span.c-label-premium) は一覧カード・詳細ヘッダーの双方に出る。
       ただしサイドバーの「おすすめ会社」カードにも同じ class が出るため、
@@ -62,10 +81,14 @@
 
 import json
 import logging
+import math
 import re
 import sys
+import time
 from pathlib import Path
 from urllib.parse import urlencode, urljoin, urlparse, parse_qsl, urlunparse
+
+import requests
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
@@ -105,8 +128,18 @@ _DATE_RE = re.compile(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日")
 # 従業員数「5名 (施工管理職員数: 1名、…)」の内訳部分
 _EMP_BREAKDOWN_RE = re.compile(r"^(.*?)\s*[（(](.+)[)）]\s*$")
 
-# ページ送り安全上限 (2026-10 時点 16,288 件 = 815 ページ)
-_MAX_PAGES = 5000
+# 一覧 1 ページあたりの掲載件数 (総件数 → 最終ページ番号の算出に使う)
+_PER_PAGE = 20
+
+# ページ送り安全上限 (2026-10 時点 16,289 件 = 815 ページ)。
+# 通常は総件数から求めた最終ページで止まるため、ここまで到達することは無い。
+_MAX_PAGES = 2000
+
+# 新規会社が 1 件も増えないページがこの回数続いたら打ち切る (空回り防止の保険)
+_MAX_STALE_PAGES = 3
+
+# 高頻度アクセス時の HTTP 403 (約 2 分で自動解除) に対するバックオフ秒数
+_FORBIDDEN_BACKOFF = (30, 60, 120)
 
 
 class TsukulinkKyoto(StaticCrawler):
@@ -182,65 +215,98 @@ class TsukulinkKyoto(StaticCrawler):
     # ------------------------------------------------------------------ parse
 
     def parse(self, url: str):
-        """Prefecture index and every published municipality, preserving every detail column."""
+        """起点 url (京都府の企業一覧) の ?page=N を最終ページまで巡回して全社を yield する。
+
+        市区町村別一覧は京都府一覧の部分集合 (モジュール冒頭「空ページを巡回しない
+        ための設計」参照) なので巡回しない。終端は 1 ページ目の総件数から確定させ、
+        範囲外の空ページを叩かないようにしている。
+        """
         seen_ids: set[str] = set()
-        index = self.get_soup(url)
-        if index is None:
-            raise RuntimeError("Prefecture index fetch failed")
-        city_roots = sorted({urljoin(url, a.get("href", "")).rstrip("/")+"/"
-            for a in index.select("a[href]")
-            if re.fullmatch(r"/kyoto/city_\d+/?", a.get("href", ""))})
-        if len(city_roots) < 37:
-            raise RuntimeError("Municipality coverage decreased: "+str(len(city_roots)))
-        logger.info("Municipality coverage: %s", len(city_roots))
-        for list_root in [url, *city_roots]:
-            for page in range(1, _MAX_PAGES + 1):
-                soup = self.get_soup(_page_url(list_root, page))
-                if soup is None:
-                    logger.warning("一覧の取得に失敗したため打ち切り: page=%s", page)
-                    raise RuntimeError("Municipality list fetch failed: "+list_root+" page="+str(page))
+        last_page: int | None = None
+        stale_pages = 0
 
-                items = soup.select("li.p-companies-list-item")
-                if not items:
-                    # 範囲外ページは 200 + 0 件で返る = 終端
-                    logger.info("一覧の終端に到達 (page=%s)", page)
-                    break
+        for page in range(1, _MAX_PAGES + 1):
+            soup = self.get_soup(_page_url(url, page))
+            if soup is None:
+                raise RuntimeError(f"一覧の取得に失敗: {_page_url(url, page)}")
 
-                if page == 1:
-                    # 「N件中」表示から総件数を取り ETA を有効にする
-                    total_el = soup.select_one(".c-pagination-entries__total")
-                    if total_el:
-                        digits = re.sub(r"[^0-9]", "", total_el.get_text())
-                        if digits:
-                            self.total_items = int(digits)
+            if page == 1:
+                # 「N件中」表示から総件数を取り、ETA と最終ページ番号の両方に使う
+                total = _total_count(soup)
+                if total:
+                    self.total_items = total
+                    last_page = math.ceil(total / _PER_PAGE)
+                    logger.info("掲載件数 %s 件 / 全 %s ページ", total, last_page)
+                else:
+                    logger.warning("総件数を取得できないため 0 件ページで終端判定する")
 
-                for li in items:
-                    company_id = (li.get("data-company-id") or "").strip()
-                    link = li.select_one("a.p-companies-list-item__name[href]")
-                    if not link:
-                        continue
-                    href = link.get("href", "")
-                    if not _DETAIL_PATH.match(href):
-                        continue
-                    if company_id and company_id in seen_ids:
-                        # 同じ会社が複数ページに重複掲載されることがあるため ID で排除する
-                        continue
-                    if company_id:
-                        seen_ids.add(company_id)
+            items = soup.select("li.p-companies-list-item")
+            if not items:
+                # 範囲外ページは 200 + 0 件で返る = 終端 (総件数が取れなかった場合の保険)
+                logger.info("0 件ページのため終端と判断 (page=%s)", page)
+                break
 
-                    detail_url = urljoin(list_root, href)
-                    try:
-                        item = self._scrape_detail(detail_url, company_id, _list_extras(li))
-                    except Exception as e:  # 個別アイテムの失敗は記録して継続
-                        logger.warning("詳細の解析に失敗 (スキップ): %s — %s", detail_url, e)
-                        raise
-                    if not item:
-                        raise RuntimeError("Company detail missing: "+detail_url)
-                    # 備考「都道府県は京都府のみ」: 詳細ページの住所が京都府のものだけ採用する
-                    if item[Schema.PREF] != _TARGET_PREF:
-                        logger.debug("京都府外のため除外: %s (%s)", detail_url, item[Schema.PREF])
-                        continue
-                    yield item
+            new_on_page = 0
+            for li in items:
+                company_id = (li.get("data-company-id") or "").strip()
+                link = li.select_one("a.p-companies-list-item__name[href]")
+                if not link:
+                    continue
+                href = link.get("href", "")
+                if not _DETAIL_PATH.match(href):
+                    continue
+                if company_id and company_id in seen_ids:
+                    # プレミアム枠が先頭に再掲される等の重複は ID で排除する
+                    continue
+                if company_id:
+                    seen_ids.add(company_id)
+                new_on_page += 1
+
+                detail_url = urljoin(url, href)
+                try:
+                    item = self._scrape_detail(detail_url, company_id, _list_extras(li))
+                except Exception as e:
+                    logger.warning("詳細の解析に失敗: %s — %s", detail_url, e)
+                    raise
+                if not item:
+                    raise RuntimeError("Company detail missing: " + detail_url)
+                # 備考「都道府県は京都府のみ」: 詳細ページの住所が京都府のものだけ採用する
+                if item[Schema.PREF] != _TARGET_PREF:
+                    logger.debug("京都府外のため除外: %s (%s)", detail_url, item[Schema.PREF])
+                    continue
+                yield item
+
+            if last_page is not None and page >= last_page:
+                # 次ページは必ず 0 件なので取得しない
+                logger.info("最終ページ (%s) まで巡回完了: %s 社", last_page, len(seen_ids))
+                break
+
+            # 新規が 1 社も増えないページが続く = 一覧が巻き戻っている等の異常。空回りを止める
+            stale_pages = stale_pages + 1 if new_on_page == 0 else 0
+            if stale_pages >= _MAX_STALE_PAGES:
+                logger.warning(
+                    "新規会社が %s ページ連続で 0 件のため打ち切り (page=%s)", stale_pages, page
+                )
+                break
+
+    # ------------------------------------------------------------- fetching
+
+    def get_soup(self, url: str):
+        """高頻度アクセス時に返る HTTP 403 (約 2 分で自動解除) だけはバックオフ再試行する。
+
+        815 ページ + 16,000 件の詳細という長丁場で、一時的な 403 により
+        クロール全体が落ちるのを防ぐ。403 以外のエラーは基底クラスの挙動のまま。
+        """
+        for wait in (*_FORBIDDEN_BACKOFF, None):
+            try:
+                return super().get_soup(url)
+            except requests.exceptions.HTTPError as e:
+                status = e.response.status_code if e.response is not None else None
+                if status != 403 or wait is None:
+                    raise
+                logger.warning("HTTP 403 (レート制限)。%s 秒待って再試行: %s", wait, url)
+                time.sleep(wait)
+        return None
 
 
     # ----------------------------------------------------------- detail page
@@ -419,6 +485,15 @@ def _page_url(url: str, page: int) -> str:
     query = [(k, v) for k, v in parse_qsl(parsed.query) if k != "page"]
     query.append(("page", str(page)))
     return urlunparse(parsed._replace(query=urlencode(query)))
+
+
+def _total_count(soup) -> int:
+    """一覧ヘッダーの「N件中」表示を総件数 (int) にする。取れなければ 0。"""
+    total_el = soup.select_one(".c-pagination-entries__total")
+    if not total_el:
+        return 0
+    digits = re.sub(r"[^0-9]", "", total_el.get_text())
+    return int(digits) if digits else 0
 
 
 def _clean(text: str) -> str:
