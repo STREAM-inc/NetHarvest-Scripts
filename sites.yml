@@ -5981,3 +5981,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.tokyo-takken.or.jp/about/privacy-policy/"
+
+  - site_id: suumo_5
+    name: "SUUMO賃貸 不動産会社一覧（東京都）"
+    module: "realestate.suumo_5"
+    url: "https://suumo.jp/chintai/kaisha/tokyo/"
+    schedule: null
+    enabled: true
+    terms_url: "https://cdn.p.recruit.co.jp/terms/suu-t-1003/index.html"
