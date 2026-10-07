@@ -5997,3 +5997,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: edmondo
+    name: "エドモンドプログラミングスクール教室一覧"
+    module: "service.edmondo"
+    url: "https://www.edmondo.jp/search"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.edmondo.jp/company/policy/"
