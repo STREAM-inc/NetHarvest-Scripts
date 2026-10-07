@@ -190,68 +190,85 @@ class TsukulinkShiga(StaticCrawler):
     # ------------------------------------------------------------------ parse
 
     def parse(self, url: str):
-        """Prefecture index and every published municipality, preserving every detail column."""
+        """引数 url (滋賀県一覧) を唯一の起点に {url}?page=N を辿り、詳細を 1 件ずつ yield する。
+
+        市区町村別一覧 (/shiga/city_NNNNNN/) は県一覧の部分集合でしかない
+        (大津市 1,835 件 ⊂ 滋賀県 8,584 件)。旧実装は県一覧の後に 19 市区町村を
+        再走査していたため、全件が会社ID重複で捨てられる空ページを数千ページ
+        送り続けていた。県一覧 1 系統のみを辿れば全件取得できる。
+        """
         seen_ids: set[str] = set()
-        index = self.get_soup(url)
-        if index is None:
-            raise RuntimeError("Prefecture index fetch failed")
-        city_roots = sorted({urljoin(url, a.get("href", "")).rstrip("/")+"/"
-            for a in index.select("a[href]")
-            if re.fullmatch(r"/shiga/city_\d+/?", a.get("href", ""))})
-        if len(city_roots) < 19:
-            raise RuntimeError("Municipality coverage decreased: "+str(len(city_roots)))
-        logger.info("Municipality coverage: %s", len(city_roots))
-        for list_root in [url, *city_roots]:
-            for page in range(1, _MAX_PAGES + 1):
-                soup = self.get_soup(f"{list_root.rstrip(chr(47))}?page={page}")
-                if soup is None:
-                    logger.warning("一覧の取得に失敗したため打ち切り: page=%s", page)
-                    raise RuntimeError("Municipality list fetch failed: "+list_root+" page="+str(page))
+        root = url.rstrip("/") + "/"
+        last_page = _MAX_PAGES  # 1 ページ目の総件数から算出し直す
+        stale_pages = 0  # 新規会社が 1 件も無いページの連続数
 
-                items = soup.select("li.p-companies-list-item")
-                if not items:
-                    # 範囲外ページは 200 + 0 件で返る = 終端
-                    logger.info("一覧の終端に到達 (page=%s)", page)
-                    break
+        for page in range(1, _MAX_PAGES + 1):
+            soup = self.get_soup(f"{root}?page={page}")
+            if soup is None:
+                logger.warning("一覧の取得に失敗したため打ち切り: page=%s", page)
+                break
 
-                if page == 1:
-                    total_el = soup.select_one(".c-pagination-entries__total")
-                    if total_el:
-                        digits = re.sub(r"[^0-9]", "", total_el.get_text())
-                        if digits:
-                            self.total_items = int(digits)
-                            logger.info("滋賀県の掲載企業数: %s 件", digits)
+            items = soup.select("li.p-companies-list-item")
+            if not items:
+                # 範囲外ページは 200 + 0 件で返る = 終端
+                logger.info("一覧の終端に到達 (page=%s)", page)
+                break
 
-                for li in items:
-                    company_id = (li.get("data-company-id") or "").strip()
-                    link = li.select_one("a.p-companies-list-item__name[href]")
-                    if not link:
-                        continue
-                    href = link.get("href", "")
-                    if not _DETAIL_PATH.match(href):
-                        continue
-                    if company_id and company_id in seen_ids:
-                        continue
-                    if company_id:
-                        seen_ids.add(company_id)
+            if page == 1:
+                total_el = soup.select_one(".c-pagination-entries__total")
+                if total_el:
+                    digits = re.sub(r"[^0-9]", "", total_el.get_text())
+                    if digits:
+                        self.total_items = int(digits)
+                        last_page = min(
+                            _MAX_PAGES, -(-int(digits) // max(len(items), 1)) + 1
+                        )
+                        logger.info(
+                            "滋賀県の掲載企業数: %s 件 (想定 %s ページ)", digits, last_page
+                        )
 
-                    detail_url = urljoin(list_root, href)
-                    try:
-                        item = self._scrape_detail(detail_url, company_id, _list_extras(li))
-                    except Exception as e:  # 個別アイテムの失敗は記録して継続
-                        logger.warning("詳細の解析に失敗 (スキップ): %s — %s", detail_url, e)
-                        raise
-                    if not item:
-                        raise RuntimeError("Company detail missing: "+detail_url)
-                    # 備考「対象は滋賀県のみ」: 詳細ページの住所が滋賀県のものだけ採用する
-                    # (住所非公開で県が取れない会社は、滋賀県の一覧掲載である事実を根拠に残す)
-                    if item[Schema.PREF] and item[Schema.PREF] != _TARGET_PREF:
-                        logger.debug("滋賀県外のため除外: %s (%s)", detail_url, item[Schema.PREF])
-                        continue
-                    yield item
+            new_in_page = 0
+            for li in items:
+                company_id = (li.get("data-company-id") or "").strip()
+                link = li.select_one("a.p-companies-list-item__name[href]")
+                if not link:
+                    continue
+                href = link.get("href", "")
+                if not _DETAIL_PATH.match(href):
+                    continue
+                if company_id and company_id in seen_ids:
+                    continue
+                if company_id:
+                    seen_ids.add(company_id)
+                new_in_page += 1
 
-            else:
-                logger.warning("ページ上限 %s に到達したため打ち切り", _MAX_PAGES)
+                detail_url = urljoin(root, href)
+                try:
+                    item = self._scrape_detail(detail_url, company_id, _list_extras(li))
+                except Exception as e:  # 個別アイテムの失敗は記録して継続
+                    logger.warning("詳細の解析に失敗 (スキップ): %s — %s", detail_url, e)
+                    continue
+                if not item:
+                    logger.warning("詳細が取得できずスキップ: %s", detail_url)
+                    continue
+                # 備考「対象は滋賀県のみ」: 詳細ページの住所が滋賀県のものだけ採用する
+                # (住所非公開で県が取れない会社は、滋賀県の一覧掲載である事実を根拠に残す)
+                if item[Schema.PREF] and item[Schema.PREF] != _TARGET_PREF:
+                    logger.debug("滋賀県外のため除外: %s (%s)", detail_url, item[Schema.PREF])
+                    continue
+                yield item
+
+            # 同じページが返り続ける/全件重複する異常時に空走を止める
+            stale_pages = stale_pages + 1 if new_in_page == 0 else 0
+            if stale_pages >= 3:
+                logger.info("新規企業の無いページが %s 回続いたため終了 (page=%s)", stale_pages, page)
+                break
+
+            if page >= last_page:
+                logger.info("総件数から算出した最終ページに到達 (page=%s)", page)
+                break
+        else:
+            logger.warning("ページ上限 %s に到達したため打ち切り", _MAX_PAGES)
 
     # ----------------------------------------------------------- detail page
 
