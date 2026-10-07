@@ -5989,3 +5989,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://cdn.p.recruit.co.jp/terms/suu-t-1003/index.html"
+
+  - site_id: careecon
+    name: "CAREECON採用"
+    module: "construction.careecon"
+    url: "https://recruit.careecon.jp/co/"
+    schedule: null
+    enabled: true
+    terms_url: ""
