@@ -6005,3 +6005,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.edmondo.jp/company/policy/"
+
+  - site_id: tsukulink_15
+    name: "ツクリンク（新潟・山梨・長野・岐阜・静岡・愛知・三重）"
+    module: "construction.tsukulink_15"
+    url: "https://tsukulink.net/niigata"
+    schedule: null
+    enabled: true
+    terms_url: "https://tsukulink.net/term"
