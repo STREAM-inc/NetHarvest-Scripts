@@ -3,8 +3,19 @@
 
 取得対象:
     備考「長崎県内の全市区町村別ページ (city_<市区町村コード>) を巡回し、
-    ページネーション全件を取得する」に従い、長崎県を拠点とする公開企業を全件取得する。
+    ページネーション全件を取得する」に従い、長崎県を拠点とする公開企業のうち
+    **プレミアム会員のみ** を取得する。
     2026-10 時点 8,099 社 / 20 件ページ (県全体 405 ページ)、市区町村は 21 件。
+
+プレミアム会員の絞り込み (2026-10-08 追加):
+    全 8,099 社の詳細ページを取得すると本番実行が時間切れになるため、
+    一覧カードの時点でプレミアム会員を判定し、該当社の詳細のみを取得する。
+    一覧カード li.p-companies-list-item 内の
+      div.c-companies-header-labels
+        └ span.c-label-premium > span.c-companies-header-labels__label-text = 「プレミアム」
+    が詳細ページヘッダーのラベルと同一内容で出力されているため、一覧だけで判定できる
+    (例: 長崎市 1 ページ目は 892016 ヌリケン・プラス / 1889915 東栄 の 2 社が該当)。
+    詳細取得後もヘッダーのラベル原文を見て二重チェックする。
 
 取得フロー:
     1. 引数 url (= https://tsukulink.net/nagasaki/city_) は市区町村別ページの
@@ -12,9 +23,9 @@
        県トップ (/nagasaki) を導出し、これを唯一の起点とする
     2. 県トップの市区町村ナビから /nagasaki/city_<コード> を列挙する
     3. 各市区町村一覧を {city_url}?page=N で 1 ページ (20 件) ずつ取得
-    4. li.p-companies-list-item から会社ID・詳細URL・主力工事を拾う
-    5. 詳細ページを 1 件取得するごとに即 yield (Pattern B)
-    6. 会社IDで重複排除
+    4. li.p-companies-list-item から会社ID・詳細URL・主力工事・企業ラベルを拾う
+    5. 企業ラベルに「プレミアム」を含むカードだけ詳細ページを取得し、即 yield (Pattern B)
+    6. 会社IDで重複排除 (非プレミアムも再判定を避けるため記録する)
     7. 市区町村ナビに現れない会社の取りこぼしを防ぐため、最後に県全体の一覧
        {pref_root}?page=N を同じ要領で流し、未取得の会社IDのみ詳細を取得する
 
@@ -29,8 +40,8 @@
       (電話番号・FAX・法人番号は会員限定マスクで公開ページに存在しない)
     - 「企業ラベルにプレミアム表記がある行がプレミアム会員」→ ヘッダーのラベル原文を
       そのまま EXTRA「企業ラベル」に入れる (例「主に受注、プレミアム」)。
-      絞り込みは後続クレンジング工程に委ねるのでここではフィルタしない
-    - 唯一のフィルタは対象県条件 (住所の都道府県が長崎県でないものを除外)
+      要望「プレミアム会員のみ」に従い、ここを含まない行は yield しない
+    - フィルタは 2 つ: プレミアム会員であること / 対象県条件 (住所の都道府県が長崎県)
 
 サイト仕様メモ:
     - 一覧・詳細とも Accept ヘッダが無いと HTTP 400 を返すため _setup() で付与する
@@ -103,6 +114,9 @@ _DETAIL_PATH = re.compile(r"^/[a-z]+/city_\d+/\d+$")
 # 引数 url の末尾に付く市区町村セグメント (city_ 単体のテンプレート / city_422011 の実ページ)
 _CITY_SEGMENT = re.compile(r"^city_\d*$")
 
+# プレミアム会員の企業ラベル表記 (一覧カード・詳細ヘッダー共通)
+_PREMIUM_LABEL = "プレミアム"
+
 # 郵便番号 (〒8528132 / 〒852-8132)
 _ZIP_RE = re.compile(r"〒\s*(\d{3})\s*-?\s*(\d{4})")
 
@@ -169,12 +183,13 @@ class TsukulinkNagasaki(StaticCrawler):
             logger.error("県トップの取得に失敗したため中断: %s", pref_root)
             return
 
-        # 「N件中」表示から総件数を取り ETA を有効化する
+        # 「N件中」は掲載企業の総数 (= プレミアム以外も含む) なので ETA には使えない。
+        # 絞り込み前の母数としてログにだけ残す。
         total_el = soup.select_one(".c-pagination-entries__total")
         if total_el:
             digits = re.sub(r"[^0-9]", "", total_el.get_text())
             if digits:
-                self.total_items = int(digits)
+                logger.info("掲載企業の総数 (プレミアム絞り込み前): %s 社", digits)
 
         # 市区町村ナビ (/nagasaki/city_422011 …) を列挙する
         city_path = re.compile(rf"^/{re.escape(pref_slug)}/city_\d+$")
@@ -199,7 +214,11 @@ class TsukulinkNagasaki(StaticCrawler):
     # ------------------------------------------------------------- list parts
 
     def _crawl_list(self, list_root: str, seen_ids: set, base: str):
-        """一覧 {list_root}?page=N を 1 ページずつ辿り、詳細を 1 件取得するごとに yield する。"""
+        """一覧 {list_root}?page=N を 1 ページずつ辿り、プレミアム会員の詳細のみ取得して yield する。
+
+        一覧カードの企業ラベルでプレミアム判定を済ませることで、
+        非プレミアム (全体の大半) の詳細リクエストを丸ごと省く。
+        """
         for page in range(1, _MAX_PAGES + 1):
             soup = self.get_soup(f"{list_root}?page={page}")
             if soup is None:
@@ -223,6 +242,14 @@ class TsukulinkNagasaki(StaticCrawler):
                     continue
                 if company_id:
                     seen_ids.add(company_id)
+
+                # 一覧カードの企業ラベルでプレミアム会員を判定し、非該当は詳細を取得しない
+                list_labels = _card_labels(li)
+                if _PREMIUM_LABEL not in list_labels:
+                    logger.debug(
+                        "プレミアム会員でないため詳細を取得しない: %s (%s)", href, list_labels
+                    )
+                    continue
 
                 detail_url = urljoin(base, href)
                 try:
@@ -291,7 +318,7 @@ class TsukulinkNagasaki(StaticCrawler):
         )
 
         # --- ヘッダーの各種ラベル -----------------------------------------
-        # 「プレミアム」表記はここに原文のまま入る (絞り込みは後続クレンジング工程)。
+        # 「プレミアム」表記はここに原文のまま入る (一覧判定との二重チェックに使う)。
         # 同じ class はサイドバー「おすすめ会社」カードや PC/SP 重複ブロックにも現れるため、
         # 対象会社のプロフィール配下に限定したうえで重複を除く。
         header = (
@@ -312,6 +339,11 @@ class TsukulinkNagasaki(StaticCrawler):
                 if "not-certified" not in (s.get("class") or [])
             )
         )
+
+        # 一覧カードの判定と食い違った場合に備えた二重チェック (プレミアム会員のみ対象)
+        if _PREMIUM_LABEL not in company_labels:
+            logger.debug("プレミアム会員でないためスキップ: %s (%s)", url, company_labels)
+            return None
 
         # --- 評価点 --------------------------------------------------------
         rating_el = soup.select_one(".p-companies-show-profile__rating .c-rating__score")
@@ -430,6 +462,21 @@ def _dedupe(texts) -> list[str]:
 def _text_of(soup, selector: str) -> str:
     el = soup.select_one(selector)
     return _clean(el.get_text(" ", strip=True)) if el else ""
+
+
+def _card_labels(li) -> str:
+    """一覧カードの企業ラベル (「主に受注」「プレミアム」等) を原文のまま結合して返す。
+
+    カード内の div.c-companies-header-labels に詳細ページヘッダーと同じラベルが出力されるため、
+    詳細を取得する前にプレミアム会員かどうかを判定できる
+    (プレミアム表記は span.c-label-premium にも対応するが、表記揺れに強いテキスト側で判定する)。
+    """
+    return "、".join(
+        _dedupe(
+            _clean(s.get_text(" ", strip=True))
+            for s in li.select(".c-companies-header-labels__label-text")
+        )
+    )
 
 
 def _list_extras(li) -> dict:
