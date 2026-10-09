@@ -33,6 +33,12 @@
     parse(url) が引数 url を起点にブロックリンクを抽出 → 1 ブロックの一覧を取得 →
     1 会員ごとに詳細ページを取得して即 yield する。詳細 ID で重複排除。
 
+    2026-10-09 修正: 初回実行で「第一ブロックの 2,371 件のみ取得・残り 11 ブロックが
+    未処理」という不具合が発生した。原因はブロックごとのループ本体に例外処理が無く、
+    いずれかのブロックの取得・パース中の例外でジェネレータ全体が異常終了し、以降の
+    ブロックへ進めなかったため。対策として、ブロック単位・会員単位それぞれを
+    try/except で囲み、1 ブロック/1 会員の失敗が全体を止めないようにした。
+
 備考への対応:
     - 本店・支店区分: 専用フィールドはサイトに存在しない。支店・営業所は
       独立した 1 行 (独立した detail ID) として掲載されているため、商号末尾の
@@ -112,33 +118,54 @@ class TokyoTakkenScraper(StaticCrawler):
         total = 0
 
         for block_url in block_urls:
-            list_soup = self.get_soup(block_url)
-            if list_soup is None:
-                logger.warning("一覧を取得できませんでした: %s", block_url)
+            block_item_count = 0
+            try:
+                list_soup = self.get_soup(block_url)
+                if list_soup is None:
+                    logger.warning("一覧を取得できませんでした: %s", block_url)
+                    continue
+
+                # 進捗 ETA 用に総件数を積み上げる
+                count = self._result_count(list_soup)
+                if count:
+                    total += count
+                    self.total_items = total
+
+                rows = list_soup.select("li.result-list_item div.result_detail")
+                logger.info("一覧 %s: %d 件", block_url, len(rows))
+
+                for row in rows:
+                    try:
+                        base = self._parse_row(row, root)
+                        if base is None:
+                            continue
+                        member_id = base.pop("_id")
+                        if member_id in seen_ids:
+                            continue
+                        seen_ids.add(member_id)
+
+                        detail_url = urljoin(root + "/", f"detail/{member_id}")
+                        detail = self._parse_detail(detail_url)
+
+                        yield self._build_item(detail_url, base, detail)
+                        block_item_count += 1
+                    except Exception:
+                        logger.exception(
+                            "会員 1 件の取得に失敗しました (継続): block=%s", block_url
+                        )
+                        continue
+            except Exception:
+                logger.exception(
+                    "ブロックの取得に失敗しました (次のブロックへ継続): %s", block_url
+                )
                 continue
-
-            # 進捗 ETA 用に総件数を積み上げる
-            count = self._result_count(list_soup)
-            if count:
-                total += count
-                self.total_items = total
-
-            rows = list_soup.select("li.result-list_item div.result_detail")
-            logger.info("一覧 %s: %d 件", block_url, len(rows))
-
-            for row in rows:
-                base = self._parse_row(row, root)
-                if base is None:
-                    continue
-                member_id = base.pop("_id")
-                if member_id in seen_ids:
-                    continue
-                seen_ids.add(member_id)
-
-                detail_url = urljoin(root + "/", f"detail/{member_id}")
-                detail = self._parse_detail(detail_url)
-
-                yield self._build_item(detail_url, base, detail)
+            finally:
+                logger.info(
+                    "ブロック完了 %s: 取得 %d 件 (累計 seen_ids=%d)",
+                    block_url,
+                    block_item_count,
+                    len(seen_ids),
+                )
 
     # ------------------------------------------------------------------ #
     # 一覧
@@ -155,9 +182,23 @@ class TokyoTakkenScraper(StaticCrawler):
                     found[int(m.group(1))] = urljoin(root + "/", href)
             urls = [found[k] for k in sorted(found)]
 
-        if not urls:
-            logger.warning("ブロックリンクを抽出できないためフォールバックを使用します")
-            urls = [urljoin(root + "/", f"list/{slug}") for slug in FALLBACK_BLOCKS]
+        if not urls or len(urls) < len(FALLBACK_BLOCKS):
+            logger.warning(
+                "ブロックリンクを %d 件しか抽出できなかったため、フォールバックの"
+                " block1〜block12 で補完します (抽出できなかった分のみ追加)",
+                len(urls),
+            )
+            existing_nums = set()
+            for u in urls:
+                m = re.search(r"/list/block(\d+)", u)
+                if m:
+                    existing_nums.add(int(m.group(1)))
+            for slug in FALLBACK_BLOCKS:
+                m = re.search(r"block(\d+)", slug)
+                num = int(m.group(1)) if m else None
+                if num is not None and num in existing_nums:
+                    continue
+                urls.append(urljoin(root + "/", f"list/{slug}"))
         return urls
 
     def _result_count(self, soup) -> Optional[int]:
@@ -197,7 +238,11 @@ class TokyoTakkenScraper(StaticCrawler):
     # ------------------------------------------------------------------ #
     def _parse_detail(self, detail_url: str) -> Dict[str, str]:
         """詳細ページのラベル/値ペアを dict で返す。取得失敗時は空 dict。"""
-        soup = self.get_soup(detail_url)
+        try:
+            soup = self.get_soup(detail_url)
+        except Exception:
+            logger.exception("詳細ページの取得に失敗しました: %s", detail_url)
+            return {}
         if soup is None:
             return {}
 
