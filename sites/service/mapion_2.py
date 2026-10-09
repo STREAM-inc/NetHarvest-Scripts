@@ -1,6 +1,8 @@
 """
 マピオン電話帳 「興信所・探偵事務所」 (mapion_2) — 関東甲信越東海+滋賀 15 都県スクレイパー
 
+実行日時メモ: 2026-10-09 に動作確認 (ロジック変更なし)
+
 対象サイト: https://www.mapion.co.jp/phonebook/M10037/13/
 
 既存サイト `mapion` (site_id=mapion, scripts/sites/service/mapion.py / 大阪・兵庫・京都の
