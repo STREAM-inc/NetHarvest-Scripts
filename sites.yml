@@ -5282,7 +5282,7 @@ sites:
     name: "retty"
     module: "food.retty"
     url: "https://retty.me/"
-    schedule: null
+    schedule: "0 3 8-14 * SUN"
     enabled: true
     terms_url: "https://retty.me/announce/tos/"
 
@@ -5290,7 +5290,7 @@ sites:
     name: "一休.comレストラン"
     module: "food.com_2"
     url: "https://restaurant.ikyu.com/"
-    schedule: null
+    schedule: "0 7 * * SAT"
     enabled: true
     terms_url: "https://www.ikyu.com/terms/service/"
 
