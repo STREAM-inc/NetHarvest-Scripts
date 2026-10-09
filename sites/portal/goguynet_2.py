@@ -1,4 +1,4 @@
-# manual refresh trigger 2026-10-07 STREAMREQ-22384
+# manual refresh trigger 2026-10-09 STREAMREQ-22384 (re-run: 10/07 run stuck SCHEDULED)
 """
 号外NET 飲食店2 — 地域ニュースサイト (goguynet.jp) 全国「飲食店」情報スクレイパー
 
