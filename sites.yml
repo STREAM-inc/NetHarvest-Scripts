@@ -310,7 +310,7 @@ sites:
     name: "体入ショコラ"
     module: "jobs.tainyu_chocolat"
     url: "https://chocolat.work/sitemap_index.xml"
-    schedule: "10 18 * * TUE"
+    schedule: "10 18 * * WED"
     enabled: true
     terms_url: "https://chocolat.work/terms/"
 
@@ -319,7 +319,7 @@ sites:
     name: "体入マカロン"
     module: "jobs.tainyu_macaron"
     url: "https://picsastock.com/sitemap.xml"
-    schedule: "0 2 * * SUN"
+    schedule: "0 2 * * WED"
     enabled: true
     terms_url: ""
 
@@ -1789,7 +1789,7 @@ sites:
     name: "キャバキャバ"
     module: "nightlife.caba2"
     url: "https://www.caba2.net/bar_sitemap.xml"
-    schedule: "0 4 * * SUN"
+    schedule: "0 4 * * WED"
     enabled: true
     terms_url: "https://www.caba2.net/term"
 
