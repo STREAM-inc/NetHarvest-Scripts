@@ -1789,7 +1789,7 @@ sites:
     name: "キャバキャバ"
     module: "nightlife.caba2"
     url: "https://www.caba2.net/bar_sitemap.xml"
-    schedule: "30 4 1-7 * SUN"
+    schedule: "0 4 * * SUN"
     enabled: true
     terms_url: "https://www.caba2.net/term"
 
