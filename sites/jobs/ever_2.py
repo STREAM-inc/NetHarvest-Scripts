@@ -1,5 +1,8 @@
+import datetime
+import json
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Generator
 from urllib.parse import urljoin
@@ -15,10 +18,16 @@ from src.const.schema import Schema
 _DETAIL_RE = re.compile(r"/job-\d+")
 # 求人 ID (/job-1280605 → 1280605)
 _ID_RE = re.compile(r"/job-(\d+)")
+# 企業ページ (/company/10346)
+_COMPANY_RE = re.compile(r"/company/(\d+)")
 # 総件数表示 "20,759 件の求人が見つかりました"
 _TOTAL_RE = re.compile(r"([\d,]+)\s*件の求人")
 # 電話番号 (例: 05018834123, 03-1234-5678)
 _TEL_RE = re.compile(r"0\d[\d\-]{7,}")
+# 郵便番号 (〒272-0004 / 〒2720004)
+_ZIP_RE = re.compile(r"〒\s*(\d{3})-?(\d{4})")
+# JSON-LD datePosted ("2026-09-30T10:22")
+_DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})")
 
 
 def _clean(s) -> str:
@@ -36,14 +45,21 @@ class Ever2Scraper(StaticCrawler):
       詳細を 1 件取得するごとに即 yield する（Pattern B）。
     - 詳細ページは `div.mid_box`（`.mid_box_ttl` がセクション名）内の `h2.c_ttl`(ラベル)
       + 直後 `<p>`(値) 構造。「募集中の求人」ボックスは他求人の一覧なので除外する。
-    - doraever.jp は一過性の WAF 403（`<title>403 Forbidden</title>` の極小ページ／
-      HTTP 403）を返すことがあるため、`_get_soup_ok` で検知して再取得する。
+    - 掲載日・事業所名は HTML の表示要素としては存在せず、詳細ページの JSON-LD
+      （JobPosting.datePosted / BreadcrumbList の末尾要素）にのみ入っている。
+      掲載日は `2026年9月30日` 形式の日本語表記に整形して出力する。
+    - 企業ページ `/company/{企業ID}` は「募集中の求人」カードの `div.occupation`
+      に事業所名が並ぶ。企業 ID ごとに 1 回だけ取得して `_company_cache` に保持し、
+      同一企業の求人では再利用する。
+    - doraever.jp は短い間隔でアクセスすると WAF 403（`<title>403 Forbidden</title>`
+      の極小ページ／HTTP 403）を返すため、全リクエストを `_REQ_INTERVAL` 秒以上
+      空けて送り、403 検知時は `_RETRY_WAITS` の秒数だけ待って再取得する。
     - 求人 detail の「応募について」ボックスに `連絡先`（電話）があるため TEL を取得できる。
     - 利用規約（/terms）にスクレイピング／クローリングの明示的禁止は無い
       （無断転載・営利目的提供は禁止）。
     """
 
-    DELAY = 0.5
+    DELAY = 2.5
     TIMEOUT = 30
 
     EXTRA_COLUMNS = [
@@ -57,14 +73,35 @@ class Ever2Scraper(StaticCrawler):
         "主要取引先",
         "担当者",
         "会社所在地",
+        "掲載日",
+        "事業所名",
+        "勤務地住所",
+        "企業ページURL",
+        "企業ページ事業所一覧",
+        "取得日",
     ]
 
-    # 403 検知時の再取得回数
-    _FETCH_RETRIES = 4
+    # 連続リクエストの最小間隔（秒）。403 対策で 2〜3 秒以上空ける。
+    _REQ_INTERVAL = 2.5
+    # 403 検知時の待機秒数（リトライ回数 = len）。長めに待ってから再取得する。
+    _RETRY_WAITS = [10.0, 20.0, 40.0]
     # 連続空ページがこの数に達したら一覧巡回を打ち切る
     _MAX_EMPTY = 5
     # 一覧ページ数の安全上限
     _MAX_PAGE = 2000
+
+    # 企業ページ URL → 事業所名（「|」連結済み）のキャッシュ
+    _company_cache: dict[str, str] = {}
+    # 直近の実リクエスト時刻（キャッシュヒットは含めない）
+    _last_request_at = 0.0
+    # 実行日 (YYYY-MM-DD)
+    _today = ""
+
+    def prepare(self):
+        """インスタンス単位の状態を初期化する（__init__ のオーバーライドは禁止）。"""
+        self._company_cache = {}
+        self._last_request_at = 0.0
+        self._today = datetime.date.today().strftime("%Y-%m-%d")
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         # 引数 url を唯一のルート（起点）として使う。ページネーションはここから派生させる。
@@ -95,7 +132,7 @@ class Ever2Scraper(StaticCrawler):
 
             for detail_url in detail_urls:
                 try:
-                    item = self._scrape_detail(detail_url)
+                    item = self._scrape_detail(detail_url, root)
                 except Exception as e:  # 個別求人のエラーはログして継続
                     self.logger.warning("詳細取得エラー: %s — %s", detail_url, e)
                     continue
@@ -126,27 +163,52 @@ class Ever2Scraper(StaticCrawler):
             urls.append(full)
         return urls
 
+    # ------------------------------------------------------------------
+    # 取得（レート制御 + 403 リトライ）
+    # ------------------------------------------------------------------
+    def _wait_turn(self):
+        """直前の実リクエストから `_REQ_INTERVAL` 秒以上空くまで待つ。"""
+        if not self._last_request_at:
+            return
+        remain = self._REQ_INTERVAL - (time.monotonic() - self._last_request_at)
+        if remain > 0:
+            time.sleep(remain)
+
     def _get_soup_ok(self, url: str):
         """403 Forbidden ページ／通信失敗を検知し、正常ページが得られるまで再取得する。"""
-        for _ in range(self._FETCH_RETRIES):
+        for attempt in range(len(self._RETRY_WAITS) + 1):
+            self._wait_turn()
             soup = self.get_soup(url)
-            if soup is None:  # HTTP 403 等 → get_soup が None
-                continue
-            title = _clean(soup.title.get_text()) if soup.title else ""
-            if "403 Forbidden" in title:
-                continue
-            h1 = soup.select_one("h1")
-            if h1 and "403 Forbidden" in _clean(h1.get_text()):
-                continue
-            return soup
+            if not self._last_fetch_from_cache:
+                self._last_request_at = time.monotonic()
+
+            if soup is not None and not self._is_forbidden(soup):
+                return soup
+
+            if attempt < len(self._RETRY_WAITS):
+                wait = self._RETRY_WAITS[attempt]
+                self.logger.warning("403/取得失敗 — %.0f秒待って再取得: %s", wait, url)
+                time.sleep(wait)
         return None
 
-    def _scrape_detail(self, url: str) -> dict | None:
+    @staticmethod
+    def _is_forbidden(soup) -> bool:
+        title = _clean(soup.title.get_text()) if soup.title else ""
+        if "403 Forbidden" in title:
+            return True
+        h1 = soup.select_one("h1")
+        return bool(h1 and "403 Forbidden" in _clean(h1.get_text()))
+
+    # ------------------------------------------------------------------
+    # 詳細ページ
+    # ------------------------------------------------------------------
+    def _scrape_detail(self, url: str, root: str) -> dict | None:
         soup = self._get_soup_ok(url)
         if soup is None:
             return None
 
-        data = {Schema.URL: url}
+        today = self._today or datetime.date.today().strftime("%Y-%m-%d")
+        data = {Schema.URL: url, "取得日": today}
 
         mid = _ID_RE.search(url)
         if mid:
@@ -225,9 +287,122 @@ class Ever2Scraper(StaticCrawler):
         if addr:
             data[Schema.ADDR] = addr
 
+        # --- 郵便番号 / 勤務地住所 (〒 を分離) ---
+        zipcode = self._pick_zip(work_addr) or self._pick_zip(company_addr)
+        if work_addr:
+            data["勤務地住所"] = _clean(_ZIP_RE.sub("", work_addr))
+
+        # --- JSON-LD (掲載日 / 事業所名 / 郵便番号フォールバック) ---
+        job_ld, crumb_ld = self._extract_ld(soup)
+        if job_ld:
+            posted = self._format_date(job_ld.get("datePosted"))
+            if posted:
+                data["掲載日"] = posted
+            if not zipcode:
+                loc = job_ld.get("jobLocation") or {}
+                if isinstance(loc, list):
+                    loc = loc[0] if loc else {}
+                pc = _clean((loc.get("address") or {}).get("postalCode"))
+                zipcode = self._format_zip(pc)
+        if zipcode:
+            data[Schema.POST_CODE] = zipcode
+
+        office = self._extract_office(crumb_ld)
+        if office:
+            data["事業所名"] = office
+
+        # --- 企業ページ URL / 企業ページ事業所一覧 ---
+        company_url = self._extract_company_url(soup, root)
+        if company_url:
+            data["企業ページURL"] = company_url
+            offices = self._get_company_offices(company_url)
+            if offices:
+                data["企業ページ事業所一覧"] = offices
+
         if not data.get(Schema.NAME):
             return None
         return data
+
+    # ------------------------------------------------------------------
+    # 部品
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _pick_zip(text: str) -> str:
+        m = _ZIP_RE.search(text or "")
+        return f"{m.group(1)}-{m.group(2)}" if m else ""
+
+    @staticmethod
+    def _format_zip(raw: str) -> str:
+        digits = re.sub(r"\D", "", raw or "")
+        return f"{digits[:3]}-{digits[3:]}" if len(digits) == 7 else ""
+
+    @staticmethod
+    def _format_date(raw) -> str:
+        """JSON-LD の datePosted (2026-05-13T10:22) を「2026年5月13日」に整形する。"""
+        m = _DATE_RE.match(_clean(raw))
+        if not m:
+            return ""
+        return f"{int(m.group(1))}年{int(m.group(2))}月{int(m.group(3))}日"
+
+    @staticmethod
+    def _extract_ld(soup) -> tuple[dict | None, dict | None]:
+        """詳細ページの JSON-LD から JobPosting と BreadcrumbList を取り出す。"""
+        job_ld = None
+        crumb_ld = None
+        for sc in soup.select('script[type="application/ld+json"]'):
+            raw = sc.string or sc.get_text()
+            try:
+                obj = json.loads(raw.strip())
+            except Exception:
+                continue
+            for d in obj if isinstance(obj, list) else [obj]:
+                if not isinstance(d, dict):
+                    continue
+                if d.get("@type") == "JobPosting" and job_ld is None:
+                    job_ld = d
+                elif d.get("@type") == "BreadcrumbList" and crumb_ld is None:
+                    crumb_ld = d
+        return job_ld, crumb_ld
+
+    @staticmethod
+    def _extract_office(crumb_ld) -> str:
+        """パンくず末尾（例: 本社 / 川口市（車庫））が事業所名。"""
+        if not crumb_ld:
+            return ""
+        items = crumb_ld.get("itemListElement") or []
+        if len(items) < 2:
+            return ""
+        last = items[-1]
+        return _clean(last.get("name")) if isinstance(last, dict) else ""
+
+    @staticmethod
+    def _extract_company_url(soup, root: str) -> str:
+        for a in soup.select("a[href]"):
+            m = _COMPANY_RE.search(a.get("href", ""))
+            if m:
+                return urljoin(root, f"/company/{m.group(1)}")
+        return ""
+
+    def _get_company_offices(self, company_url: str) -> str:
+        """企業ページの募集中求人から事業所名を重複除去して「|」連結。企業単位でキャッシュ。"""
+        if company_url in self._company_cache:
+            return self._company_cache[company_url]
+
+        self._company_cache[company_url] = ""  # 失敗時も再取得しない
+        soup = self._get_soup_ok(company_url)
+        if soup is None:
+            return ""
+
+        names: list[str] = []
+        box = soup.select_one("div.division_jobs_container") or soup
+        for el in box.select("div.occupation"):
+            name = _clean(el.get_text(" "))
+            if name and name not in names:
+                names.append(name)
+
+        joined = "|".join(names)
+        self._company_cache[company_url] = joined
+        return joined
 
 
 if __name__ == "__main__":
