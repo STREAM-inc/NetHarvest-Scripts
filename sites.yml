@@ -6021,3 +6021,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.mhlw.go.jp/chosakuken/index.html"
+
+  - site_id: plex_job_2
+    name: "プレックスジョブ_整備士"
+    module: "jobs.plex_job_2"
+    url: "https://www.plex-job.com/mechanic/feature/272/"
+    schedule: null
+    enabled: true
+    terms_url: ""
