@@ -34,6 +34,7 @@
 import json
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Generator
 from urllib.parse import urljoin, urlparse
@@ -83,7 +84,9 @@ def _format_zip(zip_code) -> str:
 class PlexJobMechanicScraper(StaticCrawler):
     """プレックスジョブ_整備士 スクレイパー"""
 
-    DELAY = 1.0  # robots.txt の Crawl-delay: 1 に準拠
+    DELAY = 1.5  # robots.txt の Crawl-delay: 1 に準拠 (一時ブロック対策で余裕を持たせる)
+    FETCH_RETRIES = 6       # __NEXT_DATA__ 取得の最大試行回数
+    RETRY_BACKOFF = 30      # 再試行待機 = RETRY_BACKOFF × 試行回数 (秒)
     EXTRA_COLUMNS = [
         "媒体名",
         "市区町村",
@@ -113,7 +116,14 @@ class PlexJobMechanicScraper(StaticCrawler):
             while page <= total_pages:
                 data = self._fetch_next_data(f"{feature_url}?page={page}")
                 if data is None:
-                    break
+                    # 再試行後も取れないページは諦めるが、特集全体は打ち切らない
+                    if page == 1:
+                        break
+                    self.logger.warning(
+                        "一覧ページをスキップします: %s?page=%s", feature_url, page
+                    )
+                    page += 1
+                    continue
 
                 search_jobs = data.get("searchJobs") or {}
                 pagination = search_jobs.get("pagination") or {}
@@ -169,6 +179,31 @@ class PlexJobMechanicScraper(StaticCrawler):
     # ページ取得
     # ------------------------------------------------------------------
     def _fetch_next_data(self, url: str) -> dict | None:
+        """__NEXT_DATA__ を取得する。一時的なブロック/通信エラーに備えて再試行する。"""
+        for attempt in range(1, self.FETCH_RETRIES + 1):
+            try:
+                data = self._fetch_next_data_once(url)
+            except Exception as e:  # noqa: BLE001 — 通信系の一時エラーを握って再試行
+                self.logger.warning(
+                    "取得中に例外 (%s/%s): %s — %s", attempt, self.FETCH_RETRIES, url, e
+                )
+                data = None
+            if data is not None:
+                return data
+            if attempt < self.FETCH_RETRIES:
+                wait = self.RETRY_BACKOFF * attempt
+                self.logger.warning(
+                    "取得失敗 (%s/%s)。%s 秒待機して再試行します: %s",
+                    attempt,
+                    self.FETCH_RETRIES,
+                    wait,
+                    url,
+                )
+                time.sleep(wait)
+        self.logger.error("再試行上限に達したため取得を断念しました: %s", url)
+        return None
+
+    def _fetch_next_data_once(self, url: str) -> dict | None:
         """ページの __NEXT_DATA__ から pageProps.data を取り出す。"""
         soup = self.get_soup(url)
         if soup is None:
