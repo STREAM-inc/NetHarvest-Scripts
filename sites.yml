@@ -6029,3 +6029,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: carworkassist
+    name: "カーワク"
+    module: "jobs.carworkassist"
+    url: "https://carworkassist.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://carworkassist.com/terms"
