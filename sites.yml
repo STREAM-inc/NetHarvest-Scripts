@@ -6045,3 +6045,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://seibishi.me/about/agreement/"
+
+  - site_id: mechani_q_2
+    name: "メカニッ求_整備士"
+    module: "jobs.mechani_q_2"
+    url: "https://mechani-q.com/job_category/mechanic"
+    schedule: null
+    enabled: true
+    terms_url: ""
