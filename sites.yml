@@ -6077,3 +6077,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://sumitec-kansai.com/term/"
+
+  - site_id: sharefull
+    name: "シェアフル"
+    module: "jobs.sharefull"
+    url: "https://sharefull.com/jobs"
+    schedule: null
+    enabled: true
+    terms_url: "https://sharefull.com/terms"
