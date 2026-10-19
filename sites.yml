@@ -6085,3 +6085,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://sharefull.com/terms"
+
+  - site_id: shotworks
+    name: "ショットワークス"
+    module: "jobs.shotworks"
+    url: "https://shotworks.jp/sw/list/"
+    schedule: null
+    enabled: true
+    terms_url: "https://shotworks.jp/sw/contents/docs/regulation.html"
