@@ -6093,3 +6093,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://shotworks.jp/sw/contents/docs/regulation.html"
+
+  - site_id: line
+    name: "LINEスキマニ"
+    module: "jobs.line"
+    url: "https://portal.line-sukimani.me/"
+    schedule: null
+    enabled: true
+    terms_url: ""
