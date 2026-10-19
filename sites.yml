@@ -6069,3 +6069,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://tsukulink.net/term"
+
+  - site_id: sumitec_kansai
+    name: "コンストマップ"
+    module: "construction.sumitec_kansai"
+    url: "https://sumitec-kansai.com/contractor/area_cat/aichi"
+    schedule: null
+    enabled: true
+    terms_url: "https://sumitec-kansai.com/term/"
