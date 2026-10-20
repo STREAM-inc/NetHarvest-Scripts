@@ -6101,3 +6101,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: com_4
+    name: "一休.com（宿泊施設・東北新潟）"
+    module: "travel.com_4"
+    url: "https://www.ikyu.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.ikyu.com/terms/service/"
