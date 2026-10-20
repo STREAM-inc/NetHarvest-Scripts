@@ -6125,3 +6125,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://doctor.mynavi.jp/kiyaku/"
+
+  - site_id: ever
+    name: "ドラEVER企業一覧"
+    module: "jobs.ever"
+    url: "https://doraever.jp/company-list"
+    schedule: null
+    enabled: true
+    terms_url: "https://doraever.jp/terms"
