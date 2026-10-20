@@ -6117,3 +6117,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://tenshoku.create-jobs.com/support/terms/"
+
+  - site_id: doctor
+    name: "マイナビDOCTOR"
+    module: "medical.doctor"
+    url: "https://doctor.mynavi.jp/search/regular/result/pref_cd/13/"
+    schedule: null
+    enabled: true
+    terms_url: "https://doctor.mynavi.jp/kiyaku/"
