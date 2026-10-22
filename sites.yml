@@ -6141,3 +6141,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://andreform.jp/cont/kiyaku.html"
+
+  - site_id: co_medical
+    name: "メディカルドットコム"
+    module: "jobs.co_medical"
+    url: "http://co-medical.com/ns/"
+    schedule: "0 9 15 * *"
+    enabled: true
+    terms_url: ""
