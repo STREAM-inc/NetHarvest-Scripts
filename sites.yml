@@ -6135,7 +6135,7 @@ sites:
     terms_url: "https://doraever.jp/terms"
 
   - site_id: andreform_2
-    name: "&リフォーム（アンドリフォーム）加盟会社"
+    name: "アンドリフォーム（リフォーム）加盟会社"
     module: "construction.andreform_2"
     url: "https://andreform.jp/fukuoka"
     schedule: null
