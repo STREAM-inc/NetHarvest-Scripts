@@ -6165,3 +6165,11 @@ sites:
     schedule: "0 9 19 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: colorful_career
+    name: "colorful-career"
+    module: "jobs.colorful_career"
+    url: "https://colorful-career.jp/search?keyword="
+    schedule: "0 9 21 * *"
+    enabled: true
+    terms_url: "https://colorfulcorp.co.jp/terms/"
