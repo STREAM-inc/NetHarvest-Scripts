@@ -6157,3 +6157,11 @@ sites:
     schedule: "0 9 10 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: hoikushibank
+    name: "カラフルキャリアドライバー"
+    module: "jobs.hoikushibank"
+    url: "https://www.hoikushibank.com/facility"
+    schedule: "0 9 19 * *"
+    enabled: true
+    terms_url: ""
