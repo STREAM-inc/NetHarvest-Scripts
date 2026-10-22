@@ -6149,3 +6149,11 @@ sites:
     schedule: "0 9 15 * *"
     enabled: true
     terms_url: ""
+
+  - site_id: type
+    name: "転職type"
+    module: "jobs.type"
+    url: "https://type.jp"
+    schedule: "0 9 10 * *"
+    enabled: true
+    terms_url: ""
