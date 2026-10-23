@@ -6173,3 +6173,11 @@ sites:
     schedule: "0 9 21 * *"
     enabled: true
     terms_url: "https://colorfulcorp.co.jp/terms/"
+
+  - site_id: epark_3
+    name: "EPARKくすりの窓口"
+    module: "medical.epark_3"
+    url: "https://www.kusurinomadoguchi.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.kusurinomadoguchi.com/terms"
