@@ -7,7 +7,9 @@ Agreキャリア (アグレキャリア) — 沖縄の転職・正社員求人 (
 
 取得フロー:
     一覧ページ (career/list?page=N) → 求人カード → 詳細ページ (career/view/web/{id})
-    会社名・住所・代表者等は詳細ページの #company_name / #address 等から取得。
+    会社名・住所・業種・事業内容・代表者・設立は詳細ページ「会社概要」ブロックの
+    h3 見出し＋値 div の組を見出し名で対応付けて取得（テーブル/dl ではない）。
+    住所は「〒NNN-NNNN」を郵便番号に分離、代表者は先頭の役職語で役職/氏名に分割する。
     電話番号は詳細ページの JobPosting JSON-LD の description 内
     「【電話番号】」ブロックから抽出する（可視 DOM には電話番号ラベルが無いため）。
     求人タイトル・雇用形態・勤務地は一覧カードのバッジから取得。
@@ -46,13 +48,19 @@ _POST_CODE_RE = re.compile(r"〒\s*([\d０-９][\d０-９\-－]+)")
 # 区切りの罫線（－－－…）または次の【…】ラベルまでを電話番号ブロックとみなす。
 _TEL_BLOCK_RE = re.compile(r"電話番号】(.*?)(?:[-－─]{4,}|【|$)", re.S)
 _TEL_NUM_RE = re.compile(r"0[\d０-９][\d０-９\-－]{7,12}")
+# 代表者欄の先頭役職（例: 「代表取締役　加藤 健史」「代表取締役社長：山田太郎」）。
+# 役職語の後ろは空白/コロン区切りで氏名が続く。役職が無ければ全体を氏名とする。
+_REP_TITLE_RE = re.compile(
+    r"^((?:代表取締役|取締役|代表社員|代表理事|理事長|代表者|代表|社長|会長|院長|園長|"
+    r"施設長|所長|店長|オーナー|CEO|COO)[^\s\u3000:：]*)[\s\u3000:：]+(.+)$"
+)
 
 
 class WebagreCrawler(StaticCrawler):
     """Agreキャリア（沖縄の転職・正社員求人）スクレイパー"""
 
     DELAY = 1.5
-    EXTRA_COLUMNS = ["求人タイトル", "雇用形態", "勤務地"]
+    EXTRA_COLUMNS = ["求人タイトル", "雇用形態", "勤務地", "業種"]
 
     def parse(self, url: str):
         # 引数 url ("https://webagre.com/career") を唯一のルートとし、一覧 URL を派生させる。
@@ -112,47 +120,80 @@ class WebagreCrawler(StaticCrawler):
             el = soup.select_one(f"#{section_id}")
             return el.get_text(" ", strip=True) if el else ""
 
-        # --- 住所: 郵便番号・都道府県・残りの住所に分解 ---
-        addr_raw = get_section("address")
+        # --- 会社概要: h2「会社概要」配下の section ごとに h3 見出し → 値 div を対応付ける ---
+        overview = self._parse_company_overview(soup)
+
+        # --- 住所: 先頭の「〒NNN-NNNN」を郵便番号に分離し、残りを住所本体とする ---
+        addr_raw = overview.get("住所", "")
         post_code = ""
         pc_m = _POST_CODE_RE.search(addr_raw)
         if pc_m:
             post_code = pc_m.group(1)
-        addr_clean = _POST_CODE_RE.sub("", addr_raw).strip()
-        pref = ""
-        addr = addr_clean
-        m = _PREF_PATTERN.match(addr_clean)
-        if m:
-            pref = m.group(1)
-            addr = addr_clean[m.end():].strip()
+        addr = re.sub(r"\s+", "", _POST_CODE_RE.sub("", addr_raw, count=1))
+        pref_m = _PREF_PATTERN.match(addr)
+        pref = pref_m.group(1) if pref_m else ""
 
-        # --- 代表者: 「役職：氏名」形式なら役職と氏名に分割 ---
-        rep_raw = get_section("represent")
-        pos_nm = ""
-        rep_nm = rep_raw
-        if rep_raw:
-            rm = re.split(r"[：:]", rep_raw, maxsplit=1)
-            if len(rm) == 2:
-                pos_nm = rm[0].strip()
-                rep_nm = rm[1].strip()
-
-        # --- 電話番号: JobPosting JSON-LD の description から抽出 ---
-        tel = self._extract_tel(soup)
+        # --- 代表者: 先頭が役職語なら役職と氏名に分割、無ければ全体を氏名とする ---
+        pos_nm, rep_nm = self._split_representative(overview.get("代表者", ""))
 
         return {
             Schema.URL: url,
-            Schema.NAME: get_section("company_name"),
+            Schema.NAME: overview.get("企業名") or get_section("company_name"),
             Schema.PREF: pref,
             Schema.POST_CODE: post_code,
             Schema.ADDR: addr,
-            Schema.TEL: tel,
+            Schema.TEL: self._extract_tel(soup),
             Schema.REP_NM: rep_nm,
             Schema.POS_NM: pos_nm,
-            Schema.OPEN_DATE: get_section("set_up"),
-            Schema.LOB: get_section("business_details"),
+            Schema.OPEN_DATE: overview.get("設立", ""),
+            Schema.LOB: overview.get("事業内容", ""),
+            Schema.CAP: overview.get("資本金", ""),
+            Schema.EMP_NUM: overview.get("従業員数", ""),
             Schema.TIME: get_section("working_hours"),
             Schema.HOLIDAY: get_section("day_off"),
+            "業種": overview.get("業種", ""),
         }
+
+    @staticmethod
+    def _parse_company_overview(soup) -> dict:
+        """「会社概要」h2 を持つブロック内の h3 見出し＋値 div を {見出し: 値} にする。"""
+        result: dict[str, str] = {}
+        heading = soup.find(
+            lambda t: t.name in ("h2", "h3") and t.get_text(strip=True) == "会社概要"
+        )
+        if heading is None:
+            return result
+        block = heading.find_parent("section") or heading.parent
+        for h3 in block.find_all("h3"):
+            label = h3.get_text(strip=True)
+            if not label or label in result:
+                continue
+            values = []
+            for sib in h3.find_next_siblings():
+                if sib.name == "h3":
+                    break
+                # 「続きを見る」トグルの input/label は除外して値のみ取る
+                for junk in sib.select("input, label.read-more-toggle"):
+                    junk.decompose()
+                text = sib.get_text("\n", strip=True)
+                if text:
+                    values.append(text)
+            value = "\n".join(values)
+            # 1 行に収まる項目は空白を正規化（事業内容など複数行はそのまま）
+            if "\n" not in value:
+                value = re.sub(r"[ \u3000]+", " ", value).strip()
+            result[label] = value
+        return result
+
+    @staticmethod
+    def _split_representative(rep_raw: str) -> tuple[str, str]:
+        rep_raw = rep_raw.strip()
+        if not rep_raw:
+            return "", ""
+        m = _REP_TITLE_RE.match(rep_raw)
+        if m and m.group(2).strip():
+            return m.group(1).strip(), m.group(2).strip()
+        return "", rep_raw
 
     @staticmethod
     def _extract_tel(soup) -> str:
