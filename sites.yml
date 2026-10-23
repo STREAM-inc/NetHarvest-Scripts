@@ -6181,3 +6181,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.kusurinomadoguchi.com/terms"
+
+  - site_id: engage
+    name: "engage"
+    module: "jobs.engage"
+    url: "https://en-gage.net/#/"
+    schedule: null
+    enabled: true
+    terms_url: "https://en-gage.net/user/terms/"
