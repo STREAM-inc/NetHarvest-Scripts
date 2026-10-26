@@ -6189,3 +6189,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://en-gage.net/user/terms/"
+
+  - site_id: fc_hikaku
+    name: "フランチャイズ比較ネット"
+    module: "agency_franchise.fc_hikaku"
+    url: "https://fc-hikaku.net/"
+    schedule: null
+    enabled: true
+    terms_url: "https://fc-hikaku.net/rules"
