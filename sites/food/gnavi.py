@@ -2,14 +2,17 @@
 ぐるなび — 飲食店情報スクレイパー
 
 取得対象:
-    - ぐるなび掲載の飲食店（既定は TARGET_PREFS の4都県。定数を変えれば他県にも広げられる）
+    - ぐるなび掲載の飲食店（全国47都道府県。TARGET_PREFS を絞れば対象県を限定できる）
     - 店名 / 郵便番号 / 住所 / 都道府県 / TEL / ジャンル / 取得URL
 
 取得フロー（逐次ストリーミング）:
     1. 都道府県一覧 https://r.gnavi.co.jp/area/{slug}/rs/ を起点にする
     2. 一覧は「1ページ30件 / p=334 が上限」＝1URLから約10,020件しか辿れないため、
-       ページ内の「該当件数」を読み、上限を超える一覧はページ内のジャンル別・
-       サブエリア別リンクへ自動的に細分化する（和集合＋店舗URLで重複排除）
+       ページ内の「該当件数」を読み、上限を超える一覧はページ内のエリア別リンク
+       （県→areal→aream。互いに素）へ自動的に細分化する。エリアが無い一覧のみ
+       ジャンル別で分割する（店舗URLで重複排除）。
+       ※旧版は4都県限定かつ areal を細分化対象にしておらず、東京(約9.2万件)などで
+         ジャンル別一覧も上限超過→約10万件で頭打ちになっていた。
     3. 一覧を1ページ読むごとに、その場で各店舗の**店舗トップ**
        https://r.gnavi.co.jp/{shop_id}/ の JSON-LD (@type="Restaurant") を取得して
        逐次 yield する（全URLを溜め込まないのでテスト実行でもすぐ結果が出る）
@@ -51,11 +54,21 @@ from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
 # --- 対象エリア（ここを変えれば他県にも広げられる） ---------------------------
+# 全国47都道府県（総掲載 約54万件 / 2026-10 実測 /area/jp/rs/）。並びは北から。
 TARGET_PREFS: dict[str, str] = {
-    "埼玉県": "saitama",
-    "千葉県": "chiba",
-    "東京都": "tokyo",
-    "神奈川県": "kanagawa",
+    "北海道": "hokkaido", "青森県": "aomori", "岩手県": "iwate", "宮城県": "miyagi",
+    "秋田県": "akita", "山形県": "yamagata", "福島県": "fukushima",
+    "茨城県": "ibaraki", "栃木県": "tochigi", "群馬県": "gunma", "埼玉県": "saitama",
+    "千葉県": "chiba", "東京都": "tokyo", "神奈川県": "kanagawa",
+    "新潟県": "niigata", "富山県": "toyama", "石川県": "ishikawa", "福井県": "fukui",
+    "山梨県": "yamanashi", "長野県": "nagano", "岐阜県": "gifu", "静岡県": "shizuoka",
+    "愛知県": "aichi", "三重県": "mie", "滋賀県": "shiga", "京都府": "kyoto",
+    "大阪府": "osaka", "兵庫県": "hyogo", "奈良県": "nara", "和歌山県": "wakayama",
+    "鳥取県": "tottori", "島根県": "shimane", "岡山県": "okayama", "広島県": "hiroshima",
+    "山口県": "yamaguchi", "徳島県": "tokushima", "香川県": "kagawa", "愛媛県": "ehime",
+    "高知県": "kochi", "福岡県": "fukuoka", "佐賀県": "saga", "長崎県": "nagasaki",
+    "熊本県": "kumamoto", "大分県": "oita", "宮崎県": "miyazaki", "鹿児島県": "kagoshima",
+    "沖縄県": "okinawa",
 }
 
 _ALL_PREFS = (
@@ -79,13 +92,18 @@ _NOT_SHOP = {
 
 # 細分化に使える一覧URL（ジャンル別 / サブエリア別）
 _LIST_GENRE = re.compile(r"^https://r\.gnavi\.co\.jp/area/[0-9a-z_]+/[0-9a-z_]+/rs/$")
-_LIST_AREAM = re.compile(r"^https://r\.gnavi\.co\.jp/area/aream\d+/rs/$")
+# エリア別一覧: 都道府県ページに areal(中エリア)、areal ページに aream(小エリア) が並ぶ。
+# エリアは互いに素なので、ジャンル別(重複あり・県全体で上限超過しうる)より優先して使う
+# （実測 2026-10: 東京の areal 合計 91,905 件 ≒ 県の掲載 91,909 件）。
+_LIST_AREA = re.compile(r"^https://r\.gnavi\.co\.jp/area/area[a-z]\d+/rs/$")
 
 # robots.txt (User-agent: *) の Disallow に該当する一覧は巡回しない
 _ROBOTS_DENY = re.compile(
     r"/area/[^/]+/(entertainment|karaoke|entertainmentrest)/kods00(118|119|239)/"
 )
 
+# 一覧冒頭の要約文「…お店が91,909件見つかりました。」が最も確実
+_HIT_SUMMARY = re.compile(r"が\s*([\d,]{1,12})\s*件\s*見つかりました")
 _HIT_LABELLED = re.compile(r"(?:該当|検索結果|全)[^0-9]{0,12}([\d,]{1,12})\s*件")
 _HIT_BARE = re.compile(r"([\d,]{1,12})\s*件")
 _ZIP = re.compile(r"(\d{3}-?\d{4})")
@@ -159,25 +177,13 @@ class GnaviScraper(StaticCrawler):
         # （実測 2026-08: 埼玉の1ページ目が全滅している間、東京/千葉は正常）、県を順番に
         # 処理すると先頭県の不調だけで制限時間を使い切り 0 件になる。ラウンドロビンなら
         # 健全な県から即座に結果が出る。上限超過エリアの細分化は各県ジェネレータ内で遅延実行。
-        streams: list[tuple[str, Iterator[str]]] = []
-        for pref_jp, slug in TARGET_PREFS.items():
-            root = self._resolve_root(slug)
-            if root:
-                streams.append((pref_jp, self._iter_pref_shops(pref_jp, root)))
-            else:
-                self.logger.error(
-                    "%s (%s): 一覧の起点URLを解決できませんでした（候補: %s）",
-                    pref_jp, slug,
-                    " / ".join(t.format(slug=slug) for t in self.LIST_TEMPLATES),
-                )
-
-        if not streams:
-            # 全県で一覧が使えない＝サイト構造が変わった可能性。公式サイトマップで代替する
-            self.logger.error(
-                "全都県で一覧起点を解決できないため、公式サイトマップにフォールバックします"
-            )
-            yield from self._parse_via_sitemap()
-            return
+        # 47県ぶんの起点解決を先にまとめて行うと最初の1件までに数十リクエストかかるため、
+        # 起点解決も各県ジェネレータの中で遅延実行する。
+        self._resolved_prefs = 0
+        streams: list[tuple[str, Iterator[str]]] = [
+            (pref_jp, self._iter_pref_shops(pref_jp, slug))
+            for pref_jp, slug in TARGET_PREFS.items()
+        ]
 
         kept = 0
         pref_kept: dict[str, int] = {p: 0 for p, _ in streams}
@@ -200,34 +206,66 @@ class GnaviScraper(StaticCrawler):
                     yield item
             active = still
 
+        if self._resolved_prefs == 0:
+            # 全県で一覧が使えない＝サイト構造が変わった可能性。公式サイトマップで代替する
+            self.logger.error(
+                "全都道府県で一覧起点を解決できないため、公式サイトマップにフォールバックします"
+            )
+            yield from self._parse_via_sitemap()
+            return
+
         for pref_jp, cnt in pref_kept.items():
             self.logger.info("%s: 採用 %d 件", pref_jp, cnt)
         self.logger.info("全県完了: 採用 %d 件", kept)
 
-    def _iter_pref_shops(self, pref_jp: str, root: str) -> Iterator[str]:
-        """1都県ぶんの店舗URLを遅延生成する（本体一覧→必要なら細分化子一覧の順）。
+    def _iter_pref_shops(self, pref_jp: str, slug: str) -> Iterator[str]:
+        """1都道府県ぶんの店舗URLを遅延生成する。
 
         ジェネレータにすることで、ラウンドロビン側は「次の店舗URLが必要になった時」だけ
-        一覧ページを取得する。細分化（件数上限超過エリアの子一覧展開）も本体一覧を
-        流し終えて初めて評価されるため、テスト実行では実行されず最初の1件が速く出る。
+        一覧ページを取得する。掲載件数が1一覧の上限(約10,020件)を超える県は、県一覧を
+        流さずに最初からエリア別の子一覧（互いに素）へ分割して巡回する。子一覧の
+        再帰的な細分化も、その子一覧の番が来たときに初めて評価される。
         """
+        root = self._resolve_root(slug)
+        if not root:
+            self.logger.error(
+                "%s (%s): 一覧の起点URLを解決できませんでした（候補: %s）",
+                pref_jp, slug,
+                " / ".join(t.format(slug=slug) for t in self.LIST_TEMPLATES),
+            )
+            return
+        self._resolved_prefs += 1
         listed = self._hit_count(root)
         self.logger.info(
             "=== %s: 掲載件数 %s ===",
             pref_jp, f"{listed:,}" if listed else "不明",
         )
-        # まず都道府県一覧そのもの（最初の約10,020件）を流す
-        yield from self._iter_shop_urls(root)
-        # 上限を超える残りは、細分化した子一覧で回収する（重複は呼び出し側がURLで排除）
-        if listed and listed > self.SPLIT_LIMIT:
-            children = self._split_until_under_limit(root, depth=0)
-            extra = [c for c in children if c != root]
-            self.logger.info(
-                "%s: 掲載 %d 件 > 上限 %d のため子一覧 %d 本を追加",
-                pref_jp, listed, self.SPLIT_LIMIT, len(extra),
-            )
-            for child in extra:
-                yield from self._iter_shop_urls(child)
+        if not listed or listed <= self.SPLIT_LIMIT:
+            yield from self._iter_shop_urls(root)
+            return
+        yield from self._iter_split(root, depth=0)
+
+    def _iter_split(self, list_url: str, depth: int) -> Iterator[str]:
+        """上限超過の一覧を子一覧に分けながら遅延巡回する（重複は呼び出し側で排除）。"""
+        count = self._hit_count(list_url)
+        if count is not None and count <= self.SPLIT_LIMIT:
+            yield from self._iter_shop_urls(list_url)
+            return
+        children = self._child_lists(list_url) if depth < self.MAX_SPLIT_DEPTH else []
+        if not children:
+            if count:
+                self.logger.warning(
+                    "細分化できず上限超過のまま巡回（%s: %d 件 > %d）。取りこぼす可能性あり",
+                    list_url, count, self.SPLIT_LIMIT,
+                )
+            yield from self._iter_shop_urls(list_url)
+            return
+        self.logger.info(
+            "細分化: %s (%s 件) → 子一覧 %d 本 [depth=%d]",
+            list_url, f"{count:,}" if count else "不明", len(children), depth,
+        )
+        for child in children:
+            yield from self._iter_split(child, depth + 1)
 
     # ---------------- 一覧の起点解決 / サイトマップ代替 ----------------
 
@@ -248,7 +286,7 @@ class GnaviScraper(StaticCrawler):
     def _parse_via_sitemap(self) -> Generator[dict, None, None]:
         """最後の手段: robots.txt 記載の公式サイトマップから店舗URLを集めて判定する。
 
-        全国分を辿るため件数が多い。対象4都県の判定は詳細ページの JSON-LD で行う。
+        全国分を辿るため件数が多い。対象都道府県の判定は詳細ページの JSON-LD で行う。
         """
         import gzip
         import xml.etree.ElementTree as ET
@@ -325,6 +363,9 @@ class GnaviScraper(StaticCrawler):
     @staticmethod
     def _hit_count_from_soup(soup) -> int | None:
         text = _WS.sub(" ", soup.get_text(" ", strip=True))
+        m = _HIT_SUMMARY.search(text.replace(" ", ""))
+        if m:
+            return int(m.group(1).replace(",", ""))
         vals = []
         for m in _HIT_LABELLED.finditer(text):
             try:
@@ -340,50 +381,23 @@ class GnaviScraper(StaticCrawler):
                 pass
         return max(vals) if vals else None
 
-    def _split_until_under_limit(self, list_url: str, depth: int) -> list[str]:
-        """該当件数が上限を超える一覧を、ページ内リンクで再帰的に細分化する。"""
-        count = self._hit_count(list_url)
-
-        if count is not None and count <= self.SPLIT_LIMIT:
-            return [list_url]
-        if depth >= self.MAX_SPLIT_DEPTH:
-            if count:
-                self.logger.warning(
-                    "細分化の上限深さに到達（%s: %d 件 > %d）。取りこぼす可能性あり",
-                    list_url, count, self.SPLIT_LIMIT,
-                )
-            return [list_url]
-
-        children = self._child_lists(list_url)
-        if not children:
-            if count:
-                self.logger.warning(
-                    "細分化リンクが見つからず上限超過のまま巡回（%s: %d 件）", list_url, count
-                )
-            return [list_url]
-
-        self.logger.info(
-            "細分化: %s (%s 件) → 子一覧 %d 本 [depth=%d]",
-            list_url, f"{count:,}" if count else "不明", len(children), depth,
-        )
-        leaves: list[str] = []
-        for child in children:
-            leaves.extend(self._split_until_under_limit(child, depth + 1))
-        return list(dict.fromkeys(leaves))
-
     def _child_lists(self, list_url: str) -> list[str]:
         """一覧ページ内から、より細かい一覧URL（ジャンル別・サブエリア別）を集める。"""
         soup = self._list_first_page(list_url)
         if soup is None:
             return []
-        out: dict[str, None] = {}
+        areas: dict[str, None] = {}
+        genres: dict[str, None] = {}
         for a in soup.find_all("a", href=True):
             href = self._abs(a["href"])
             if href == list_url or _ROBOTS_DENY.search(href):
                 continue
-            if _LIST_GENRE.match(href) or _LIST_AREAM.match(href):
-                out.setdefault(href, None)
-        return list(out)
+            if _LIST_AREA.match(href):
+                areas.setdefault(href, None)
+            elif _LIST_GENRE.match(href) and "/area/jp/" not in href:
+                genres.setdefault(href, None)
+        # エリア分割を優先（互いに素で網羅的）。エリアが無い一覧のみジャンルで分割する
+        return list(areas or genres)
 
     def _iter_shop_urls(self, list_url: str) -> Iterator[str]:
         """1つの一覧URLを p=1..MAX_PAGE で巡回し、店舗URLを逐次返す。"""
@@ -409,7 +423,8 @@ class GnaviScraper(StaticCrawler):
 
     @staticmethod
     def _abs(href: str) -> str:
-        href = (href or "").strip()
+        # 店舗リンクには ?sc_type=area&... の計測パラメータが付くことがあるので落とす
+        href = (href or "").strip().split("#", 1)[0].split("?", 1)[0]
         if href.startswith("//"):
             return "https:" + href
         if href.startswith("/"):
