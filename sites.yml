@@ -6159,7 +6159,7 @@ sites:
     terms_url: ""
 
   - site_id: hoikushibank
-    name: "カラフルキャリアドライバー"
+    name: "保育士バンク！"
     module: "jobs.hoikushibank"
     url: "https://www.hoikushibank.com/facility"
     schedule: "0 9 19 * *"
