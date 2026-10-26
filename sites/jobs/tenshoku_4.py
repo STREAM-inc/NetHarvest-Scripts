@@ -1,3 +1,4 @@
+# 実行日時: 2026-10-26 10:25:29 UTC
 """
 対象サイト: https://tenshoku.create-jobs.com/JobChangeConstruction/ (クリエイト転職 建設・建築)
 
