@@ -6197,3 +6197,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://fc-hikaku.net/rules"
+
+  - site_id: litalico_ab
+    name: "LITALICO仕事ナビ_就労継続支援AB型（東北新潟富山石川福井）"
+    module: "medical.litalico_ab"
+    url: "https://snabi.jp/keizoku/type_a/02"
+    schedule: null
+    enabled: true
+    terms_url: "https://snabi.jp/terms"
