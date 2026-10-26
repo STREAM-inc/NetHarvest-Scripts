@@ -6205,3 +6205,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://snabi.jp/terms"
+
+  - site_id: litalico
+    name: "LITALICO発達ナビ_放課後等デイ児発（東北新潟富山石川福井）"
+    module: "medical.litalico"
+    url: "https://h-navi.jp/support_facility/aomori"
+    schedule: null
+    enabled: true
+    terms_url: "https://h-navi.jp/rule"
