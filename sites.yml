@@ -6213,3 +6213,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://h-navi.jp/rule"
+
+  - site_id: pay
+    name: "楽天ペイ加盟店マップ"
+    module: "service.pay"
+    url: "https://pay.rakuten.co.jp/shop/map/"
+    schedule: null
+    enabled: true
+    terms_url: "https://pay.rakuten.co.jp/agreement/"
