@@ -1,42 +1,43 @@
 """
-おいくら (oikura) — リサイクルショップ検索 (1都3県) スクレイパー
+おいくら (oikura) — リサイクルショップ検索 (全国 47 都道府県) スクレイパー
 
 取得対象:
-    おいくら (oikura.jp) の都道府県別リサイクルショップ一覧のうち、
-    東京都 (pref13) / 神奈川県 (pref14) / 埼玉県 (pref11) / 千葉県 (pref12)
-    の 4 都県に掲載された加盟ショップ (調査時点で合計約 480 件)。
-    店名 / 電話番号 / 住所 / 都道府県 / 市区町村 / 買取形式 (出張・店頭・宅配) /
-    取扱ジャンル / 営業時間 / 定休日 / ホームページ / 担当者名 / 駐車場 /
-    古物商許可番号 / 特徴 / 口コミ件数・評価 / 買取実績件数 /
-    掲載ページ URL を取得する。
+    おいくら (oikura.jp) の都道府県別リサイクルショップ一覧 (/shop/pref1〜pref47)
+    全 47 都道府県に掲載された加盟ショップ。
+    店名 / 電話番号 / 住所 / 都道府県 / 市区町村 / 対応サービス (出張・店頭・宅配) /
+    主な取扱商品 / 取扱ジャンル / 営業時間 / 定休日 / ホームページ / 担当者名 /
+    駐車場 / 古物商許可番号 / 特徴 / 口コミ件数・評価 / 買取実績件数 /
+    掲載ページ URL (店舗ID入り /shop/{id}/) を取得する。
 
 取得フロー:
-    1. ルート URL (= sites.yml の url / 東京都 pref13.html) から都道府県コードを
-       読み取り、備考で指定された 4 都県 (13/14/11/12) の一覧 URL を
-       urljoin で派生させる。ルート URL で指定された都県を必ず先頭に置く。
-    2. 各都県の一覧ページ (1ページ20件) の div.shopBox から
-       店名 / 掲載ページURL / 取扱ジャンル / 買取形式 (li.on) / 住所 /
-       電話番号 / 口コミ件数・評価 / 買取実績件数 を取得する。
+    1. ルート URL (= sites.yml の url / 東京都 pref13.html) を先頭に、
+       pref1〜pref47 の一覧 URL を urljoin で派生させる。
+    2. 各都道府県の一覧ページ (1ページ20件) の div.shopBox から
+       店名 / 掲載ページURL / 取扱ジャンル / 対応サービス (li.on) /
+       主な取扱商品 (table.charaTbl) / 住所 / 電話番号 / 口コミ件数・評価 /
+       買取実績件数 を取得する。
        ページ送りは <link rel="next"> を辿る (pref{N}_{P}.html 形式)。
        rel=next が無い場合のみ連番 URL で補完する。
     3. 各ショップの掲載ページ (/shop/{id}/) の table.detailTbl から
        所在地 / 交通アクセス / 駐車場 / 担当者名 / 営業時間 / 定休日 /
        ホームページ / 買取方法 / 古物商許可番号 / 特徴 を取得し、
        パンくず (JSON-LD BreadcrumbList) から都道府県・市区町村を補完する。
+       一覧で対応サービスが取れなかった場合は「買取方法」(持込/出張/宅配買取可) から補完。
     4. 1 件組み立てるたびに即 yield する (Pattern B / 早期 yield)。
 
 備考 (依頼元の指示):
-    - 巡回対象は東京都 (pref13) / 神奈川県 (pref14) / 埼玉県 (pref11) /
-      千葉県 (pref12) の 4 都県のみ。他県の一覧は巡回しない。
-    - 買取形式は一覧 dd 内 li の class="on" の有無で判定する
+    - 巡回対象は全 47 都道府県 (pref1〜pref47)。
+    - 対応サービスは一覧 dd 内 li の class="on" の有無で判定する
       (on が付いているものだけを採用)。
     - 1ページ20件、2ページ目以降は pref{N}_{P}.html の連番。
+    - 低頻度巡回のため DELAY は 3.0 秒。
 
 注意:
     - 利用規約 (https://oikura.jp/guide/kiyaku.html) にスクレイピング・クローリングを
       禁止する条項は無い。robots.txt も /shop/ 配下を Allow している。
-    - 自由記述の文章 (出張/店頭/宅配コメント、得意アイテム、苦手アイテム、
-      キャッチコピー、主な取扱商品) は著作権リスク回避のため取得しない。
+    - 主な取扱商品は依頼元の指示により取得する (店舗が入力した短い品目記述)。
+      それ以外の自由記述 (出張/店頭/宅配コメント、得意/苦手アイテム、
+      キャッチコピー、店長の声) は取得しない。
     - 郵便番号・法人番号・代表者名はサイト上に掲載が無いため取得しない
       (「担当者名」は代表者ではなく窓口担当のため EXTRA カラムに格納する)。
     - ルート URL は引数 `url` を唯一の起点 (SSOT) とし、配下 URL はすべて
@@ -64,13 +65,8 @@ from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
 
-# 備考で指定された巡回対象 (都道府県コード → 名称)
-_TARGET_PREFS = {
-    "13": "東京都",
-    "14": "神奈川県",
-    "11": "埼玉県",
-    "12": "千葉県",
-}
+# 巡回対象の都道府県コード (pref1〜pref47)
+_TARGET_PREFS = [str(code) for code in range(1, 48)]
 
 # ルート URL から都道府県コードを読み取る (例: /shop/pref13.html)
 _PREF_URL_PATTERN = re.compile(r"pref(\d+)(?:_(\d+))?\.html")
@@ -110,7 +106,8 @@ _DETAIL_LABELS = {
 # サイト固有の構造化カラム (短いラベル / 数値 / URL のみ。自由記述は含めない)
 _COL_SHOP_ID = "ショップID"
 _COL_CITY = "市区町村"
-_COL_STYLE = "買取形式"
+_COL_STYLE = "対応サービス"
+_COL_ITEMS = "主な取扱商品"
 _COL_VISIT = "出張買取"
 _COL_STORE = "店頭買取"
 _COL_DELIVERY = "宅配買取"
@@ -129,14 +126,15 @@ _EMPTY_VALUES = {"", "-", "ー", "−", "–"}
 
 
 class Oikura(StaticCrawler):
-    """おいくら リサイクルショップ検索 (1都3県) スクレイパー"""
+    """おいくら リサイクルショップ検索 (全国) スクレイパー"""
 
-    DELAY = 1.0
+    DELAY = 3.0
 
     EXTRA_COLUMNS = [
         _COL_SHOP_ID,
         _COL_CITY,
         _COL_STYLE,
+        _COL_ITEMS,
         _COL_VISIT,
         _COL_STORE,
         _COL_DELIVERY,
@@ -195,9 +193,9 @@ class Oikura(StaticCrawler):
 
     # -------------------------------------------------------------- URL 派生
     def _pref_urls(self, url: str) -> list[str]:
-        """ルート URL から巡回対象 4 都県の一覧 URL を派生させる。
+        """ルート URL から全 47 都道府県の一覧 URL を派生させる。
 
-        ルート URL が指す都県を必ず先頭に置き、残りを備考の指定順で続ける。
+        ルート URL が指す都道府県を必ず先頭に置き、残りをコード順で続ける。
         """
         m = _PREF_URL_PATTERN.search(url)
         root_code = m.group(1) if m else None
@@ -265,7 +263,7 @@ class Oikura(StaticCrawler):
         genre = box.select_one("div.shop_name dl dt")
         listing[Schema.CAT_SITE] = self._clean(genre.get_text(" ", strip=True)) if genre else ""
 
-        # 買取形式: class="on" が付いた li のみ採用 (「出 張」等の空白を除去)
+        # 対応サービス: class="on" が付いた li のみ採用 (「出 張」等の空白を除去)
         styles = []
         for li in box.select("div.shop_name dl dd li"):
             if "on" not in (li.get("class") or []):
@@ -277,6 +275,16 @@ class Oikura(StaticCrawler):
         listing[_COL_VISIT] = "○" if "出張" in styles else ""
         listing[_COL_STORE] = "○" if "店頭" in styles else ""
         listing[_COL_DELIVERY] = "○" if "宅配" in styles else ""
+
+        # 主な取扱商品 (table.charaTbl の「主な取扱商品」行)
+        listing[_COL_ITEMS] = ""
+        for th in box.select("table.charaTbl th"):
+            if "取扱商品" not in th.get_text():
+                continue
+            td = th.find_next_sibling("td")
+            value = self._clean(td.get_text(" ", strip=True)) if td else ""
+            listing[_COL_ITEMS] = "" if value in _EMPTY_VALUES else value
+            break
 
         # 住所 (「ショップ住所 ： 東京都…」から値だけを切り出す)
         for p in box.select("div.address p"):
@@ -328,6 +336,7 @@ class Oikura(StaticCrawler):
             _COL_SHOP_ID: listing.get(_COL_SHOP_ID, ""),
             _COL_CITY: "",
             _COL_STYLE: listing.get(_COL_STYLE, ""),
+            _COL_ITEMS: listing.get(_COL_ITEMS, ""),
             _COL_VISIT: listing.get(_COL_VISIT, ""),
             _COL_STORE: listing.get(_COL_STORE, ""),
             _COL_DELIVERY: listing.get(_COL_DELIVERY, ""),
@@ -358,6 +367,18 @@ class Oikura(StaticCrawler):
                 item[Schema.PREF] = detail["pref"]
             if detail.get("city"):
                 item[_COL_CITY] = detail["city"]
+
+        # 対応サービス: 一覧で取れなければ掲載ページの買取方法から補完
+        if not item[_COL_STYLE] and item[_COL_METHOD]:
+            styles = [
+                label
+                for label, key in (("出張", "出張買取"), ("店頭", "持込買取"), ("宅配", "宅配買取"))
+                if key in item[_COL_METHOD]
+            ]
+            item[_COL_STYLE] = "/".join(styles)
+            item[_COL_VISIT] = "○" if "出張" in styles else ""
+            item[_COL_STORE] = "○" if "店頭" in styles else ""
+            item[_COL_DELIVERY] = "○" if "宅配" in styles else ""
 
         # 都道府県: パンくずで取れなければ住所先頭から導出する
         if not item[Schema.PREF]:
