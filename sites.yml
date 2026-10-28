@@ -6227,7 +6227,7 @@ sites:
     module: "jobs.seniorjob"
     url: "https://seniorjob.jp/tokyo/security-services/cleaning/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: "https://seniorjob.jp/terms/"
 
   - site_id: hellowork_2
@@ -6235,5 +6235,5 @@ sites:
     module: "jobs.hellowork_2"
     url: "https://www.hellowork.mhlw.go.jp/kensaku/GECA110010.do?action=initDisp&screenId=GECA110010"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: "https://www.hellowork.mhlw.go.jp/info/terms.html"
