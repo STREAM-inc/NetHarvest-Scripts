@@ -6221,3 +6221,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://pay.rakuten.co.jp/agreement/"
+
+  - site_id: seniorjob
+    name: "シニアジョブ（清掃 1都3県）"
+    module: "jobs.seniorjob"
+    url: "https://seniorjob.jp/tokyo/security-services/cleaning/"
+    schedule: null
+    enabled: true
+    terms_url: "https://seniorjob.jp/terms/"
