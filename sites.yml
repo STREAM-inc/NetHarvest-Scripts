@@ -6229,3 +6229,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://seniorjob.jp/terms/"
+
+  - site_id: hellowork_2
+    name: "ハローワーク（清掃・洗浄の職業 1都3県）"
+    module: "jobs.hellowork_2"
+    url: "https://www.hellowork.mhlw.go.jp/kensaku/GECA110010.do?action=initDisp&screenId=GECA110010"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.hellowork.mhlw.go.jp/info/terms.html"
