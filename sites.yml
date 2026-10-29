@@ -6237,3 +6237,11 @@ sites:
     schedule: null
     enabled: false
     terms_url: "https://www.hellowork.mhlw.go.jp/info/terms.html"
+
+  - site_id: epark_4
+    name: "EPARKクリニック"
+    module: "medical.epark_4"
+    url: "https://fdoc.jp/clinic/list/index/rgid/446/"
+    schedule: null
+    enabled: true
+    terms_url: ""
