@@ -6245,3 +6245,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: enecho_2
+    name: "登録ガス小売事業者一覧"
+    module: "government.enecho_2"
+    url: "https://www.enecho.meti.go.jp/category/electricity_and_gas/gas/liberalization/retailers_list/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.meti.go.jp/main/rules.html"
