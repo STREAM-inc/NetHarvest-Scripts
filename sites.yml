@@ -6253,3 +6253,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.meti.go.jp/main/rules.html"
+
+  - site_id: pps_net_3
+    name: "新電力ネット ガス会社一覧"
+    module: "corporate.pps_net_3"
+    url: "https://pps-net.org/gascompany"
+    schedule: null
+    enabled: true
+    terms_url: "https://pps-net.org/terms"
