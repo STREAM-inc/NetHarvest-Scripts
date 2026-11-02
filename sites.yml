@@ -6341,3 +6341,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://ishikawa.favo-web.jp/sitepolicy/"
+
+  - site_id: favo_2
+    name: "Favo富山版"
+    module: "portal.favo_2"
+    url: "https://toyama.favo-web.jp/store/"
+    schedule: null
+    enabled: true
+    terms_url: "https://toyama.favo-web.jp/sitepolicy/"
