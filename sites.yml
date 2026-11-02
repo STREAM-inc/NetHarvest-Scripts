@@ -6477,3 +6477,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://ietatta-yamagata.com/sitePolicy.php"
+
+  - site_id: ietatta_fukushima
+    name: "イエタッタ福島"
+    module: "construction.ietatta_fukushima"
+    url: "https://ietatta-fukushima.com/registrationCorp.php"
+    schedule: null
+    enabled: true
+    terms_url: "https://ietatta-fukushima.com/sitePolicy.php"
