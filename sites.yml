@@ -6565,3 +6565,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: liner_job
+    name: "ライナージョブ"
+    module: "jobs.liner_job"
+    url: "https://liner-job.net/"
+    schedule: null
+    enabled: true
+    terms_url: "https://liner-job.net/terms_of_service/"
