@@ -6269,3 +6269,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: kaitori_ikuraya
+    name: "買取専門いくらや店舗一覧"
+    module: "service.kaitori_ikuraya"
+    url: "https://www.kaitori-ikuraya.jp/store/kanto/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.kaitori-ikuraya.jp/privacy/"
