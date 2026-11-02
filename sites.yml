@@ -6589,3 +6589,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: web_6
+    name: "月刊しゅんWEB 掲載店舗"
+    module: "portal.web_6"
+    url: "https://shop.shun.tv/blog/"
+    schedule: null
+    enabled: true
+    terms_url: ""
