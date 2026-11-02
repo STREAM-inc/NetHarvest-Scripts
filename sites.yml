@@ -6429,3 +6429,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://tsukulink.net/term"
+
+  - site_id: com_5
+    name: "線路を守る仕事.com（みちのく軌道会）"
+    module: "jobs.com_5"
+    url: "https://www.senro-shigoto.com/index.html"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.senro-shigoto.com/web.html"
