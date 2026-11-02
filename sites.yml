@@ -6533,3 +6533,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.zehitomo.com/static/pdf/terms-of-use-clients-20250303.pdf"
+
+  - site_id: bizmaps_2
+    name: "BIZMAPS（北海道）"
+    module: "corporate.bizmaps_2"
+    url: "https://biz-maps.com/s/prefs/1"
+    schedule: null
+    enabled: true
+    terms_url: "https://biz-maps.com/terms"
