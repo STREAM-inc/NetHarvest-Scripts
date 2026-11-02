@@ -6461,3 +6461,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://ietatta-aomori.com/sitePolicy.php"
+
+  - site_id: ietatta_miyagi
+    name: "イエタッタ宮城"
+    module: "construction.ietatta_miyagi"
+    url: "https://ietatta-miyagi.com/registrationCorp.php"
+    schedule: null
+    enabled: true
+    terms_url: "https://ietatta-miyagi.com/sitePolicy.php"
