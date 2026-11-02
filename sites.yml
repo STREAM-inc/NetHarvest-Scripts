@@ -6501,3 +6501,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.xn----566as40brkc895c.com/sitePolicy.php"
+
+  - site_id: wakaba_shop_2
+    name: "買取店わかば 全国店舗一覧"
+    module: "service.wakaba_shop_2"
+    url: "https://wakaba-shop.jp/shop/zenkoku_all/"
+    schedule: null
+    enabled: true
+    terms_url: "https://buysell-technologies.com/terms/"
