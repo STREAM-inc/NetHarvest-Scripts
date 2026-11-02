@@ -6357,3 +6357,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://zouss.jp/company"
+
+  - site_id: web_5
+    name: "カラフルカンパニー情報Web(富山・金沢・新潟 くらす)"
+    module: "portal.web_5"
+    url: "https://colorfulcompany.jp/toyama/venues?topCategoryId=6"
+    schedule: null
+    enabled: true
+    terms_url: ""
