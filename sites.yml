@@ -6517,3 +6517,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.haj.co.jp/rules/?mediaid=95"
+
+  - site_id: litalico_3
+    name: "LITALICO仕事ナビ_就労支援（関西＋徳島高知）"
+    module: "medical.litalico_3"
+    url: "https://snabi.jp/ikou/27"
+    schedule: null
+    enabled: true
+    terms_url: "https://snabi.jp/terms"
