@@ -6293,3 +6293,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.urunavi.jp/policy/"
+
+  - site_id: sasugaya
+    name: "買取専門店さすがや"
+    module: "service.sasugaya"
+    url: "https://sasugaya.jp/shop/"
+    schedule: null
+    enabled: true
+    terms_url: "https://sasugaya.jp/privacy/"
