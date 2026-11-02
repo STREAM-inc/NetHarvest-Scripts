@@ -6381,3 +6381,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.kyu-kago.com/sitepolicy.html"
+
+  - site_id: litalico_2
+    name: "LITALICO仕事ナビ_就労支援（中国九州沖縄香川愛媛）"
+    module: "medical.litalico_2"
+    url: "https://snabi.jp/ikou/40"
+    schedule: null
+    enabled: true
+    terms_url: "https://snabi.jp/terms"
