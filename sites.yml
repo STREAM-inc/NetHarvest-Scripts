@@ -6301,3 +6301,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://sasugaya.jp/privacy/"
+
+  - site_id: ihinseiri_soudansho
+    name: "遺品整理の相談所"
+    module: "service.ihinseiri_soudansho"
+    url: "https://ihinseiri-soudansho.co.jp/search/"
+    schedule: null
+    enabled: true
+    terms_url: "https://ihinseiri-soudansho.co.jp/service-policy/"
