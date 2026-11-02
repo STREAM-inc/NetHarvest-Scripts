@@ -6557,3 +6557,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: b_s_times
+    name: "B.S.TIMES"
+    module: "corporate.b_s_times"
+    url: "https://bs-times.com/html/magazine.html"
+    schedule: null
+    enabled: true
+    terms_url: ""
