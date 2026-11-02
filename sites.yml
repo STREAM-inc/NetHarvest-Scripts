@@ -6581,3 +6581,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.chitose-shigoto.jp/terms.html"
+
+  - site_id: mite_net
+    name: "みてネット"
+    module: "portal.mite_net"
+    url: "https://mite-net.com/seikatu/"
+    schedule: null
+    enabled: true
+    terms_url: ""
