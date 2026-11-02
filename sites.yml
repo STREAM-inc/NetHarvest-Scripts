@@ -6277,3 +6277,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.kaitori-ikuraya.jp/privacy/"
+
+  - site_id: ginzaya
+    name: "銀座屋 店舗一覧"
+    module: "service.ginzaya"
+    url: "https://www.ginzaya.co.jp/shop/"
+    schedule: null
+    enabled: true
+    terms_url: ""
