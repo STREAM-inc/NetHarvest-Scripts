@@ -6261,3 +6261,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://pps-net.org/terms"
+
+  - site_id: streamreq_28369businessplus
+    name: "【STREAMREQ-28369】BusinessPlus 経営者インタビュー（東日本）"
+    module: "corporate.streamreq_28369businessplus"
+    url: "https://www.business-plus.net/interview/area/?area=1"
+    schedule: null
+    enabled: true
+    terms_url: ""
