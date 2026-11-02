@@ -6485,3 +6485,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://ietatta-fukushima.com/sitePolicy.php"
+
+  - site_id: xn_566as40bbian2a
+    name: "イエタッタ富山"
+    module: "construction.xn_566as40bbian2a"
+    url: "https://www.xn----566as40bbian2a.com/registrationCorp.php"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.xn----566as40bbian2a.com/sitePolicy.php"
