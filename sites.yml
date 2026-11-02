@@ -6437,3 +6437,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.senro-shigoto.com/web.html"
+
+  - site_id: biz_ken
+    name: "ビズケン"
+    module: "jobs.biz_ken"
+    url: "https://biz-ken.com/job_area/miyagi/"
+    schedule: null
+    enabled: true
+    terms_url: "https://biz-ken.com/policy/"
