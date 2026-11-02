@@ -6389,3 +6389,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://snabi.jp/terms"
+
+  - site_id: zehitomo_4
+    name: "ゼヒトモ全プロフィール"
+    module: "service.zehitomo_4"
+    url: "https://www.zehitomo.com/sitemap-pro-profile-index.xml"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.zehitomo.com/static/pdf/terms-of-use-clients-20250303.pdf"
