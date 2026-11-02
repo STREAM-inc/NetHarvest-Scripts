@@ -6397,3 +6397,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.zehitomo.com/static/pdf/terms-of-use-clients-20250303.pdf"
+
+  - site_id: plus
+    name: "異業種ネットplus"
+    module: "corporate.plus"
+    url: "https://e-gyousyu.com/area_category/fukuoka/"
+    schedule: null
+    enabled: true
+    terms_url: "https://e-gyousyu.com/"
