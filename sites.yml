@@ -6573,3 +6573,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://liner-job.net/terms_of_service/"
+
+  - site_id: chitose_shigoto
+    name: "ちとせの仕事"
+    module: "jobs.chitose_shigoto"
+    url: "https://www.chitose-shigoto.jp/article-company"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.chitose-shigoto.jp/terms.html"
