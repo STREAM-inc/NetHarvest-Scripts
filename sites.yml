@@ -6405,3 +6405,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://e-gyousyu.com/"
+
+  - site_id: biz
+    name: "建築建設biz"
+    module: "construction.biz"
+    url: "https://kenchikukensetsu.biz/shops"
+    schedule: null
+    enabled: true
+    terms_url: ""
