@@ -6469,3 +6469,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://ietatta-miyagi.com/sitePolicy.php"
+
+  - site_id: ietatta_yamagata
+    name: "イエタッタ山形"
+    module: "construction.ietatta_yamagata"
+    url: "https://ietatta-yamagata.com/registrationCorp.php"
+    schedule: null
+    enabled: true
+    terms_url: "https://ietatta-yamagata.com/sitePolicy.php"
