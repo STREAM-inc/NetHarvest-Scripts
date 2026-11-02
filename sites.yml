@@ -6333,3 +6333,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://hugkumi-life.jp/terms/"
+
+  - site_id: favo
+    name: "Favo石川版"
+    module: "portal.favo"
+    url: "https://ishikawa.favo-web.jp/store/"
+    schedule: null
+    enabled: true
+    terms_url: "https://ishikawa.favo-web.jp/sitepolicy/"
