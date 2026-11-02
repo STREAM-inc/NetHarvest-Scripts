@@ -6349,3 +6349,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://toyama.favo-web.jp/sitepolicy/"
+
+  - site_id: zouss
+    name: "ZOUSS（ザウス）"
+    module: "portal.zouss"
+    url: "https://zouss.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://zouss.jp/company"
