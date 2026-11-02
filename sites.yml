@@ -6509,3 +6509,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://buysell-technologies.com/terms/"
+
+  - site_id: jobkita_2
+    name: "ジョブキタ就活2027"
+    module: "jobs.jobkita_2"
+    url: "https://www.jobkita.jp/shukatsu/2027/job/search/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.haj.co.jp/rules/?mediaid=95"
