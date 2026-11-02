@@ -6445,3 +6445,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://biz-ken.com/policy/"
+
+  - site_id: ietatta_iwate
+    name: "イエタッタ岩手"
+    module: "construction.ietatta_iwate"
+    url: "https://www.ietatta-iwate.com/registrationCorp.php"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.ietatta-iwate.com/sitePolicy.php"
