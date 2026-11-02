@@ -6317,3 +6317,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.gurutto-fukushima.com/footer/13/"
+
+  - site_id: gurutto_aizu
+    name: "ぐるっと会津"
+    module: "portal.gurutto_aizu"
+    url: "https://www.gurutto-aizu.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.gurutto-aizu.com/footer/2/"
