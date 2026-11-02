@@ -25,6 +25,8 @@ TARGET_PREFS = {
 MAX_PAGES_PER_LIST = 2000
 
 _DETAIL_RE = re.compile(r"/clinic/detail/index/id/(\d+)/?$")
+# 診療案内タブ配下の特集ページ (例: /tab/3/thorough-checkup/1/ = 「検診・人間ドック」)
+_FEATURE_RE = re.compile(r"/clinic/detail/index/id/\d+/tab/3/[a-z][\w-]*/\d+/?$")
 _PREF_RE = re.compile(r"^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)")
 # サイト上の「歯科系」診療科目
 _DENTAL_SUBJECTS = {"歯科", "小児歯科", "矯正歯科", "歯科口腔外科"}
@@ -52,6 +54,7 @@ class Epark4Scraper(StaticCrawler):
     DELAY = 1.0
     ITEM_DELAY = 0  # 待機はページ取得側 (DELAY) に寄せる
     EXTRA_COLUMNS = [
+        "診療科目",
         "診療区分",
         "掲載プラン",
         "契約タイプ",
@@ -161,6 +164,7 @@ class Epark4Scraper(StaticCrawler):
             Schema.HP: self._hp(soup),
             Schema.CAT_SITE: "/".join(subjects),
             Schema.URL: url,
+            "診療科目": "/".join(subjects),
             "診療区分": kubun,
             "掲載プラン": plan,
             "契約タイプ": contract,
@@ -171,12 +175,18 @@ class Epark4Scraper(StaticCrawler):
 
     @staticmethod
     def _features(soup) -> list[str]:
-        """医院詳細内で「特集」と付くリンク (例: インプラント特集) の診療内容名を返す。"""
+        """医院詳細内の特集ページ (診療案内タブ配下 /tab/3/{slug}/{n}/、
+        または「特集」と付くリンク) の診療内容名を返す。"""
         out: list[str] = []
         for a in soup.select("a[href]"):
             if a.find_parent(["header", "footer", "nav"]):
                 continue
             text = _clean(a.get_text(" "))
+            if _FEATURE_RE.search(a["href"].split("?")[0].split("#")[0]):
+                nm = _clean(re.sub(r"の詳細を見る$", "", text))
+                if nm and nm not in out:
+                    out.append(nm)
+                continue
             if "特集" not in text or len(text) > 40:
                 continue
             nm = _clean(re.sub(r"特集.*$", "", text))
