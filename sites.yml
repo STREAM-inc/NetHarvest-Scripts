@@ -6549,3 +6549,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.l-posi.jp/agreement/"
+
+  - site_id: works_2
+    name: "求人＠works（北海道）"
+    module: "jobs.works_2"
+    url: "https://kyujin-at.work/hokkaido/"
+    schedule: null
+    enabled: true
+    terms_url: ""
