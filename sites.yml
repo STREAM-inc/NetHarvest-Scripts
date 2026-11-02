@@ -6309,3 +6309,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://ihinseiri-soudansho.co.jp/service-policy/"
+
+  - site_id: gurutto_fukushima
+    name: "ぐるっと福島"
+    module: "portal.gurutto_fukushima"
+    url: "https://www.gurutto-fukushima.com/digest/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.gurutto-fukushima.com/footer/13/"
