@@ -6373,3 +6373,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: kyu_kago
+    name: "求人かごしま"
+    module: "jobs.kyu_kago"
+    url: "https://www.kyu-kago.com/n/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.kyu-kago.com/sitepolicy.html"
