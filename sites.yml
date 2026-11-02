@@ -6285,3 +6285,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: urunavi_2
+    name: "売るナビ"
+    module: "service.urunavi_2"
+    url: "https://www.urunavi.jp/shop/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.urunavi.jp/policy/"
