@@ -6365,3 +6365,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: lien
+    name: "Lien富山"
+    module: "portal.lien"
+    url: "https://www.lien-toyama.net/shop/"
+    schedule: null
+    enabled: true
+    terms_url: ""
