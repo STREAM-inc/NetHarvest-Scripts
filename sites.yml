@@ -6493,3 +6493,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.xn----566as40bbian2a.com/sitePolicy.php"
+
+  - site_id: xn_566as40brkc895c
+    name: "イエタッタ石川"
+    module: "construction.xn_566as40brkc895c"
+    url: "https://www.xn----566as40brkc895c.com/registrationCorp.php"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.xn----566as40brkc895c.com/sitePolicy.php"
