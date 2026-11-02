@@ -6413,3 +6413,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: yaneiroha
+    name: "やねいろは"
+    module: "construction.yaneiroha"
+    url: "https://yaneiroha.com/yane/miyagi/"
+    schedule: null
+    enabled: true
+    terms_url: "https://yaneiroha.com/user_policy/"
