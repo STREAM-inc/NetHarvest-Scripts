@@ -6421,3 +6421,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://yaneiroha.com/user_policy/"
+
+  - site_id: 2_13
+    name: "ツクリンク（中国・四国2県・九州沖縄 プレミアム13県）"
+    module: "construction.2_13"
+    url: "https://tsukulink.net/tottori"
+    schedule: null
+    enabled: true
+    terms_url: "https://tsukulink.net/term"
