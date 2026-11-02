@@ -6541,3 +6541,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://biz-maps.com/terms"
+
+  - site_id: web_l_posi
+    name: "とかち仕事情報 webプラスワン（l-posi）"
+    module: "jobs.web_l_posi"
+    url: "https://www.l-posi.jp/search_result.html"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.l-posi.jp/agreement/"
