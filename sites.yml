@@ -6453,3 +6453,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.ietatta-iwate.com/sitePolicy.php"
+
+  - site_id: ietatta_aomori
+    name: "イエタッタ青森"
+    module: "construction.ietatta_aomori"
+    url: "https://ietatta-aomori.com/registrationCorp.php"
+    schedule: null
+    enabled: true
+    terms_url: "https://ietatta-aomori.com/sitePolicy.php"
