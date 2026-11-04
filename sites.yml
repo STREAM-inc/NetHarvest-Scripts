@@ -6613,3 +6613,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://saga-tsuku.jp/terms_of_service"
+
+  - site_id: job_8
+    name: "JOB静岡"
+    module: "jobs.job_8"
+    url: "https://job.atimes.co.jp/shizuoka/list?page=1"
+    schedule: null
+    enabled: true
+    terms_url: "https://job.atimes.co.jp/info/agreement"
