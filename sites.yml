@@ -6637,3 +6637,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://corporate.gnavi.co.jp/agreement/"
+
+  - site_id: jfa_square
+    name: "JFA SQUARE チーム検索（日本サッカー協会）"
+    module: "leisure.jfa_square"
+    url: "https://square.jfa.jp/squarePtnServlet/TeamSearch"
+    schedule: null
+    enabled: true
+    terms_url: "https://square.jfa.jp/html/rule.html"
