@@ -6621,3 +6621,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://job.atimes.co.jp/info/agreement"
+
+  - site_id: baitoru_7
+    name: "バイトル 中国5県 企業情報"
+    module: "jobs.baitoru_7"
+    url: "https://www.baitoru.com/chushikoku/jlist/hiroshima/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.baitoru.com/about/kiyaku_base.html"
