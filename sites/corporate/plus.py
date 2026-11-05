@@ -1,13 +1,14 @@
 """
-異業種ネットplus (e-gyousyu.com) — 九州・沖縄・中国・四国エリアの対談記事掲載企業
+異業種ネットplus (e-gyousyu.com) — 近畿・四国東部 + 九州・沖縄・中国・四国エリアの対談記事掲載企業
 
 取得対象:
-    エリア別一覧 /area_category/<地域>/ の下記15エリアのみ (他エリアは取得しない)
-    fukuoka, saga, nagasaki, kumamoto, ooita, miyazaki, kagoshima, okinawa,
-    totori, shimane, okayama, hiroshima, yamaguti, kagawa, ehime
+    エリア別一覧 /area_category/<地域>/ の下記22エリアのみ (他エリアは取得しない)。
+    起点URLのエリアスラッグに依存せず、常に 近畿・四国東部セット(7) → 九州・中国・四国セット(15) の順で全巡回する。
+    - 近畿・四国東部: shiga, kyoto, osaka, hyogo, nara, wakayama, tokushima (kochi は 404 のため対象外)
+    - 九州・中国・四国: fukuoka, saga, nagasaki, kumamoto, ooita, miyazaki, kagoshima, okinawa,
+        totori, shimane, okayama, hiroshima, yamaguti, kagawa, ehime
 
 取得フロー:
-    - 引数 url (/area_category/fukuoka/) を起点に、エリアスラッグを差し替えて15エリアを巡回。
     - 一覧は 1 ページ約10件、ページ送りは /page/N/ (「次へ」リンクを辿る)。
     - div.content_sub 内の記事リンク (/new/<id>/ または /especially/<id>/) を詳細取得し即 yield。
 
@@ -48,6 +49,8 @@ _AREAS = [
     "fukuoka", "saga", "nagasaki", "kumamoto", "ooita", "miyazaki", "kagoshima", "okinawa",
     "totori", "shimane", "okayama", "hiroshima", "yamaguti", "kagawa", "ehime",
 ]
+# 近畿・四国東部 (kochi は 404 のため除外)
+_KANSAI_AREAS = ["shiga", "kyoto", "osaka", "hyogo", "nara", "wakayama", "tokushima"]
 _ARTICLE_RE = re.compile(r"/(?:new|especially)/[^/]+/?$")
 _AREA_RE = re.compile(r"/area_category/([^/]+)/?")
 _PREF_RE = re.compile(r"^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)")
@@ -61,10 +64,8 @@ class PlusScraper(StaticCrawler):
     EXTRA_COLUMNS = ["エリア", "記事URL"]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        m = _AREA_RE.search(url)
-        start = m.group(1) if m else ""
-        # 引数 url のエリアを先頭に、残りの対象エリアを続ける
-        areas = [start] + [a for a in _AREAS if a != start] if start in _AREAS else list(_AREAS)
+        # 起点URLのエリアには依存せず、関西セット → 従来15エリアの順に全巡回
+        areas = list(_KANSAI_AREAS) + list(_AREAS)
 
         seen_urls: set[str] = set()
         seen_names: set[str] = set()
