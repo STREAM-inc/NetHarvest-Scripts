@@ -6653,3 +6653,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.kaitori-daikichi.jp/privacy/"
+
+  - site_id: bizmaps_3
+    name: "BIZMAPS（東北・新潟・北陸）"
+    module: "corporate.bizmaps_3"
+    url: "https://biz-maps.com/"
+    schedule: null
+    enabled: true
+    terms_url: "https://biz-maps.com/terms"
