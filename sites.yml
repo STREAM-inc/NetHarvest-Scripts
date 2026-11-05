@@ -6661,3 +6661,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://biz-maps.com/terms"
+
+  - site_id: works_3
+    name: "求人＠works（東北・北陸）"
+    module: "jobs.works_3"
+    url: "https://kyujin-at.work/"
+    schedule: null
+    enabled: true
+    terms_url: ""
