@@ -6669,3 +6669,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: mbp_japan_2
+    name: "マイベストプロ"
+    module: "service.mbp_japan_2"
+    url: "https://mbp-japan.com/hokkaido/"
+    schedule: null
+    enabled: true
+    terms_url: "https://mbp-japan.com/terms/"
