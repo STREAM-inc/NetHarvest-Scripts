@@ -6645,3 +6645,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://square.jfa.jp/html/rule.html"
+
+  - site_id: kaitori_daikichi_2
+    name: "買取大吉 店舗一覧"
+    module: "service.kaitori_daikichi_2"
+    url: "https://www.kaitori-daikichi.jp/store/kanto/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.kaitori-daikichi.jp/privacy/"
