@@ -6677,3 +6677,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://mbp-japan.com/terms/"
+
+  - site_id: hokkaido
+    name: "ジョブアンテナ北海道"
+    module: "jobs.hokkaido"
+    url: "https://hokkaido.jobantenna.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://hokkaido.jobantenna.jp/user_term/"
