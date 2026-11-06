@@ -6467,7 +6467,7 @@ sites:
     module: "construction.ietatta_miyagi"
     url: "https://ietatta-miyagi.com/registrationCorp.php"
     schedule: null
-    enabled: false
+    enabled: true
     terms_url: "https://ietatta-miyagi.com/sitePolicy.php"
 
   - site_id: ietatta_yamagata
