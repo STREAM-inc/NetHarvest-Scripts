@@ -26,6 +26,11 @@
     Schema.URL       = 求人URL（/jb/{jbId}）
     EXTRA: エリア / 求人タイトル / 給与 / 雇用形態 / 検索キーワード / 更新日 / 条件タグ / 事業内容
 
+更新履歴:
+    - 2026-11-06: 2026-06-15 以降の定期実行（毎月第2土曜 04:00）の記録が S3 に無く、
+      依頼者から最新分の即時再取得の指示があったため、再実行のためにコメントのみ更新
+      (処理内容の変更なし。STREAMREQ-29161 / 子課題 STREAMREQ-29204)。
+
 実行方法:
     python sites/jobs/kyujinbox.py              # 動作確認（CSV出力なし）
     python sites/jobs/kyujinbox.py --local      # 100件 → sites/output/ に保存
@@ -98,7 +103,7 @@ def _clean(s) -> str:
     """空白・全角スペースを正規化して文字列を返す。None は空文字に変換。"""
     if s is None:
         return ""
-    return re.sub(r"[\s\u3000]+", " ", str(s)).strip()
+    return re.sub(r"[\s　]+", " ", str(s)).strip()
 
 
 def _is_complete_address(addr: str) -> bool:
@@ -193,7 +198,7 @@ def _extract_job_content(text: str) -> str:
     """【仕事内容】または【業務内容】から次の【までのテキストを抽出する。"""
     m = re.search(r"【(?:仕事内容|業務内容)】\s*(.*?)(?=\s*【|\Z)", text, re.DOTALL)
     if m:
-        return re.sub(r"[\s\u3000]+", " ", m.group(1)).strip()
+        return re.sub(r"[\s　]+", " ", m.group(1)).strip()
     return ""
 
 
