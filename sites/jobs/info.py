@@ -28,6 +28,9 @@
 実行方法:
     python scripts/sites/jobs/info.py
     docker compose exec worker python /app/bin/run_flow.py --site-id info
+
+更新履歴:
+    - 2026-11-09 STREAMREQ-28563 差し戻し対応のため再取得を起動 (ロジック変更なし)
 """
 
 import asyncio
