@@ -1,30 +1,29 @@
 """
 対象サイト: https://biz-maps.com/s/prefs/1
-BIZMAPS（ビズマップ） — 企業詳細ページ 企業情報スクレイパー（北海道のみ）
+BIZMAPS（ビズマップ） — 企業情報スクレイパー（北海道のみ・北海道に絞った巡回）
 
-取得対象 (企業詳細ページ /item/{key} で完結):
-    - 名称 / 都道府県 / 郵便番号 / 住所 / 代表者名 / HP(企業URL)
-    - 業種 大分類 (big_industry) / 小分類 (mid_industry, 複数は " / " 連結)
-    - 設立年度 / 資本金 / 従業員数 / 企業詳細URL
+取得対象:
+    - 名称 / 都道府県 / 郵便番号 / 住所 / 代表者名 / HP(企業URL・詳細ページのみ)
+    - 業種 大分類 / 小分類 (複数は " / " 連結)
+    - 設立年度 / 資本金 / 従業員数(詳細ページのみ) / 企業詳細URL
 
-取得フロー:
-    robots.txt が公開している企業サイトマップ /sitemap_xml/item/{開始ID}/{終了ID}
-    (内部企業IDの範囲指定。1/50001, 50001/100001, ... と 50,000 刻みで巡回) から
-    詳細 URL を列挙し、詳細ページを 1 件取得するたびに判定して即 yield する。
-    サイトマップは ID 上限 (2026-11 時点で約 275 万) を超えると空になるため、
-    空ウィンドウが _MAX_EMPTY_WINDOWS 回連続したら上限とみなす (途中に疎な区間がある)。
-    北海道の密度が高い _PRIORITY_START から巡回し、上限到達後に 1 へ戻って
-    残りの区間を巡回する。
-
-    一覧に都道府県情報は無いため、詳細ページの住所先頭の都道府県で
-    北海道のみ出力する。
-    対象外の詳細も取得は発生するため、実通信ごとに DELAY 秒空ける (ITEM_DELAY=0)。
+取得フロー（2026-11-09 改修: 全国巡回 約104万件 → 北海道に絞った巡回 約5.6万リクエスト）:
+    フェーズ1: 北海道の「市区町村×業種」一覧ページ
+        robots.txt が公開しているサイトマップ /sitemap_xml/city_industry/1 から
+        /s/cities/01xxxx/(b-inds|m-inds)/N の URL (約1.6万) を列挙し、各一覧の
+        1 ページ目 (最大 20 社) を取得して一覧上の項目から出力する。
+        ページ送り (/s/*?*page=) は robots で Disallow のため使わない。
+    フェーズ2: 北海道の企業が固まっている内部企業 ID 帯の企業詳細ページ
+        企業サイトマップ /sitemap_xml/item/{開始ID}/{終了ID} を _HOKKAIDO_ID_RANGES の
+        範囲だけ取得し、フェーズ1で出力済みの企業を除いた詳細ページを取得する。
+        ID 帯は 2026-11-09 に全サイトマップ (1,040,722件) を約1,100件抽出して特定した
+        (北海道以外の詳細は住所判定で落とす)。
 
 注意:
-    - TEL は未ログインでは非表示のため取得しない (JSON-LD の telephone も出力しない)。
-    - robots.txt の Disallow (/s/*?*page=, /api/, /download/ 等) は使わない。
+    - TEL は未ログインでは非表示のため取得しない。
+    - robots.txt の Disallow (/s/*?*page=, /api/, /download/, /item_modal/ 等) は使わない。
     - ログイン・会員機能は使わない。
-    - 企業紹介文 (company__text) は自由記述プロースのため取得しない。
+    - 実通信ごとに DELAY 秒空ける。
     - 利用規約にスクレイピング/クローリングの明示的禁止は無いが、第11条で
       私的利用を超える複製・第三者提供を禁じ、第13条で違約金を定めている。
 
@@ -53,19 +52,24 @@ from bs4 import XMLParsedAsHTMLWarning
 from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
-# サイトマップ (XML) を get_soup (html.parser) で読むための警告抑止
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 
-# 企業サイトマップ (内部企業 ID の範囲指定)。ルート URL から urljoin で派生させる。
-_SITEMAP_PATH = "/sitemap_xml/item/{start}/{end}"
-_WINDOW = 50000
-# 空ウィンドウがこの回数連続したら ID 上限に達したとみなす (= ID 100 万件分)
-_MAX_EMPTY_WINDOWS = 20
-# 巡回開始 ID。ID は取込バッチ単位で都道府県が固まっており (先頭帯はほぼ東京)、
-# 2026-11 のサンプリングでは 100万〜105万 = 北海道。最初の出力を早めるため北海道帯から巡回し、
-# 上限まで巡回した後に 1 へ戻って残りを巡回する (網羅性は変わらない)。
-_PRIORITY_START = 1 + 20 * _WINDOW  # 1,000,001
+# フェーズ1: 北海道の市区町村×業種サイトマップ
+_CITY_INDUSTRY_SITEMAP = "/sitemap_xml/city_industry/1"
+_CITY_LIST_RE = re.compile(r"/s/cities/01\d{4}/(?:b-inds|m-inds)/\d+/?$")
+
+# フェーズ2: 北海道の企業が固まっている内部企業 ID 帯 (start, end)
+# 2026-11-09 のサンプリング結果 (前後に余裕を持たせている)
+_HOKKAIDO_ID_RANGES = [
+    (955000, 1027400),    # 北海道帯A (約2.9万件)
+    (1788400, 1799700),   # 北海道帯B (約1万件)
+    (2200001, 2250001),   # 小規模ウィンドウ (北海道を含む・約440件)
+    (2400001, 2450001),   # 小規模ウィンドウ (北海道を含む・約1,000件)
+    (2800001, 2850001),   # 小規模ウィンドウ (北海道を含む・数件)
+]
+_ITEM_SITEMAP = "/sitemap_xml/item/{start}/{end}"
+_ITEM_SITEMAP_STEP = 10000  # 1 回のサイトマップ取得を小さく保つ
 
 _PREF = (
     r"北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県"
@@ -75,13 +79,11 @@ _PREF = (
     r"|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県"
 )
 _PREF_RE = re.compile(rf"^({_PREF})")
-
-# 出力対象 (北海道)
 _TARGET_PREFS = {"北海道"}
 
 _POST_RE = re.compile(r"〒?\s*(\d{3})\s*[-－ー]\s*(\d{4})")
 _DATE_RE = re.compile(r"^(\d{4})(?:/(\d{1,2}))?(?:/(\d{1,2}))?$")
-_ITEM_RE = re.compile(r"/item/[A-Za-z0-9]+/?$")
+_ITEM_RE = re.compile(r"/item/([A-Za-z0-9]+)/?$")
 
 
 def _clean(s) -> str:
@@ -95,10 +97,6 @@ def _blank_if_dash(s: str) -> str:
 
 
 def _norm_date(s: str) -> str:
-    """'2006/1/1' → '2006-01-01', '1976/4' → '1976-04', '1980' → '1980'。
-
-    年欠落 ('/9/19') 等の崩れた値は空にする。
-    """
     m = _DATE_RE.match(s)
     if not m:
         return ""
@@ -107,50 +105,55 @@ def _norm_date(s: str) -> str:
     )
 
 
+def _split_addr(td) -> tuple[str, str, str]:
+    """住所セル → (郵便番号, 都道府県, 都道府県以降の住所)。"""
+    if td is None:
+        return "", "", ""
+    text = _clean(td.get_text(" "))
+    post_code = ""
+    m = _POST_RE.search(text)
+    if m:
+        post_code = f"{m.group(1)}-{m.group(2)}"
+        text = text[m.end():]
+    full_addr = _clean(text.replace("〒", ""))
+    pm = _PREF_RE.match(full_addr)
+    pref = pm.group(1) if pm else ""
+    return post_code, pref, full_addr[len(pref):].strip()
+
+
 class BizmapsScraper(StaticCrawler):
-    """BIZMAPS 企業詳細スクレイパー (北海道)"""
+    """BIZMAPS 企業スクレイパー (北海道)"""
 
     DELAY = 3.0  # 実通信ごとの最小間隔（秒）
-    # 対象外の詳細取得でも間隔を空けるため、待機は _fetch() 側で行う
     ITEM_DELAY = 0
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         self._last_request_at = 0.0
-        self._last_window_count = 0
-        seen: set[str] = set()
-        for start in self._window_starts(url):
-            sitemap_url = urljoin(
-                url, _SITEMAP_PATH.format(start=start, end=start + _WINDOW)
-            )
-            detail_urls = [u for u in self._sitemap_urls(sitemap_url) if u not in seen]
-            # ウィンドウ境界 (end == 次の start) の重複除外用。前ウィンドウ分のみ保持
-            seen = set(detail_urls)
+        seen: set[str] = set()  # 出力済み (または判定済み) の企業キー
 
-            for detail_url in detail_urls:
-                item = self._parse_detail(urljoin(url, detail_url))
-                if item:
-                    yield item
+        # ---- フェーズ1: 市区町村×業種 一覧 (1 ページ目のみ) ----
+        for list_url in self._city_list_urls(url):
+            for key, item in self._parse_list(list_url):
+                if key in seen:
+                    continue
+                seen.add(key)
+                yield item
 
-    def _window_starts(self, url: str) -> Generator[int, None, None]:
-        """_PRIORITY_START → ID 上限 (空ウィンドウ連続で判定) → 1 → _PRIORITY_START 手前。"""
-        empty_streak = 0
-        start = _PRIORITY_START
-        while empty_streak < _MAX_EMPTY_WINDOWS:
-            yield start
-            empty_streak = 0 if self._last_window_count else empty_streak + 1
-            start += _WINDOW
-        yield from range(1, _PRIORITY_START, _WINDOW)
-
-    def _sitemap_urls(self, sitemap_url: str) -> list[str]:
-        soup = self._fetch(sitemap_url)
-        urls = []
-        if soup is not None:
-            for loc in soup.find_all("loc"):
-                u = _clean(loc.get_text())
-                if _ITEM_RE.search(u):
-                    urls.append(u)
-        self._last_window_count = len(urls)
-        return urls
+        # ---- フェーズ2: 北海道 ID 帯の詳細ページ ----
+        for start, end in _HOKKAIDO_ID_RANGES:
+            s = start
+            while s < end:
+                e = min(s + _ITEM_SITEMAP_STEP, end)
+                sitemap_url = urljoin(url, _ITEM_SITEMAP.format(start=s, end=e))
+                for detail_url in self._sitemap_locs(sitemap_url, _ITEM_RE):
+                    key = _ITEM_RE.search(detail_url).group(1)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    item = self._parse_detail(urljoin(url, detail_url))
+                    if item:
+                        yield item
+                s = e
 
     # ------------------------------------------------------------------
     def _fetch(self, url: str):
@@ -163,30 +166,77 @@ class BizmapsScraper(StaticCrawler):
             self._last_request_at = time.monotonic()
         return soup
 
+    def _sitemap_locs(self, sitemap_url: str, pattern: re.Pattern) -> list[str]:
+        soup = self._fetch(sitemap_url)
+        urls = []
+        if soup is not None:
+            for loc in soup.find_all("loc"):
+                u = _clean(loc.get_text())
+                if pattern.search(u):
+                    urls.append(u)
+        return urls
+
+    def _city_list_urls(self, url: str) -> list[str]:
+        urls = self._sitemap_locs(urljoin(url, _CITY_INDUSTRY_SITEMAP), _CITY_LIST_RE)
+        # http:// で載っている場合も https で取得する
+        return [urljoin(url, re.sub(r"^https?://[^/]+", "", u)) for u in urls]
+
+    def _parse_list(self, list_url: str) -> Generator[tuple[str, dict], None, None]:
+        soup = self._fetch(list_url)
+        if soup is None:
+            return
+        for li in soup.select("ul.results__list li.results__item"):
+            a = li.find("a", href=_ITEM_RE)
+            if a is None:
+                continue
+            key = _ITEM_RE.search(a["href"]).group(1)
+            name_tag = li.select_one(".results__name")
+            name = _clean(name_tag.get_text()) if name_tag else ""
+            if not name:
+                continue
+
+            info: dict = {}
+            for tr in li.select("table.results__table tr"):
+                th, td = tr.find("th"), tr.find("td")
+                if th and td:
+                    info[_clean(th.get_text())] = td
+
+            post_code, pref, addr = _split_addr(info.get("住所"))
+            if pref not in _TARGET_PREFS:
+                continue
+
+            def val(label: str) -> str:
+                td = info.get(label)
+                return _blank_if_dash(_clean(td.get_text(" "))) if td is not None else ""
+
+            inds = [x.strip() for x in val("業種").split(",") if x.strip()]
+            yield key, {
+                Schema.URL: urljoin(list_url, f"/item/{key}"),
+                Schema.NAME: name,
+                Schema.PREF: pref,
+                Schema.POST_CODE: post_code,
+                Schema.ADDR: addr,
+                Schema.REP_NM: val("代表者名"),
+                Schema.HP: "",
+                Schema.CAT_LV1: inds[0] if inds else "",
+                Schema.CAT_LV3: " / ".join(inds[1:]),
+                Schema.OPEN_DATE: _norm_date(val("設立年度")),
+                Schema.CAP: val("資本金等"),
+                Schema.EMP_NUM: "",
+            }
+
     def _parse_detail(self, url: str) -> dict | None:
         soup = self._fetch(url)
         if soup is None:
             return None
 
-        info: dict[str, str] = {}
+        info: dict = {}
         for tr in soup.select("table.company__info__table tr"):
             th, td = tr.find("th"), tr.find("td")
             if th and td:
                 info[_clean(th.get_text())] = td
 
-        # 住所: 「〒 170-0013 <br> 東京都豊島区...」
-        addr_td = info.get("住所")
-        post_code, full_addr = "", ""
-        if addr_td is not None:
-            text = _clean(addr_td.get_text(" "))
-            m = _POST_RE.search(text)
-            if m:
-                post_code = f"{m.group(1)}-{m.group(2)}"
-                text = text[m.end():]
-            full_addr = _clean(text.replace("〒", ""))
-
-        pm = _PREF_RE.match(full_addr)
-        pref = pm.group(1) if pm else ""
+        post_code, pref, addr = _split_addr(info.get("住所"))
         if pref not in _TARGET_PREFS:
             return None
 
@@ -220,7 +270,7 @@ class BizmapsScraper(StaticCrawler):
             Schema.NAME: name,
             Schema.PREF: pref,
             Schema.POST_CODE: post_code,
-            Schema.ADDR: full_addr[len(pref):].strip(),
+            Schema.ADDR: addr,
             Schema.REP_NM: val("代表者"),
             Schema.HP: hp,
             Schema.CAT_LV1: " / ".join(big),
