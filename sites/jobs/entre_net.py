@@ -1,6 +1,5 @@
 import re
 import sys
-import time
 from pathlib import Path
 from typing import Generator
 
@@ -8,13 +7,14 @@ _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
+from src.framework.base import CrawlAbortedError
 from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
 BASE_URL = "https://entrenet.jp"
 LIST_BASE = "https://entrenet.jp/dokuritsu/?cbn=top_src_fw"
 MAX_PAGES = 100
-# 連続でこの回数だけ取得に失敗したら打ち切る (WAF ブロック中に叩き続けないため)
+# 詳細ページの取得にこの回数だけ連続で失敗したら打ち切る (WAF ブロック中に叩き続けないため)
 MAX_CONSECUTIVE_FAILURES = 3
 
 
@@ -27,12 +27,12 @@ def _clean(s) -> str:
 class EntreNetScraper(StaticCrawler):
     """アントレ 独立・開業支援 スクレイパー（entrenet.jp）"""
 
-    # 待機はリクエスト単位で _get() が行う。基盤のアイテム間待機は二重になるので無効化
     DELAY = 3.0
+    # 取得失敗が続いても (yield しなくても) 実取得の間隔を 3 秒空ける (基盤が待つ)。
+    # 間隔はリクエスト単位で保証されるので、アイテム間の追加待機は不要
+    REQUEST_INTERVAL = 3.0
     ITEM_DELAY = 0.0
     EXTRA_COLUMNS = ["代表者", "資本金", "売上", "従業員数", "設立日", "事業内容", "FAX", "メール"]
-
-    _last_request_at: float = 0.0
 
     def parse(self, url: str) -> Generator[dict, None, None]:
         detail_urls = self._collect_detail_urls()
@@ -40,44 +40,31 @@ class EntreNetScraper(StaticCrawler):
         self.logger.info("詳細URL収集完了: %d 件", len(detail_urls))
         failures = 0
         for detail_url in detail_urls:
-            item = self._scrape_detail(detail_url)
-            if item is None:
+            soup = self.get_soup(detail_url.rstrip("/") + "/kigyou/")
+            if soup is None:
+                # 取得失敗 (WAF 応答・通信エラー) だけを数える。抽出失敗は数えない
                 failures += 1
                 if failures >= MAX_CONSECUTIVE_FAILURES:
-                    self.logger.error(
-                        "詳細ページの取得に %d 回連続で失敗したため打ち切ります "
-                        "(WAF ブロックの可能性): 最後の URL=%s",
-                        failures, detail_url,
+                    raise CrawlAbortedError(
+                        f"詳細ページの取得に {failures} 回連続で失敗したため打ち切ります "
+                        f"(WAF ブロックの可能性): 最後の URL={detail_url}"
                     )
-                    return
                 continue
             failures = 0
-            yield item
-
-    def _get(self, url: str):
-        """DELAY 秒の間隔を空けて get_soup() する (キャッシュリプレイ時は待たない)。
-
-        基盤の待機はアイテムを yield したときにしか入らないため、取得失敗が続くと
-        無待機で連続アクセスになる。リクエスト単位で間隔を保証する。
-        """
-        if self._last_request_at:
-            remain = self.DELAY - (time.monotonic() - self._last_request_at)
-            if remain > 0:
-                time.sleep(remain)
-        soup = self.get_soup(url)
-        if not self._last_fetch_from_cache:
-            self._last_request_at = time.monotonic()
-        return soup
+            item = self._extract_detail(detail_url, soup)
+            if item:
+                yield item
 
     def _collect_detail_urls(self) -> list[str]:
         urls: list[str] = []
         seen: set[str] = set()
         for page in range(1, MAX_PAGES + 1):
             page_url = f"{LIST_BASE}&page={page}"
-            soup = self._get(page_url)
+            soup = self.get_soup(page_url)
             if soup is None:
-                self.logger.warning("一覧ページの取得に失敗したため収集を打ち切ります: %s", page_url)
-                break
+                # 一覧の途中で取れないと詳細 URL が欠けた結果を納品してしまうため打ち切る
+                # (最終ページの判定は下の「一覧が無い / 新規 0 件」で行う)
+                raise CrawlAbortedError(f"一覧ページの取得に失敗したため打ち切ります: {page_url}")
 
             container = soup.select_one(
                 "body > article > main > div:nth-of-type(2) > section > ul"
@@ -101,12 +88,7 @@ class EntreNetScraper(StaticCrawler):
                 break
         return urls
 
-    def _scrape_detail(self, url: str) -> dict | None:
-        company_url = url.rstrip("/") + "/kigyou/"
-        soup = self._get(company_url)
-        if soup is None:
-            return None
-
+    def _extract_detail(self, url: str, soup) -> dict | None:
         data = {Schema.URL: url}
 
         name_tag = soup.select_one("h2.kigyouName span")
