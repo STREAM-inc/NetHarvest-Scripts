@@ -6701,3 +6701,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://indoor-golf-navi.com/privacy-policy/"
+
+  - site_id: baitoru_8
+    name: "バイトル（14都府県・新着30日・店舗単位）"
+    module: "jobs.baitoru_8"
+    url: "https://www.baitoru.com/kanto/jlist/tokyo/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.baitoru.com/about/kiyaku_base.html"
