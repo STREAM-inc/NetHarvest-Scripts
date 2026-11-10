@@ -6725,3 +6725,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: ""
+
+  - site_id: shotworks_2
+    name: "ショットワークス（14都府県）"
+    module: "jobs.shotworks_2"
+    url: "https://shotworks.jp/sw/list/md_1/work"
+    schedule: null
+    enabled: true
+    terms_url: "https://shotworks.jp/sw/contents/docs/regulation.html"
