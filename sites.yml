@@ -6693,3 +6693,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://dorapita.com/static/terms"
+
+  - site_id: indoor_golf_navi
+    name: "INDOOR GOLF NAVI"
+    module: "service.indoor_golf_navi"
+    url: "https://indoor-golf-navi.com/studio/"
+    schedule: null
+    enabled: true
+    terms_url: "https://indoor-golf-navi.com/privacy-policy/"
