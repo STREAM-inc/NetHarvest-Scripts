@@ -6733,3 +6733,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://shotworks.jp/sw/contents/docs/regulation.html"
+
+  - site_id: xn_pckua2a7gp15o89zb_6
+    name: "求人ボックス（アルバイト・パート 14都府県・新着30日）"
+    module: "jobs.xn_pckua2a7gp15o89zb_6"
+    url: "https://xn--pckua2a7gp15o89zb.com/アルバイト・パート-東京都新宿区の仕事?u=1"
+    schedule: null
+    enabled: true
+    terms_url: "https://xn--pckua2a7gp15o89zb.com/利用規約"
