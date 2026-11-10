@@ -6685,3 +6685,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://hokkaido.jobantenna.jp/user_term/"
+
+  - site_id: dorapita_2
+    name: "ドラピタ"
+    module: "jobs.dorapita_2"
+    url: "https://dorapita.com/search"
+    schedule: null
+    enabled: true
+    terms_url: "https://dorapita.com/static/terms"
