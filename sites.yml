@@ -6709,3 +6709,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.baitoru.com/about/kiyaku_base.html"
+
+  - site_id: baito_2
+    name: "マイナビバイト（14都府県・新着30日）"
+    module: "jobs.baito_2"
+    url: "https://baito.mynavi.jp/tokyo/"
+    schedule: null
+    enabled: true
+    terms_url: "https://baito.mynavi.jp/user/html/kiyaku.html"
