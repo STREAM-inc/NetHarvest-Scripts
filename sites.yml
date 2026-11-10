@@ -6717,3 +6717,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://baito.mynavi.jp/user/html/kiyaku.html"
+
+  - site_id: sharefull_2
+    name: "シェアフル（14都府県）"
+    module: "jobs.sharefull_2"
+    url: "https://sharefull.com/jobs/tokyo/"
+    schedule: null
+    enabled: true
+    terms_url: ""
