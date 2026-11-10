@@ -6741,3 +6741,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://xn--pckua2a7gp15o89zb.com/利用規約"
+
+  - site_id: shops
+    name: "メルカリShops"
+    module: "ec.shops"
+    url: "https://jp.mercari.com/search?keyword=%E3%81%BF%E3%81%8B%E3%82%93&item_types=beyond_shops"
+    schedule: null
+    enabled: true
+    terms_url: "https://static.jp.mercari.com/tos"
