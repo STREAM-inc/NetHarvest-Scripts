@@ -230,7 +230,7 @@ sites:
     module: "construction.dokenchiku"
     url: "https://dokenchiku.com/company/1"
     schedule: "40 1 8-14 * SUN"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #25
@@ -320,7 +320,7 @@ sites:
     module: "jobs.tainyu_macaron"
     url: "https://picsastock.com/sitemap.xml"
     schedule: "0 2 * * WED"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #35
@@ -491,7 +491,7 @@ sites:
     module: "jobs.dan_work"
     url: "https://www.dan-work.com"
     schedule: "40 2 22-28 * SUN"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #54
@@ -662,7 +662,7 @@ sites:
     module: "portal.benrishi_navi"
     url: "https://www.benrishi-navi.com"
     schedule: "40 3 8-14 * SUN"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #74
@@ -1535,7 +1535,7 @@ sites:
     module: "agency_franchise.hikariweb_search"
     url: "https://hikariweb.ntt-east.co.jp/general/search/list.php?keyword=1"
     schedule: "20 5 22-28 * SAT"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #172
@@ -1544,7 +1544,7 @@ sites:
     module: "agency_franchise.hikariweb_cancell"
     url: "https://hikariweb.ntt-east.co.jp/general/cancell/list.php?keyword=1"
     schedule: "20 5 22-28 * SAT"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #174
@@ -1571,7 +1571,7 @@ sites:
     module: "test.dummy"
     url: "https://example.com"
     schedule: "20 7 22-28 * SAT"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #177
@@ -1670,7 +1670,7 @@ sites:
     module: "portal.HostKyuzinDotcom_scrape"
     url: "https://www.hoskyu.com/"
     schedule: "30 1 15-21 * 6"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #188
@@ -1745,7 +1745,7 @@ sites:
     module: "service.onsen_kyokai"
     url: "https://www.spa.or.jp/search_p/"
     schedule: "0 1 * * SUN"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #198
@@ -1898,7 +1898,7 @@ sites:
     module: "nightlife.takasaki_night_privity_fun"
     url: "https://www.takasaki-fun.jp/"
     schedule: "0 0 8-14 * SUN"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #215
@@ -1925,7 +1925,7 @@ sites:
     module: "nightlife.meccel_night"
     url: "https://meccel.net/"
     schedule: "0 8 22-28 * SAT"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #218
@@ -2060,7 +2060,7 @@ sites:
     module: "jobs.HostKyuzinDotcom_scrape"
     url: "https://www.hoskyu.com/"
     schedule: "0 0 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #233
@@ -2771,7 +2771,7 @@ sites:
     module: "government.zenshukyo"
     url: "https://www.zenshukyo.or.jp/memberlist/"
     schedule: "0 9 18 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #312
@@ -2789,7 +2789,7 @@ sites:
     module: "medical.www5"
     url: "https://www5.techno-aids.or.jp/shop/map.php"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #314
@@ -2942,7 +2942,7 @@ sites:
     module: "nightlife.snack_guide"
     url: "https://www.snack-guide.com/"
     schedule: "20 13 1-7 * SUN"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #331
@@ -3041,7 +3041,7 @@ sites:
     module: "nightlife.https_bunbunweb_com_shop"
     url: "https://bunbunweb.com/shop/455/"
     schedule: "0 4 5 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #342
@@ -3221,7 +3221,7 @@ sites:
     module: "nightlife.girls_good_job"
     url: "https://girls-good-job.jp/"
     schedule: "0 22 18 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #362
@@ -3295,7 +3295,7 @@ sites:
     module: "nightlife.jasmac8"
     url: "https://www.jasmac8.com/sitemap.html"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #370
@@ -3322,7 +3322,7 @@ sites:
     module: "nightlife.ekimae_lab"
     url: "https://ekimae-lab.com/"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #373
@@ -3331,7 +3331,7 @@ sites:
     module: "nightlife.foul"
     url: "https://www.foul.co.jp/"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #374
@@ -3430,7 +3430,7 @@ sites:
     module: "construction.builders_ranking"
     url: "https://builders-ranking.com/"
     schedule: "0 12 25 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #385
@@ -3484,7 +3484,7 @@ sites:
     module: "nightlife.navi_4"
     url: "https://k-navi.happyjob.jp/"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #391
@@ -3574,7 +3574,7 @@ sites:
     module: "jobs.job_2"
     url: "https://kyujin-saitama.com/2026-2027list/"
     schedule: "0 9 29 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #401
@@ -3726,7 +3726,7 @@ sites:
     module: "service.osohshiki"
     url: "https://www.osohshiki.jp/area/"
     schedule: "20 23 15-21 * SAT"
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #418
@@ -3861,7 +3861,7 @@ sites:
     module: "nightlife.hotworks"
     url: "https://www.hotworks.jp/yamaguchi/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #433
@@ -3879,7 +3879,7 @@ sites:
     module: "jobs.jobmake_2"
     url: "https://jobmake.jp/33/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
 #435
@@ -3922,7 +3922,7 @@ sites:
     module: "government.ajssa_31"
     url: "https://www.hirokeikyo.com/member.html"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: onecareer
@@ -3930,7 +3930,7 @@ sites:
     module: "corporate.onecareer"
     url: "https://www.onecareer.jp/companies?per=20&page=1&sort=standard&lowest_rating=0&highest_rating=5&search_query="
     schedule: "0 9 * * 2"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: bunnabi_2028
@@ -3938,7 +3938,7 @@ sites:
     module: "jobs.bunnabi_2028"
     url: "https://bunnabi.jp/2028/sh_result.php"
     schedule: "0 9 * * 2"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: shukatsu
@@ -3946,7 +3946,7 @@ sites:
     module: "jobs.shukatsu"
     url: "https://www.shukatsu.jp/2028/company/list"
     schedule: "0 9 * * 2"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: www12
@@ -3954,7 +3954,7 @@ sites:
     module: "government.www12"
     url: "https://www12.shokokai.or.jp/hpsearch/top/php/search.php"
     schedule: "0 10 * * 1"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: butsuryu
@@ -3962,7 +3962,7 @@ sites:
     module: "corporate.butsuryu"
     url: "https://www.butsuryu.or.jp/about/members"
     schedule: "0 10 * * 2"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: mlit
@@ -3970,7 +3970,7 @@ sites:
     module: "government.mlit"
     url: "https://www.mlit.go.jp/seisakutokatsu/freight/content/001991758.xlsx"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: mlit_2
@@ -3978,7 +3978,7 @@ sites:
     module: "government.mlit_2"
     url: "https://www.mlit.go.jp/jidosha/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: i2fas
@@ -3986,7 +3986,7 @@ sites:
     module: "government.i2fas"
     url: "https://i2fas.mhlw.go.jp/faspub/IO_S010303.do?_errCheck=false&_searched=false&_sessionId=16CF4AE107F25ABF9C0720C37B29B24E&method=a_menu_o01Action&param=&_focus=actionlink_a_menu_o01&_posx=0&_posy=0&_rowidx=0&_language=&_timezoneOffset=-540&_timezoneId=Asia%2FTokyo&_downloadId=&_status=&_labelMapArchive=&_wfinfo=&_wfinfo_RefParams=&_ActionHistoryList%5B0%5D.action=%2FIO_S010303"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: jaia
@@ -3994,7 +3994,7 @@ sites:
     module: "leisure.jaia"
     url: "https://jaia.jp/list/"
     schedule: "0 12 8 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: jata
@@ -4002,7 +4002,7 @@ sites:
     module: "travel.jata"
     url: "https://www.jata-net.or.jp/about/jata-about/about02/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: member_list
@@ -4010,7 +4010,7 @@ sites:
     module: "corporate.member_list"
     url: "https://member-list.jma.or.jp/companies/index/0"
     schedule: "0 10 10 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: anta
@@ -4026,7 +4026,7 @@ sites:
     module: "corporate.jbma"
     url: "https://www.j-bma.or.jp/meibo/corp.php"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: saj
@@ -4034,7 +4034,7 @@ sites:
     module: "corporate.saj"
     url: "https://www.saj.or.jp/M10/corporate_list/corporate_name/asc/1"
     schedule: "0 10 15 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa
@@ -4042,7 +4042,7 @@ sites:
     module: "government.ajssa"
     url: "https://www.toukeikyo.or.jp/corp_search.html"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_2
@@ -4050,7 +4050,7 @@ sites:
     module: "government.ajssa_2"
     url: "https://www.hssa.or.jp/search/index.html?company_name_s=&subdivision_s=0&address_s=&search=%E6%A4%9C%E7%B4%A2%E3%81%99%E3%82%8B"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_3
@@ -4058,7 +4058,7 @@ sites:
     module: "government.ajssa_3"
     url: "https://iwakeikyo.jp/free/member"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_4
@@ -4066,7 +4066,7 @@ sites:
     module: "government.ajssa_4"
     url: "https://www.mssa.jp/kamei/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_5
@@ -4074,7 +4074,7 @@ sites:
     module: "government.ajssa_5"
     url: "https://akita-keibi-k.com/free/kaiinnitiran"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_6
@@ -4082,7 +4082,7 @@ sites:
     module: "government.ajssa_6"
     url: "https://www.fukukeikyo.or.jp/pages/13/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_7
@@ -4090,7 +4090,7 @@ sites:
     module: "government.ajssa_7"
     url: "https://ibaraki.r.ajssa.or.jp/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: jaspa
@@ -4098,7 +4098,7 @@ sites:
     module: "auto.jaspa"
     url: "https://www.jaspa.or.jp/association/districts/hokkaido.html"
     schedule: "0 10 13 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_8
@@ -4106,7 +4106,7 @@ sites:
     module: "government.ajssa_8"
     url: "https://tochikeikyo.or.jp/memberslist/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: zenkuren
@@ -4114,7 +4114,7 @@ sites:
     module: "government.zenkuren"
     url: "https://www.zenkuren.or.jp/shopsearch/result_list?pref=hokkaidou&cityCode="
     schedule: "0 14 16 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_9
@@ -4122,7 +4122,7 @@ sites:
     module: "government.ajssa_9"
     url: "http://www.gunkeikyo.or.jp/recruit.html"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_10
@@ -4130,7 +4130,7 @@ sites:
     module: "government.ajssa_10"
     url: "https://saikeikyo.or.jp/member-list.html"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_11
@@ -4138,7 +4138,7 @@ sites:
     module: "government.ajssa_11"
     url: "https://www.chikeikyo.or.jp/n_membership.html"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_12
@@ -4146,7 +4146,7 @@ sites:
     module: "government.ajssa_12"
     url: "https://www.shinkeikyo.or.jp/kaiinn.html"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_13
@@ -4154,7 +4154,7 @@ sites:
     module: "corporate.ajssa_13"
     url: "https://www.niikeikyo.jp/list/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_14
@@ -4162,7 +4162,7 @@ sites:
     module: "government.ajssa_14"
     url: "http://nashikeikyo.jp/membership-list/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_15
@@ -4170,7 +4170,7 @@ sites:
     module: "government.ajssa_15"
     url: "https://nagano-keibi.or.jp/area/hokushin"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_16
@@ -4178,7 +4178,7 @@ sites:
     module: "government.ajssa_16"
     url: "https://www.shizu-keikyo.jp/pages/38/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_18
@@ -4186,7 +4186,7 @@ sites:
     module: "government.ajssa_18"
     url: "https://www.ishikeikyo.or.jp/pages/10/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_19
@@ -4194,7 +4194,7 @@ sites:
     module: "government.ajssa_19"
     url: "https://fukuikb.jp/#member"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_17
@@ -4202,7 +4202,7 @@ sites:
     module: "government.ajssa_17"
     url: "https://www.security-toyama.jp/meibo_kn.html"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_20
@@ -4210,7 +4210,7 @@ sites:
     module: "government.ajssa_20"
     url: "https://www.gssa.or.jp/pages/21/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_21
@@ -4218,7 +4218,7 @@ sites:
     module: "government.ajssa_21"
     url: "https://aikeikyo.jp/wp_user/wordpress/member_list/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_22
@@ -4226,7 +4226,7 @@ sites:
     module: "government.ajssa_22"
     url: "https://mie.r.ajssa.or.jp/menber.html"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_23
@@ -4234,7 +4234,7 @@ sites:
     module: "corporate.ajssa_23"
     url: "https://www.shikeikyou.jp/enterprise/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_24
@@ -4242,7 +4242,7 @@ sites:
     module: "government.ajssa_24"
     url: "https://kyokeikyo.or.jp/company.html"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_25
@@ -4250,7 +4250,7 @@ sites:
     module: "government.ajssa_25"
     url: "https://daikeikyo.or.jp/member/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_26
@@ -4258,7 +4258,7 @@ sites:
     module: "government.ajssa_26"
     url: "https://hyo-keikyo.or.jp/members-list/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_27
@@ -4266,7 +4266,7 @@ sites:
     module: "corporate.ajssa_27"
     url: "https://www.nakeikyo.or.jp/member"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_28
@@ -4274,7 +4274,7 @@ sites:
     module: "government.ajssa_28"
     url: "https://w-keibi.or.jp/member-list/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_30
@@ -4282,7 +4282,7 @@ sites:
     module: "government.ajssa_30"
     url: "https://okakeikyo.or.jp/kaiin/kaiin.html#area"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_32
@@ -4290,7 +4290,7 @@ sites:
     module: "government.ajssa_32"
     url: "https://www.yssa.or.jp/membership/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_29
@@ -4298,7 +4298,7 @@ sites:
     module: "government.ajssa_29"
     url: "http://www.torikeikyo.jp/wordpress/wp-content/uploads/2026/06/HP%E7%94%A8%E4%BC%9A%E5%93%A1%E5%90%8D%E7%B0%BF%EF%BC%88%EF%BC%B28.5%EF%BC%89.pdf"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: xn_pckua2a7gp15o89zb_3
@@ -4330,7 +4330,7 @@ sites:
     module: "agency_franchise.jfa"
     url: "https://www.jfa-fc.or.jp/particle/38.html"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: jisa
@@ -4338,7 +4338,7 @@ sites:
     module: "corporate.jisa"
     url: "https://www.jisa.or.jp/about_jisa/list/tabid/739/Default.aspx"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: jeita
@@ -4346,7 +4346,7 @@ sites:
     module: "corporate.jeita"
     url: "https://www.jeita.or.jp/cgi-bin/member/list.cgi"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: jara
@@ -4354,7 +4354,7 @@ sites:
     module: "corporate.jara"
     url: "https://www.jara.jp/"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: jfea
@@ -4362,7 +4362,7 @@ sites:
     module: "corporate.jfea"
     url: "https://www.jfea.or.jp/list/list.html"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: jaaa
@@ -4370,7 +4370,7 @@ sites:
     module: "corporate.jaaa"
     url: "https://www.jaaa.ne.jp/"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: jadma_2
@@ -4378,7 +4378,7 @@ sites:
     module: "ec.jadma_2"
     url: "https://jadma.or.jp/membercompany/fmember"
     schedule: "0 9 3 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_35
@@ -4386,7 +4386,7 @@ sites:
     module: "government.ajssa_35"
     url: "https://tokukeikyo.jp/pages/26/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_37
@@ -4394,7 +4394,7 @@ sites:
     module: "government.ajssa_37"
     url: "https://koukeikyo.com/membership_list/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_36
@@ -4402,7 +4402,7 @@ sites:
     module: "government.ajssa_36"
     url: "https://www.himekeikyo.or.jp/meibo"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_34
@@ -4410,7 +4410,7 @@ sites:
     module: "corporate.ajssa_34"
     url: "https://www.yonkeikyo.or.jp/keibi/index.html"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_38
@@ -4418,7 +4418,7 @@ sites:
     module: "government.ajssa_38"
     url: "https://sakeikyo.or.jp/members/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_39
@@ -4426,7 +4426,7 @@ sites:
     module: "government.ajssa_39"
     url: "https://choukeikyo.or.jp/%e5%8d%94%e4%bc%9a%e5%93%a1%e5%90%8d%e7%b0%bf/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_40
@@ -4434,7 +4434,7 @@ sites:
     module: "government.ajssa_40"
     url: "https://www.kssa.or.jp/pages/10/#page-content"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_41
@@ -4442,7 +4442,7 @@ sites:
     module: "government.ajssa_41"
     url: "https://miyazaki-keibi.or.jp/pages/51/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_42
@@ -4450,7 +4450,7 @@ sites:
     module: "government.ajssa_42"
     url: "https://www.kakeikyo.or.jp/member/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ajssa_43
@@ -4458,7 +4458,7 @@ sites:
     module: "government.ajssa_43"
     url: "https://www.okikei.com/members.php#a01"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: plex_job
@@ -4522,7 +4522,7 @@ sites:
     module: "nightlife.sukipara"
     url: "https://www.sukipara.net/"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: susukino
@@ -4562,7 +4562,7 @@ sites:
     module: "nightlife.susukino_ta"
     url: "http://www.susukino-ta.jp/?kensakuword=&gyotai=2"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: tokushima_night_style
@@ -4570,7 +4570,7 @@ sites:
     module: "nightlife.tokushima_night_style"
     url: "https://www.tokushima-night-style.com/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: search_oita
@@ -4594,7 +4594,7 @@ sites:
     module: "nightlife.jobhunter_fukuoka"
     url: "https://jobhunter-fukuoka.com/navista-nakasu/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: night_select
@@ -4602,7 +4602,7 @@ sites:
     module: "nightlife.night_select"
     url: "https://night-select.jp/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: kyushu
@@ -4626,7 +4626,7 @@ sites:
     module: "nightlife.lounge"
     url: "https://lounge.cxc-kumamoto.com/"
     schedule: "0 9 26 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: night_info
@@ -4642,7 +4642,7 @@ sites:
     module: "nightlife.sunakkuadvisor"
     url: "https://sunakkuadvisor.com/"
     schedule: "0 9 22 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: nishitachi_museum
@@ -4650,7 +4650,7 @@ sites:
     module: "nightlife.nishitachi_museum"
     url: "https://nishitachi-museum.com/map/"
     schedule: "0 9 19 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: curama_2
@@ -4666,7 +4666,7 @@ sites:
     module: "portal.tsunagu_good"
     url: "https://tsunagu-good.com/shop-search"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: campfire
@@ -4746,7 +4746,7 @@ sites:
     module: "realestate.zennichi"
     url: "https://www.zennichi.or.jp/member_search/list/?prefecture=&branch=&address=&representative=&shogo=&shogo_kana=&license_holder=&number=&region="
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: campfire_2
@@ -4794,7 +4794,7 @@ sites:
     module: "jobs.job_6"
     url: "https://job.rikunabi.com/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: job_5
@@ -4802,7 +4802,7 @@ sites:
     module: "jobs.job_5"
     url: "https://job.mynavi.jp/28/pc/toppage/displayTopPage/index"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: seikatsu110_2
@@ -4834,7 +4834,7 @@ sites:
     module: "jobs.baitoru_nightwork_2"
     url: "https://www.baitoru.com/kanto-tokai-kansai-tohoku-koshinetsu-chushikoku-kyushu/jlist/nightwork?pname=link_job_list_pc_all_all"
     schedule: "0 8 * * 1"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: beauty_3
@@ -4842,7 +4842,7 @@ sites:
     module: "beauty.beauty_3"
     url: "https://beauty.hotpepper.jp/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ever_2
@@ -4858,7 +4858,7 @@ sites:
     module: "nightlife.lightbaito"
     url: "https://lightbaito.com/category/introduction/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: hatarako
@@ -4882,7 +4882,7 @@ sites:
     module: "portal.antique_leaves"
     url: "https://antique-leaves.com/?mode=cate&cbid=2927760&csid=0"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: queen
@@ -4898,7 +4898,7 @@ sites:
     module: "leisure.farm_navi"
     url: "https://farm-navi.com/farms/tokyo/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: mokken
@@ -4906,7 +4906,7 @@ sites:
     module: "construction.mokken"
     url: "https://www.mokken.com/cgi-bin/gyousya/koumuten.cgi"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: j_hotel
@@ -4922,7 +4922,7 @@ sites:
     module: "government.city"
     url: "https://www.city.yokohama.lg.jp/kurashi/sumai-kurashi/seikatsu/kaiteki/kankyodata.html"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: catalog
@@ -4938,7 +4938,7 @@ sites:
     module: "government.city_2"
     url: "https://www.city.kawasaki.jp/350/page/0000120745.html"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ivry_2
@@ -4979,7 +4979,7 @@ sites:
     module: "nightlife.night_job"
     url: "https://nightjob.info/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: supersento_2
@@ -4995,7 +4995,7 @@ sites:
     module: "service.spa_2"
     url: "https://www.spa.or.jp/company/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: zehitomo_2
@@ -5011,7 +5011,7 @@ sites:
     module: "jobs.shain_2"
     url: "https://shain.suke-dachi.jp/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: jobhouse_2
@@ -5019,7 +5019,7 @@ sites:
     module: "jobs.jobhouse_2"
     url: "https://jobhouse.jp/factory"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: r30_2
@@ -5067,7 +5067,7 @@ sites:
     module: "government.city_4"
     url: "https://www.city.yokohama.lg.jp/kurashi/sumai-kurashi/seikatsu/kaiteki/kankyodata.html"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: farm_navi_2
@@ -5075,7 +5075,7 @@ sites:
     module: "leisure.farm_navi_2"
     url: "https://farm-navi.com/farms/"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: j_hotel_2
@@ -5083,7 +5083,7 @@ sites:
     module: "travel.j_hotel_2"
     url: "https://www.j-hotel.or.jp/memberlist/"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ryokan
@@ -5091,7 +5091,7 @@ sites:
     module: "travel.ryokan"
     url: "https://www.ryokan.or.jp/"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: travel
@@ -5099,7 +5099,7 @@ sites:
     module: "travel.travel"
     url: "https://travel.rakuten.co.jp/"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: e_nenpi_6
@@ -5107,7 +5107,7 @@ sites:
     module: "auto.e_nenpi_6"
     url: "https://e-nenpi.com/gs/shoplist"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: hikakaku_4
@@ -5115,7 +5115,7 @@ sites:
     module: "service.hikakaku_4"
     url: "https://hikakaku.com/company/kaitoriinfo/field/keishiki/syuccho/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: city_5
@@ -5123,7 +5123,7 @@ sites:
     module: "government.city_5"
     url: "https://www.city.kawasaki.jp/350/page/0000120745.html"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: opendata_2
@@ -5131,7 +5131,7 @@ sites:
     module: "government.opendata_2"
     url: "https://opendata.pref.chiba.lg.jp/datasets/6"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: city_6
@@ -5139,7 +5139,7 @@ sites:
     module: "government.city_6"
     url: "https://www.city.mito.lg.jp/site/open-data/4496.html"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: ckan_2
@@ -5147,7 +5147,7 @@ sites:
     module: "government.ckan_2"
     url: "https://ckan.pf-sapporo.jp/dataset/sapporo_environmental_hygiene_services"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: data_4
@@ -5155,7 +5155,7 @@ sites:
     module: "government.data_4"
     url: "https://data.bodik.jp/dataset/49c61983-4e87-451e-b5f1-e1b014b22a61"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: data_3
@@ -5163,7 +5163,7 @@ sites:
     module: "government.data_3"
     url: "https://data.city.kyoto.lg.jp/dataset/00530/"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: mapion
@@ -5171,7 +5171,7 @@ sites:
     module: "service.mapion"
     url: "https://www.mapion.co.jp/phonebook/M10037/27/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: j_startup
@@ -5195,7 +5195,7 @@ sites:
     module: "nightlife.esjob_3"
     url: "https://esjob.jp/"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: nightjob
@@ -5203,7 +5203,7 @@ sites:
     module: "nightlife.nightjob"
     url: "https://nightjob.info/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: j_startup_2
@@ -5211,7 +5211,7 @@ sites:
     module: "government.j_startup_2"
     url: "https://www.j-startup.go.jp/startups/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: bar_navi_2
@@ -5219,7 +5219,7 @@ sites:
     module: "food.bar_navi_2"
     url: "https://bar-navi.suntory.co.jp/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: job_7
@@ -5299,7 +5299,7 @@ sites:
     module: "government.www2_2"
     url: "https://www2.sanpainet.or.jp/sanpai/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: tsukulink_4
@@ -5315,7 +5315,7 @@ sites:
     module: "corporate.easier"
     url: "https://easier.jp/sitemap-index.xml"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: www2_3
@@ -5323,7 +5323,7 @@ sites:
     module: "government.www2_3"
     url: "https://www2.sanpainet.or.jp/index_u3.php"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: www2_4
@@ -5331,7 +5331,7 @@ sites:
     module: "government.www2_4"
     url: "https://www2.sanpainet.or.jp/searchprm.php?Param1=01"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: tsukulink_6
@@ -5339,7 +5339,7 @@ sites:
     module: "construction.tsukulink_6"
     url: "https://tsukulink.net/?utm_source=google&utm_medium=cpc&utm_campaign=sonota&gad_source=1&gad_campaignid=13352243896&gbraid=0AAAAABWZ-zqWusLqprjBy1cag1-B1cjZI&gclid=Cj0KCQjwkt_UBhDMARIsALpnOAwjPMjZVkVmvnqQ-Es2jFxTJkRtXts_Q8o2wdTN9uwkb3qLPXjFOlAaAmCWEALw_wcB"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: toto
@@ -5419,7 +5419,7 @@ sites:
     module: "jobs.itszai"
     url: "https://www.itszai.jp/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: tsukulink_7
@@ -5427,7 +5427,7 @@ sites:
     module: "construction.tsukulink_7"
     url: "https://tsukulink.net/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: coeteco
@@ -5435,7 +5435,7 @@ sites:
     module: "service.coeteco"
     url: "https://coeteco.jp/prefecture/hokkaido"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: kaitori_daikichi
@@ -5443,7 +5443,7 @@ sites:
     module: "service.kaitori_daikichi"
     url: "https://www.kaitori-daikichi.jp/open/category/new/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: sanguro
@@ -5451,7 +5451,7 @@ sites:
     module: "corporate.sanguro"
     url: "https://www.sungrove.co.jp/works/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: pps_net_2
@@ -5523,7 +5523,7 @@ sites:
     module: "corporate.informa_japan"
     url: "https://www.informa-japan.com/hi/complist/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: itszai_2
@@ -5531,7 +5531,7 @@ sites:
     module: "jobs.itszai_2"
     url: "https://www.itszai.jp/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: mapion_2
@@ -5547,7 +5547,7 @@ sites:
     module: "government.koujuren_2"
     url: "https://koujuren.jp/search.php"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: itszai_3
@@ -5555,7 +5555,7 @@ sites:
     module: "jobs.itszai_3"
     url: "https://www.itszai.jp/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: car
@@ -5563,7 +5563,7 @@ sites:
     module: "auto.car"
     url: "https://car.rakuten.co.jp/shaken/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: umta_3
@@ -5571,7 +5571,7 @@ sites:
     module: "travel.umta_3"
     url: "https://www.umtanet.org/index.php/en/members/membership-directory"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: club_of_mozambique_travel_tourism
@@ -5579,7 +5579,7 @@ sites:
     module: "travel.club_of_mozambique_travel_tourism"
     url: "https://clubofmozambique.com/business-directory/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: anta_3
@@ -5587,7 +5587,7 @@ sites:
     module: "travel.anta_3"
     url: "https://anta.com.na/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: natta_3
@@ -5595,7 +5595,7 @@ sites:
     module: "travel.natta_3"
     url: "https://natta.org.np/members/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: shta_3
@@ -5603,7 +5603,7 @@ sites:
     module: "travel.shta_3"
     url: "https://shta.com/shta-member-directory/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: zeirishikensaku_2
@@ -5611,7 +5611,7 @@ sites:
     module: "government.zeirishikensaku_2"
     url: "https://www.zeirishikensaku.jp/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: sernatur
@@ -5635,7 +5635,7 @@ sites:
     module: "government.koujuren_3"
     url: "https://koujuren.jp/search.php#search_content"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: koujuren_4
@@ -5643,7 +5643,7 @@ sites:
     module: "government.koujuren_4"
     url: "https://koujuren.jp/search.php"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: rnav_2
@@ -5651,7 +5651,7 @@ sites:
     module: "travel.rnav_2"
     url: "https://agenciasdeviajes.ar/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: sernatur_2
@@ -5659,7 +5659,7 @@ sites:
     module: "travel.sernatur_2"
     url: "https://portalserviciosturisticos.sernatur.cl/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: livex_inc
@@ -5675,7 +5675,7 @@ sites:
     module: "travel.tic"
     url: "https://www.tichk.org/en/agents/find-agent?combine=&nature%5B66%5D=66&nature%5B67%5D=67&nature%5B68%5D=68&nature%5B69%5D=69&nature%5B70%5D=70&nature%5B71%5D=71&nature%5B72%5D=72&nature%5B73%5D=73&nature%5B74%5D=74&find-ta-location=&page=N"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: astindo
@@ -5683,7 +5683,7 @@ sites:
     module: "travel.astindo"
     url: "https://astindo.org/about-astindo/anggota-astindo/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: kaigojob
@@ -5699,7 +5699,7 @@ sites:
     module: "travel.asita"
     url: "https://asita.id/anggota/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_17779fnavm
@@ -5707,7 +5707,7 @@ sites:
     module: "travel.streamreq_17779fnavm"
     url: "http://www.fnavm.org.ma"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_17785
@@ -5715,7 +5715,7 @@ sites:
     module: "government.streamreq_17785"
     url: "https://decat.gouv.nc/professionnels-professions-reglementees-agent-de-tourisme-et-de-voyage/les-agences-de-tourisme-et-de"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_17786jntotravel_agents
@@ -5723,7 +5723,7 @@ sites:
     module: "travel.streamreq_17786jntotravel_agents"
     url: "https://www.japan.travel/en/au/travel-agents/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_18747btb_tour_operator_directory
@@ -5731,7 +5731,7 @@ sites:
     module: "travel.streamreq_18747btb_tour_operator_directory"
     url: "https://www.belizetourismboard.org/tour-operator/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_18749cadastur
@@ -5739,7 +5739,7 @@ sites:
     module: "government.streamreq_18749cadastur"
     url: "https://dados.gov.br/dados/conjuntos-dados/cadastur-03"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_18751rnt
@@ -5747,7 +5747,7 @@ sites:
     module: "travel.streamreq_18751rnt"
     url: "https://www.datos.gov.co/resource/thwd-ivmp.json"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_18753mmr
@@ -5755,7 +5755,7 @@ sites:
     module: "government.streamreq_18753mmr"
     url: "https://mmr.gov.cz/cs/ministerstvo/cestovni-ruch/seznam-cestovnich-kancelari"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_18754rejsegarantifonden
@@ -5763,7 +5763,7 @@ sites:
     module: "travel.streamreq_18754rejsegarantifonden"
     url: "https://www.rejsegarantifonden.dk/medlem/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_18755catastro_turistico
@@ -5771,7 +5771,7 @@ sites:
     module: "government.streamreq_18755catastro_turistico"
     url: "https://datosabiertos.gob.ec/dataset/catastro-turistico-total"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_18914jnto_tour_operators_in_india
@@ -5779,7 +5779,7 @@ sites:
     module: "travel.streamreq_18914jnto_tour_operators_in_india"
     url: "https://www.japan.travel/en/in/travel-agency/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_18916tafi
@@ -5787,7 +5787,7 @@ sites:
     module: "travel.streamreq_18916tafi"
     url: "https://tafionline.com/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_18917_nidhi_classified
@@ -5795,7 +5795,7 @@ sites:
     module: "travel.streamreq_18917_nidhi_classified"
     url: "https://nidhi.tourism.gov.in/home/classified?categoryCode=02&pageno=1"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_18920ittaa
@@ -5803,7 +5803,7 @@ sites:
     module: "travel.streamreq_18920ittaa"
     url: "https://ittaa.org.il/%d7%97%d7%91%d7%a8%d7%99-%d7%94%d7%94%d7%aa%d7%90%d7%97%d7%93%d7%95%d7%aa/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_18921feramalastofa
@@ -5811,7 +5811,7 @@ sites:
     module: "travel.streamreq_18921feramalastofa"
     url: "https://www.ferdamalastofa.is/is/leyfi/utgefin-leyfi/ferdaskrifstofur-utgefin-leyfi"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_18922_caa_atol_csv
@@ -5819,7 +5819,7 @@ sites:
     module: "travel.streamreq_18922_caa_atol_csv"
     url: "https://aircraftapi.caa.co.uk/api/checkanatol/contactdetails"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_18923isleofman_com_travel_agents
@@ -5827,7 +5827,7 @@ sites:
     module: "travel.streamreq_18923isleofman_com_travel_agents"
     url: "https://www.isleofman.com/businesses?search=travel%20agents&page=1"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: pr_times
@@ -5835,7 +5835,7 @@ sites:
     module: "corporate.pr_times"
     url: "https://prtimes.jp/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: press_2
@@ -5843,7 +5843,7 @@ sites:
     module: "corporate.press_2"
     url: "https://www.atpress.ne.jp/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: coeteco_2
@@ -5859,7 +5859,7 @@ sites:
     module: "construction.green_building_pgm"
     url: "https://green-building-pgm.metro.tokyo.lg.jp/KSE00101"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: syokunin_doh_2
@@ -5883,7 +5883,7 @@ sites:
     module: "construction.streamreq_2117320261005"
     url: "https://tsukulink.net/kyoto/"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: streamreq_2117620261005
@@ -5891,7 +5891,7 @@ sites:
     module: "construction.streamreq_2117620261005"
     url: "https://tsukulink.net/shiga/"
     schedule: "0 9 1 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: wakaba_shop
@@ -5995,7 +5995,7 @@ sites:
     module: "construction.careecon"
     url: "https://recruit.careecon.jp/co/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: edmondo
@@ -6027,7 +6027,7 @@ sites:
     module: "jobs.plex_job_2"
     url: "https://www.plex-job.com/mechanic/feature/272/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: carworkassist
@@ -6051,7 +6051,7 @@ sites:
     module: "jobs.mechani_q_2"
     url: "https://mechani-q.com/job_category/mechanic"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: etsuran2_6
@@ -6099,7 +6099,7 @@ sites:
     module: "jobs.line"
     url: "https://portal.line-sukimani.me/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: com_4
@@ -6147,7 +6147,7 @@ sites:
     module: "jobs.co_medical"
     url: "http://co-medical.com/ns/"
     schedule: "0 9 15 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: type
@@ -6155,7 +6155,7 @@ sites:
     module: "jobs.type"
     url: "https://type.jp"
     schedule: "0 9 10 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: hoikushibank
@@ -6163,7 +6163,7 @@ sites:
     module: "jobs.hoikushibank"
     url: "https://www.hoikushibank.com/facility"
     schedule: "0 9 19 * *"
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: colorful_career
@@ -6243,7 +6243,7 @@ sites:
     module: "medical.epark_4"
     url: "https://fdoc.jp/clinic/list/index/rgid/446/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: enecho_2
@@ -6267,7 +6267,7 @@ sites:
     module: "corporate.streamreq_28369businessplus"
     url: "https://www.business-plus.net/interview/area/?area=1"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: kaitori_ikuraya
@@ -6283,7 +6283,7 @@ sites:
     module: "service.ginzaya"
     url: "https://www.ginzaya.co.jp/shop/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: urunavi_2
@@ -6363,7 +6363,7 @@ sites:
     module: "portal.web_5"
     url: "https://colorfulcompany.jp/toyama/venues?topCategoryId=6"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: lien
@@ -6371,7 +6371,7 @@ sites:
     module: "portal.lien"
     url: "https://www.lien-toyama.net/shop/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: kyu_kago
@@ -6411,7 +6411,7 @@ sites:
     module: "construction.biz"
     url: "https://kenchikukensetsu.biz/shops"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: yaneiroha
@@ -6555,7 +6555,7 @@ sites:
     module: "jobs.works_2"
     url: "https://kyujin-at.work/hokkaido/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: b_s_times
@@ -6563,7 +6563,7 @@ sites:
     module: "corporate.b_s_times"
     url: "https://bs-times.com/html/magazine.html"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: liner_job
@@ -6587,7 +6587,7 @@ sites:
     module: "portal.mite_net"
     url: "https://mite-net.com/seikatu/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: web_6
@@ -6595,7 +6595,7 @@ sites:
     module: "portal.web_6"
     url: "https://shop.shun.tv/blog/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: etsuran2_8
@@ -6667,7 +6667,7 @@ sites:
     module: "jobs.works_3"
     url: "https://kyujin-at.work/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: mbp_japan_2
@@ -6723,7 +6723,7 @@ sites:
     module: "jobs.sharefull_2"
     url: "https://sharefull.com/jobs/tokyo/"
     schedule: null
-    enabled: true
+    enabled: false
     terms_url: ""
 
   - site_id: shotworks_2
