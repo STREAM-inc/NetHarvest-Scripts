@@ -6749,3 +6749,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://static.jp.mercari.com/tos"
+
+  - site_id: bestjuku
+    name: "塾選"
+    module: "service.bestjuku"
+    url: "https://bestjuku.com/search/requirement/city/?prefecture=tokyo"
+    schedule: null
+    enabled: true
+    terms_url: "https://bestjuku.com/term/"
