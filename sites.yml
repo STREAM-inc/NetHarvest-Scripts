@@ -1845,7 +1845,7 @@ sites:
     url: "https://travel.rakuten.co.jp/group/TIKU/"
     schedule: "0 0 1-7 * SAT"
     enabled: true
-    terms_url: "https://travel.rakuten.co.jp/info/"
+    terms_url: "https://travel.rakuten.co.jp/info/agreement.html"
 
 #209
   - site_id: jalan
