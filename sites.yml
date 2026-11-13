@@ -1094,7 +1094,7 @@ sites:
     module: "jobs.doda"
     url: "https://doda.jp/DodaFront/View/JobSearchList.action"
     schedule: "20 4 1-7 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://doda.jp/material/kiyaku/001.html"
 
 #123
