@@ -2943,7 +2943,7 @@ sites:
     url: "https://www.snack-guide.com/"
     schedule: "20 13 1-7 * SUN"
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.snack-guide.com/articles/"
 
 #331
   - site_id: cabanavi
@@ -3862,7 +3862,7 @@ sites:
     url: "https://www.hotworks.jp/yamaguchi/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.hotworks.jp/rule.php"
 
 #433
   - site_id: soramachi
@@ -3931,7 +3931,7 @@ sites:
     url: "https://www.onecareer.jp/companies?per=20&page=1&sort=standard&lowest_rating=0&highest_rating=5&search_query="
     schedule: "0 9 * * 2"
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.onecareer.jp/infos/terms"
 
   - site_id: bunnabi_2028
     name: "ブンナビ"
@@ -3939,7 +3939,7 @@ sites:
     url: "https://bunnabi.jp/2028/sh_result.php"
     schedule: "0 9 * * 2"
     enabled: false
-    terms_url: ""
+    terms_url: "https://bunnabi.jp/s/kiyaku.php"
 
   - site_id: shukatsu
     name: "ダイヤモンド就活ナビ"
@@ -3987,7 +3987,7 @@ sites:
     url: "https://i2fas.mhlw.go.jp/faspub/IO_S010303.do?_errCheck=false&_searched=false&_sessionId=16CF4AE107F25ABF9C0720C37B29B24E&method=a_menu_o01Action&param=&_focus=actionlink_a_menu_o01&_posx=0&_posy=0&_rowidx=0&_language=&_timezoneOffset=-540&_timezoneId=Asia%2FTokyo&_downloadId=&_status=&_labelMapArchive=&_wfinfo=&_wfinfo_RefParams=&_ActionHistoryList%5B0%5D.action=%2FIO_S010303"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://i2fas.mhlw.go.jp/termsofuse.htm"
 
   - site_id: jaia
     name: "日本アミューズメント産業協会"
@@ -4003,7 +4003,7 @@ sites:
     url: "https://www.jata-net.or.jp/about/jata-about/about02/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.jata-net.or.jp/site_policy/"
 
   - site_id: member_list
     name: "一般社団法人日本能率協会"
@@ -4027,7 +4027,7 @@ sites:
     url: "https://www.j-bma.or.jp/meibo/corp.php"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.j-bma.or.jp/site-policy/"
 
   - site_id: saj
     name: "一般社団法人ソフトウェア協会"
@@ -4099,7 +4099,7 @@ sites:
     url: "https://www.jaspa.or.jp/association/districts/hokkaido.html"
     schedule: "0 10 13 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.jaspa.or.jp/others/rule.html"
 
   - site_id: ajssa_8
     name: "全国警備業協会（AJSSA）会員名簿(栃木県)"
@@ -4179,7 +4179,7 @@ sites:
     url: "https://www.shizu-keikyo.jp/pages/38/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.shizu-keikyo.jp/pages/7/"
 
   - site_id: ajssa_18
     name: "全国警備業協会（AJSSA）会員名簿(石川県)"
@@ -4355,7 +4355,7 @@ sites:
     url: "https://www.jara.jp/"
     schedule: "0 9 1 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.jara.jp/about/site-policy.html"
 
   - site_id: jfea
     name: "日本厨房工業会 会員"
@@ -4379,7 +4379,7 @@ sites:
     url: "https://jadma.or.jp/membercompany/fmember"
     schedule: "0 9 3 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://jadma.or.jp/use"
 
   - site_id: ajssa_35
     name: "全国警備業協会（AJSSA）会員名簿(徳島県)"
@@ -4387,7 +4387,7 @@ sites:
     url: "https://tokukeikyo.jp/pages/26/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://tokukeikyo.jp/pages/7/"
 
   - site_id: ajssa_37
     name: "全国警備業協会（AJSSA）会員名簿(高知県)"
@@ -4443,7 +4443,7 @@ sites:
     url: "https://miyazaki-keibi.or.jp/pages/51/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://miyazaki-keibi.or.jp/pages/7/"
 
   - site_id: ajssa_42
     name: "全国警備業協会（AJSSA）会員名簿(鹿児島県)"
@@ -4803,7 +4803,7 @@ sites:
     url: "https://job.mynavi.jp/28/pc/toppage/displayTopPage/index"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://job.mynavi.jp/sitepolicy/index.html"
 
   - site_id: seikatsu110_2
     name: "生活110番（加盟店・全国）"
@@ -4835,7 +4835,7 @@ sites:
     url: "https://www.baitoru.com/kanto-tokai-kansai-tohoku-koshinetsu-chushikoku-kyushu/jlist/nightwork?pname=link_job_list_pc_all_all"
     schedule: "0 8 * * 1"
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.baitoru.com/about/kiyaku.html"
 
   - site_id: beauty_3
     name: "ホットペッパービューティー"
@@ -4883,7 +4883,7 @@ sites:
     url: "https://antique-leaves.com/?mode=cate&cbid=2927760&csid=0"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://antique-leaves.com/?mode=f17"
 
   - site_id: queen
     name: "体入Queen（クイーンワーク）関西版"
@@ -4923,7 +4923,7 @@ sites:
     url: "https://www.city.yokohama.lg.jp/kurashi/sumai-kurashi/seikatsu/kaiteki/kankyodata.html"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.city.yokohama.lg.jp/aboutweb/sitepolicy.html"
 
   - site_id: catalog
     name: "東京都理容所・美容所一覧"
@@ -4939,7 +4939,7 @@ sites:
     url: "https://www.city.kawasaki.jp/350/page/0000120745.html"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.city.kawasaki.jp/main/site_policy/0000000025.html"
 
   - site_id: ivry_2
     name: "アイブリー電話番号検索"
@@ -5012,7 +5012,7 @@ sites:
     url: "https://shain.suke-dachi.jp/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://suke-dachi.jp/shain/user_terms_of_use_0422.pdf"
 
   - site_id: jobhouse_2
     name: "ジョブハウス工場"
@@ -5020,7 +5020,7 @@ sites:
     url: "https://jobhouse.jp/factory"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://jobhouse.jp/terms"
 
   - site_id: r30_2
     name: "R30ナイトバイト（キャバジョブ）"
@@ -5068,7 +5068,7 @@ sites:
     url: "https://www.city.yokohama.lg.jp/kurashi/sumai-kurashi/seikatsu/kaiteki/kankyodata.html"
     schedule: "0 9 1 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.city.yokohama.lg.jp/aboutweb/sitepolicy.html"
 
   - site_id: farm_navi_2
     name: "農園ナビ"
@@ -5084,7 +5084,7 @@ sites:
     url: "https://www.j-hotel.or.jp/memberlist/"
     schedule: "0 9 1 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.j-hotel.or.jp/policy/"
 
   - site_id: ryokan
     name: "やど日本"
@@ -5092,7 +5092,7 @@ sites:
     url: "https://www.ryokan.or.jp/"
     schedule: "0 9 1 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.ryokan.or.jp/sitepolicy/"
 
   - site_id: travel
     name: "楽天トラベル"
@@ -5100,7 +5100,7 @@ sites:
     url: "https://travel.rakuten.co.jp/"
     schedule: "0 9 1 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://travel.rakuten.co.jp/info/"
 
   - site_id: e_nenpi_6
     name: "e燃費"
@@ -5108,7 +5108,7 @@ sites:
     url: "https://e-nenpi.com/gs/shoplist"
     schedule: "0 9 1 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://e-nenpi.com/guide/rule"
 
   - site_id: hikakaku_4
     name: "ヒカカク！"
@@ -5116,7 +5116,7 @@ sites:
     url: "https://hikakaku.com/company/kaitoriinfo/field/keishiki/syuccho/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://hikakaku.com/利用規約/"
 
   - site_id: city_5
     name: "川崎市 環境衛生関係営業施設一覧"
@@ -5124,7 +5124,7 @@ sites:
     url: "https://www.city.kawasaki.jp/350/page/0000120745.html"
     schedule: "0 9 1 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.city.kawasaki.jp/main/site_policy/0000000025.html"
 
   - site_id: opendata_2
     name: "千葉県オープンデータサイト環境衛生関係施設一覧"
@@ -5148,7 +5148,7 @@ sites:
     url: "https://ckan.pf-sapporo.jp/dataset/sapporo_environmental_hygiene_services"
     schedule: "0 9 1 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://data.pf-sapporo.jp/tos/"
 
   - site_id: data_4
     name: "三重県オープンデータサイトの環境衛生関係施設一覧"
@@ -5172,7 +5172,7 @@ sites:
     url: "https://www.mapion.co.jp/phonebook/M10037/27/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://help.mapion.co.jp/mapionterms.html"
 
   - site_id: j_startup
     name: "J-Startup"
@@ -5196,7 +5196,7 @@ sites:
     url: "https://esjob.jp/"
     schedule: "0 9 1 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://esjob.jp/terms/"
 
   - site_id: nightjob
     name: "ナイトジョブ"
@@ -5220,7 +5220,7 @@ sites:
     url: "https://bar-navi.suntory.co.jp/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://bar-navi.suntory.co.jp/terms.html"
 
   - site_id: job_7
     name: "エステラブワーク"
@@ -5300,7 +5300,7 @@ sites:
     url: "https://www2.sanpainet.or.jp/sanpai/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.sanpainet.or.jp/content.php?id=2"
 
   - site_id: tsukulink_4
     name: "ツクリンク北陸3県"
@@ -5324,7 +5324,7 @@ sites:
     url: "https://www2.sanpainet.or.jp/index_u3.php"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.sanpainet.or.jp/content.php?id=2"
 
   - site_id: www2_4
     name: "さんぱい２"
@@ -5332,7 +5332,7 @@ sites:
     url: "https://www2.sanpainet.or.jp/searchprm.php?Param1=01"
     schedule: "0 9 1 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.sanpainet.or.jp/content.php?id=2"
 
   - site_id: tsukulink_6
     name: "ツクリンク全件"
@@ -5340,7 +5340,7 @@ sites:
     url: "https://tsukulink.net/?utm_source=google&utm_medium=cpc&utm_campaign=sonota&gad_source=1&gad_campaignid=13352243896&gbraid=0AAAAABWZ-zqWusLqprjBy1cag1-B1cjZI&gclid=Cj0KCQjwkt_UBhDMARIsALpnOAwjPMjZVkVmvnqQ-Es2jFxTJkRtXts_Q8o2wdTN9uwkb3qLPXjFOlAaAmCWEALw_wcB"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://tsukulink.net/term"
 
   - site_id: toto
     name: "TOTOリモデルクラブ"
@@ -5428,7 +5428,7 @@ sites:
     url: "https://tsukulink.net/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://tsukulink.net/term"
 
   - site_id: coeteco
     name: "コエテコ"
@@ -5436,7 +5436,7 @@ sites:
     url: "https://coeteco.jp/prefecture/hokkaido"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://coeteco.jp/kiyaku"
 
   - site_id: kaitori_daikichi
     name: "買取大吉"
@@ -5580,7 +5580,7 @@ sites:
     url: "https://clubofmozambique.com/business-directory/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://clubofmozambique.com/terms-of-use/"
 
   - site_id: anta_3
     name: "ANTA会員一覧(ナミビア旅行代理店協会)"
@@ -5596,7 +5596,7 @@ sites:
     url: "https://natta.org.np/members/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://natta.org.np/terms-and-conditions"
 
   - site_id: shta_3
     name: "SHTA会員名簿(シント・マールテン)"
@@ -5724,7 +5724,7 @@ sites:
     url: "https://www.japan.travel/en/au/travel-agents/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.japan.travel/en/terms-of-use/"
 
   - site_id: streamreq_18747btb_tour_operator_directory
     name: "【STREAMREQ-18747】BTB Tour Operator Directory（ベリーズ）"
@@ -5732,7 +5732,7 @@ sites:
     url: "https://www.belizetourismboard.org/tour-operator/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.belizetourismboard.org/terms-of-use/"
 
   - site_id: streamreq_18749cadastur
     name: "【STREAMREQ-18749】CADASTUR オープンデータ（ブラジル）"
@@ -5780,7 +5780,7 @@ sites:
     url: "https://www.japan.travel/en/in/travel-agency/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.japan.travel/en/terms-of-use/"
 
   - site_id: streamreq_18916tafi
     name: "【STREAMREQ-18916】TAFI インド旅行代理店連盟 会員ディレクトリ（インド）"
@@ -5796,7 +5796,7 @@ sites:
     url: "https://nidhi.tourism.gov.in/home/classified?categoryCode=02&pageno=1"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://nidhi.tourism.gov.in/home/page/terms-conditions"
 
   - site_id: streamreq_18920ittaa
     name: "【STREAMREQ-18920】ITTAA イスラエル旅行業協会 会員一覧（イスラエル）"
@@ -5836,7 +5836,7 @@ sites:
     url: "https://prtimes.jp/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://prtimes.jp/main/html/kiyaku"
 
   - site_id: press_2
     name: "@Press（アットプレス）"
@@ -5844,7 +5844,7 @@ sites:
     url: "https://www.atpress.ne.jp/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.atpress.ne.jp/term_use"
 
   - site_id: coeteco_2
     name: "コエテコキャンパス"
@@ -5884,7 +5884,7 @@ sites:
     url: "https://tsukulink.net/kyoto/"
     schedule: "0 9 1 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://tsukulink.net/term"
 
   - site_id: streamreq_2117620261005
     name: "ツクリンク【滋賀】"
@@ -5892,7 +5892,7 @@ sites:
     url: "https://tsukulink.net/shiga/"
     schedule: "0 9 1 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://tsukulink.net/term"
 
   - site_id: wakaba_shop
     name: "買取店わかば 新規オープン情報"
@@ -6028,7 +6028,7 @@ sites:
     url: "https://www.plex-job.com/mechanic/feature/272/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.plex-job.com/terms/"
 
   - site_id: carworkassist
     name: "カーワク"
@@ -6052,7 +6052,7 @@ sites:
     url: "https://mechani-q.com/job_category/mechanic"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://mechani-q.com/site-policy/"
 
   - site_id: etsuran2_6
     name: "国土交通省 建設業者・宅建業者等企業情報検索システム【賃貸住宅管理業者検索】"
@@ -6100,7 +6100,7 @@ sites:
     url: "https://portal.line-sukimani.me/"
     schedule: null
     enabled: false
-    terms_url: ""
+    terms_url: "https://terms2.line.me/lineodw_client_terms?lang=ja&country=JP"
 
   - site_id: com_4
     name: "一休.com（宿泊施設・東北新潟）"
@@ -6156,7 +6156,7 @@ sites:
     url: "https://type.jp"
     schedule: "0 9 10 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://type.jp/help/category_14.html"
 
   - site_id: hoikushibank
     name: "カラフルキャリアドライバー"
@@ -6164,7 +6164,7 @@ sites:
     url: "https://www.hoikushibank.com/facility"
     schedule: "0 9 19 * *"
     enabled: false
-    terms_url: ""
+    terms_url: "https://www.hoikushibank.com/doc/terms"
 
   - site_id: colorful_career
     name: "colorful-career"
