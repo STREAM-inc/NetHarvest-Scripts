@@ -4482,7 +4482,7 @@ sites:
     module: "jobs.info"
     url: "https://gaten.info/list"
     schedule: null
-    enabled: false
+    enabled: true
     terms_url: "https://gaten.info/apply-terms"
 
   - site_id: kochi_info
@@ -4706,7 +4706,7 @@ sites:
     module: "corporate.kibidango"
     url: "https://kibidango.com/projects"
     schedule: null
-    enabled: false
+    enabled: true
     terms_url: "https://kibidango.com/page/UserKiyaku"
 
   - site_id: koneko_breeder
@@ -4954,7 +4954,7 @@ sites:
     module: "service.aqua_mart"
     url: "https://www.aqua-mart.jp/"
     schedule: null
-    enabled: false
+    enabled: true
     terms_url: "https://www.aqua-mart.jp/information/privacypolicy.html"
 
   - site_id: snsn
@@ -5227,7 +5227,7 @@ sites:
     module: "jobs.job_7"
     url: "https://job.eslove.jp/"
     schedule: null
-    enabled: false
+    enabled: true
     terms_url: "https://job.eslove.jp/terms"
 
   - site_id: re_4
@@ -5355,7 +5355,7 @@ sites:
     module: "construction.panasonic"
     url: "https://reform-club.panasonic.com/shop/pref.php?id=hokkaido"
     schedule: null
-    enabled: false
+    enabled: true
     terms_url: "https://holdings.panasonic/jp/terms-of-use.html"
 
   - site_id: partnershop
@@ -5411,7 +5411,7 @@ sites:
     module: "jobs.domonet_2"
     url: "https://domonet.jp/"
     schedule: null
-    enabled: false
+    enabled: true
     terms_url: "https://domonet.jp/info/agreement"
 
   - site_id: itszai
@@ -5627,7 +5627,7 @@ sites:
     module: "government.catastro_turistico"
     url: "https://servicios.turismo.gob.ec/catastro-turistico/"
     schedule: null
-    enabled: false
+    enabled: true
     terms_url: "https://datosabiertos.gob.ec/dataset/catastro-turistico-total"
 
   - site_id: koujuren_3
@@ -6107,7 +6107,7 @@ sites:
     module: "travel.com_4"
     url: "https://www.ikyu.com/"
     schedule: null
-    enabled: false
+    enabled: true
     terms_url: "https://www.ikyu.com/terms/service/"
 
   - site_id: tenshoku_4
@@ -6763,5 +6763,5 @@ sites:
     module: "service.bestjuku"
     url: "https://bestjuku.com/search/requirement/city/?prefecture=tokyo"
     schedule: null
-    enabled: false
+    enabled: true
     terms_url: "https://bestjuku.com/term/"
