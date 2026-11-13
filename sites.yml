@@ -4835,7 +4835,7 @@ sites:
     url: "https://www.baitoru.com/kanto-tokai-kansai-tohoku-koshinetsu-chushikoku-kyushu/jlist/nightwork?pname=link_job_list_pc_all_all"
     schedule: "0 8 * * 1"
     enabled: false
-    terms_url: "https://www.baitoru.com/about/kiyaku.html"
+    terms_url: "https://www.baitoru.com/about/kiyaku_base.html"
 
   - site_id: beauty_3
     name: "ホットペッパービューティー"
@@ -5100,7 +5100,7 @@ sites:
     url: "https://travel.rakuten.co.jp/"
     schedule: "0 9 1 * *"
     enabled: false
-    terms_url: "https://travel.rakuten.co.jp/info/"
+    terms_url: "https://travel.rakuten.co.jp/info/agreement.html"
 
   - site_id: e_nenpi_6
     name: "e燃費"
@@ -5220,7 +5220,7 @@ sites:
     url: "https://bar-navi.suntory.co.jp/"
     schedule: null
     enabled: false
-    terms_url: "https://bar-navi.suntory.co.jp/terms.html"
+    terms_url: ""
 
   - site_id: job_7
     name: "エステラブワーク"
@@ -5436,7 +5436,7 @@ sites:
     url: "https://coeteco.jp/prefecture/hokkaido"
     schedule: null
     enabled: false
-    terms_url: "https://coeteco.jp/kiyaku"
+    terms_url: ""
 
   - site_id: kaitori_daikichi
     name: "買取大吉"
@@ -6100,7 +6100,7 @@ sites:
     url: "https://portal.line-sukimani.me/"
     schedule: null
     enabled: false
-    terms_url: "https://terms2.line.me/lineodw_client_terms?lang=ja&country=JP"
+    terms_url: "https://terms2.line.me/lineodw_user_terms?lang=ja&country=JP"
 
   - site_id: com_4
     name: "一休.com（宿泊施設・東北新潟）"
