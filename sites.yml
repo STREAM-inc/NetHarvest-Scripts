@@ -6773,3 +6773,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.itszai.jp/privacy/"
+
+  - site_id: job_9
+    name: "キャリタス就活_27卒本選考受付中"
+    module: "jobs.job_9"
+    url: "https://job.career-tasu.jp/condition-search/result/?keyword="
+    schedule: null
+    enabled: true
+    terms_url: "https://job.career-tasu.jp/membership-agreement/"
