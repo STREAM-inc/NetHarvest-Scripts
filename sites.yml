@@ -324,6 +324,13 @@ sites:
     terms_url: ""
 
 #35
+    terms_review:
+      decision: "no_terms"
+      approved_keywords: []
+      terms_hash: ""
+      reviewer: "stuser"
+      reviewed_at: "2026-11-13T09:36:31+00:00"
+      reason: "大丈夫"
   - site_id: tadaoka_shoko
     name: "忠岡町商工会"
     module: "government.tadaoka_shoko"
