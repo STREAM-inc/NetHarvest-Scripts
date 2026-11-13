@@ -167,7 +167,7 @@ sites:
     module: "realestate.ii_ie"
     url: "https://www.ii-ie2.net/sitemap.xml"
     schedule: "20 1 15-21 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://www.eheya.net/contents/terms/"
 
 #18
@@ -275,7 +275,7 @@ sites:
     module: "medical.doctor_map"
     url: "https://www.doctor-map.info/sitemap.xml"
     schedule: "0 2 1-7 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://www.homemate-research.com/info/rule/"
 
 #30
@@ -347,7 +347,7 @@ sites:
     module: "jobs.yakukyari"
     url: "https://pcareer.m3.com/shokubanavi/companies"
     schedule: "20 2 1-7 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://pcareer.m3.com/shokubanavi/terms_of_service"
 
 #38
@@ -356,7 +356,7 @@ sites:
     module: "jobs.yakukyari_office"
     url: "https://pcareer.m3.com/shokubanavi/offices"
     schedule: "20 2 1-7 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://pcareer.m3.com/shokubanavi/terms_of_service"
 
 #39
@@ -482,7 +482,7 @@ sites:
     module: "service.hanacupid"
     url: "https://www.hanacupid.or.jp/stores/"
     schedule: "40 2 22-28 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://www.i879.com/about/"
 
 #53
@@ -527,7 +527,7 @@ sites:
     module: "jobs.jobcon_driver"
     url: "https://job-con.jp/driver/search"
     schedule: "0 3 8-14 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://job-con.jp/policy"
 
 #58
@@ -536,7 +536,7 @@ sites:
     module: "jobs.jobcon_security"
     url: "https://job-con.jp/security/search"
     schedule: "0 3 15-21 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://job-con.jp/policy"
 
 #59
@@ -563,7 +563,7 @@ sites:
     module: "jobs.kyujin_journal_net"
     url: "https://www.job-j.net"
     schedule: "20 3 1-7 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://www.job-j.net/static/rules/"
 
 #63
@@ -608,7 +608,7 @@ sites:
     module: "medical.caloo"
     url: "https://caloo.jp/hospitals/search/01/all"
     schedule: "20 3 15-21 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://caloo.jp/terms/"
 
 #68
@@ -626,7 +626,7 @@ sites:
     module: "jobs.jobpost"
     url: "https://jobpost.jp/search/g:1/"
     schedule: "20 3 22-28 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://jobpost.jp/terms"
 
 #70
@@ -635,7 +635,7 @@ sites:
     module: "jobs.trck_job"
     url: "https://job.trck.jp/sitemap.xml"
     schedule: "40 3 1-7 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://azoop.co.jp/privacy_policy"
 
 #71
@@ -653,7 +653,7 @@ sites:
     module: "agency_franchise.fc_kamei"
     url: "https://fc-kamei.net"
     schedule: "40 3 8-14 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://fc-kamei.net/terms"
 
 #73
@@ -869,7 +869,7 @@ sites:
     module: "auto.o_kuruma"
     url: "https://www.o-kuruma.com/"
     schedule: "20 6 15-21 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://www.o-kuruma.com/html/policy.html"
 
 #97
@@ -896,7 +896,7 @@ sites:
     module: "portal.mypl"
     url: "https://mypl.net/"
     schedule: "0 7 8-14 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://mypl.net/use_policy/"
 
 #100
@@ -995,7 +995,7 @@ sites:
     module: "jobs.webjobpark"
     url: "https://webjobpark.kyoto.jp/"
     schedule: "0 7 15-21 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://webjobpark.kyoto.jp/rules/"
 
 #112
@@ -1013,7 +1013,7 @@ sites:
     module: "service.concierge"
     url: "https://concierge.diet/"
     schedule: "0 6 22-28 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://concierge.diet/service/"
 
 #114
@@ -1166,7 +1166,7 @@ sites:
     module: "realestate.lixil_reformshop"
     url: "https://www.lixil-reformshop.jp/"
     schedule: "40 5 1-7 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://www.lixil-reformshop.jp/termsofuse/"
 
 #131
@@ -1211,7 +1211,7 @@ sites:
     module: "jobs.domonet"
     url: "https://domonet.jp/"
     schedule: "40 4 8-14 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://domonet.jp/info/agreement"
 
 #136
@@ -1265,7 +1265,7 @@ sites:
     module: "medical.HOSPITA_scrape"
     url: "https://www.hospita.jp/list/hospital/"
     schedule: "40 5 8-14 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://www.hospita.jp/about/terms-of-use"
 
 #142
@@ -1391,7 +1391,7 @@ sites:
     module: corporate.nissokyo
     url: "https://www.nissokyo.or.jp/member_list/"
     schedule: "0 6 * * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://www.nissokyo.or.jp/privacypolicy/"
 
 #156
@@ -1427,7 +1427,7 @@ sites:
     module: "agency_franchise.panasonic_cycle"
     url: "https://cycle.panasonic.com/"
     schedule: "40 5 15-21 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://holdings.panasonic/jp/terms-of-use.html"
 
 #160
@@ -1679,7 +1679,7 @@ sites:
     module: "construction.iiyeah_tateru"
     url: "https://iiyeah-tateru.jp/shops"
     schedule: "0 9 * * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://iiyeah-tateru.jp/terms"
 
 #189
@@ -1826,7 +1826,7 @@ sites:
     module: "portal.fitness_search"
     url: "https://www.fitness-search.net/"
     schedule: "0 9 * * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://www.fitness-search.net/html/terms.html"
 
 #207
@@ -1862,7 +1862,7 @@ sites:
     module: "jobs.type_2"
     url: "https://woman-type.jp/"
     schedule: "0 19 1 * *"
-    enabled: true
+    enabled: false
     terms_url: "https://woman-type.jp/s/kojin/"
 
 #211
@@ -1988,7 +1988,7 @@ sites:
     module: "corporate.nissokyo"
     url: "https://www.nissokyo.or.jp"
     schedule: "0 0 1 * *"
-    enabled: true
+    enabled: false
     terms_url: "https://www.nissokyo.or.jp/privacypolicy/"
 
 #225
@@ -2105,7 +2105,7 @@ sites:
     module: "nightlife.estelove_work"
     url: "https://job.eslove.jp"
     schedule: "0 0 1 * *"
-    enabled: true
+    enabled: false
     terms_url: "https://job.eslove.jp/terms"
 
 #238
@@ -2195,7 +2195,7 @@ sites:
     module: "portal.bijipuri"
     url: "https://visipri.com/area_detail/index_exhibition_hall.php"
     schedule: "0 0 1 * *"
-    enabled: true
+    enabled: false
     terms_url: "https://visipri.com/privacy.html"
 
 #248
@@ -2276,7 +2276,7 @@ sites:
     module: "portal.nagano_shakou"
     url: "https://naganosyakouinshyoku.com/shoppost-cat/naganoshi"
     schedule: "0 0 1 * *"
-    enabled: true
+    enabled: false
     terms_url: "https://naganosyakouinshyoku.com/privacy-policy/"
 
 #257
@@ -2411,7 +2411,7 @@ sites:
     module: "agency_franchise.jpnumber_power_agents"
     url: "https://www.jpnumber.com/"
     schedule: "20 0 1 * *"
-    enabled: true
+    enabled: false
     terms_url: "https://www.jpnumber.com/privacy.html"
 
 #272
@@ -2555,7 +2555,7 @@ sites:
     module: "food.cookdoor_2"
     url: "https://www.cookdoor.jp/"
     schedule: "20 9 22-28 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://www.homemate-research.com/info/rule/"
 
 #288
@@ -2717,7 +2717,7 @@ sites:
     module: "food.demae_can_8"
     url: "https://demae-can.com/shopDetail"
     schedule: "0 1 1 * *"
-    enabled: true
+    enabled: false
     terms_url: "https://demae-can.com/navigate/termsofuse"
 
 #306
@@ -2888,7 +2888,7 @@ sites:
     module: "food.bar_navi"
     url: "https://bar-navi.suntory.co.jp/"
     schedule: "0 12 8-14 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://bar-navi.suntory.co.jp/terms.html"
 
 #325
@@ -2933,7 +2933,7 @@ sites:
     module: "nightlife.nomu"
     url: "https://nomu.tsuku2.jp/c8"
     schedule: "20 13 1-7 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://home.tsuku2.jp/terms.php"
 
 #330
@@ -3014,7 +3014,7 @@ sites:
     module: "jobs.tsunoru"
     url: "https://job.tsunoru.jp/prev/"
     schedule: "40 14 1-7 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://job.tsunoru.jp/doc/terms_company.pdf"
 
 #339
@@ -3149,7 +3149,7 @@ sites:
     module: "jobs.domo_2"
     url: "https://domonet.jp/shizuoka/list"
     schedule: "0 17 15-21 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://domonet.jp/info/agreement"
 
 #354
@@ -3167,7 +3167,7 @@ sites:
     module: "jobs.domo_net"
     url: "https://domonet.jp/kanto"
     schedule: "0 17 22-28 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://domonet.jp/info/agreement"
 
 #356
@@ -3203,7 +3203,7 @@ sites:
     module: "jobs.sgnavi"
     url: "https://www.sgnavi.com/hokkaido/job-list/"
     schedule: "20 18 8-14 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://www.sgnavi.com/hokkaido/terms-of-service/"
 
 #360
@@ -3762,7 +3762,7 @@ sites:
     module: "nightlife.eslove"
     url: "https://eslove.jp"
     schedule: "0 9 7 * *"
-    enabled: true
+    enabled: false
     terms_url: "https://eslove.jp/terms"
 
 #422
@@ -5291,7 +5291,7 @@ sites:
     module: "food.com_2"
     url: "https://restaurant.ikyu.com/"
     schedule: "0 7 * * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://www.ikyu.com/terms/service/"
 
   - site_id: www2_2
