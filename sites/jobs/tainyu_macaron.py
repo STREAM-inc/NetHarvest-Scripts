@@ -1,5 +1,5 @@
 """
-対象サイト: https://picsastock.com/sitemap.xml
+対象サイト: https://picsastock.com/ (店舗一覧は /sitemap.xml から集める)
 """
 
 import csv
@@ -41,6 +41,21 @@ def split_name_furi(raw_name: str) -> tuple[str, str]:
     if match:
         return normalize_ws(match.group("name")), normalize_ws(match.group("furi"))
     return raw_name, ""
+
+
+def sitemap_url_for(url: str) -> str:
+    """sites.yml の url から、店舗一覧を集める sitemap の URL を決める。
+
+    >>> sitemap_url_for("https://picsastock.com/")
+    'https://picsastock.com/sitemap.xml'
+    >>> sitemap_url_for("https://picsastock.com/sitemap.xml")
+    'https://picsastock.com/sitemap.xml'
+    >>> sitemap_url_for("https://picsastock.com/Sitemap.XML.gz")
+    'https://picsastock.com/Sitemap.XML.gz'
+    """
+    if urlparse(url).path.lower().endswith((".xml", ".xml.gz")):
+        return url
+    return urljoin(url, "/sitemap.xml")
 
 
 def is_shop_url(url: str) -> bool:
@@ -92,12 +107,17 @@ class TainyuMacaronScraper(StaticCrawler):
             self.logger.warning("既存CSVの読み込み失敗: %s", exc)
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        shop_urls = self._collect_shop_urls(url)
-        self.total_items = len(shop_urls)
+        # sites.yml の url はサイトのトップ。店舗一覧は同じサイトの sitemap.xml から集める
+        sitemap_url = sitemap_url_for(url)
+        shop_urls = self._collect_shop_urls(sitemap_url)
         self.logger.info("店舗URL収集完了: %d 件", len(shop_urls))
+        if not shop_urls:
+            # sitemap を読めない・構成が変わった等を「0 件で正常終了」にしない (気付けなくなるため)
+            raise RuntimeError(f"店舗 URL を 1 件も集められませんでした (sitemap: {sitemap_url})")
 
         # 未処理のURLのみをフィルター
         unprocessed_urls = [u for u in shop_urls if u not in self.processed_urls]
+        self.total_items = len(unprocessed_urls)
         self.logger.info("未処理URL: %d 件", len(unprocessed_urls))
 
         for shop_url in unprocessed_urls:
@@ -231,4 +251,4 @@ if __name__ == "__main__":
     import logging
 
     logging.basicConfig(level=logging.INFO)
-    TainyuMacaronScraper().execute("https://picsastock.com/sitemap.xml")
+    TainyuMacaronScraper().execute("https://picsastock.com/")
