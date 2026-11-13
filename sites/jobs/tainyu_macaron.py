@@ -1,5 +1,5 @@
 """
-対象サイト: https://picsastock.com/sitemap.xml
+対象サイト: https://picsastock.com/ (店舗一覧は /sitemap.xml から集める)
 """
 
 import csv
@@ -92,7 +92,10 @@ class TainyuMacaronScraper(StaticCrawler):
             self.logger.warning("既存CSVの読み込み失敗: %s", exc)
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        shop_urls = self._collect_shop_urls(url)
+        # sites.yml の url はサイトのトップ。店舗一覧は同じサイトの sitemap.xml から集める
+        # (以前の url は sitemap.xml そのものだったので、その場合はそのまま使う)
+        sitemap_url = url if urlparse(url).path.endswith(".xml") else urljoin(url, "/sitemap.xml")
+        shop_urls = self._collect_shop_urls(sitemap_url)
         self.total_items = len(shop_urls)
         self.logger.info("店舗URL収集完了: %d 件", len(shop_urls))
 
@@ -231,4 +234,4 @@ if __name__ == "__main__":
     import logging
 
     logging.basicConfig(level=logging.INFO)
-    TainyuMacaronScraper().execute("https://picsastock.com/sitemap.xml")
+    TainyuMacaronScraper().execute("https://picsastock.com/")
