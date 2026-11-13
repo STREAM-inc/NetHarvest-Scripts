@@ -6765,3 +6765,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://bestjuku.com/term/"
+
+  - site_id: itszai_4
+    name: "イツザイ（中国・九州沖縄・香川・愛媛）"
+    module: "jobs.itszai_4"
+    url: "https://www.itszai.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.itszai.jp/privacy/"
