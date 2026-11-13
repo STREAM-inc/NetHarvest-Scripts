@@ -320,7 +320,7 @@ sites:
     module: "jobs.tainyu_macaron"
     url: "https://picsastock.com/sitemap.xml"
     schedule: "0 2 * * WED"
-    enabled: false
+    enabled: true
     terms_url: ""
 
 #35
