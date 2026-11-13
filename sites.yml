@@ -6541,6 +6541,14 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://biz-maps.com/terms"
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "プログラムを使用"
+      terms_hash: "sha256:1498898b17ee142a77436ae097458e14bc476646b885e6f2618ebd5a2169a58d"
+      reviewer: "stuser"
+      reviewed_at: "2026-11-13T03:46:47+00:00"
+      reason: "スクレイピングは「コンピュータウィルス等有害なプログラムを使用若しくは提供する行為、又はそのおそれのある行為」に適用されないため。"
 
   - site_id: web_l_posi
     name: "とかち仕事情報 webプラスワン（l-posi）"
