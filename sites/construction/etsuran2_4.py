@@ -10,7 +10,7 @@ etsuran2_4 — 国土交通省 建設業者・宅建業者等企業情報検索�
     衝突しないようにするため)。
 
 ═══════════════════════════════════════════════════════════════════════════
-504 Gateway Time-out 対応（今回の書き換えの主眼）
+504 Gateway Time-out 対応
 ═══════════════════════════════════════════════════════════════════════════
 旧実装（etsuran2 / _2 / _3 を踏襲）は許可番号レンジを 0〜999999 に指定して
 「全国全件を 1 回の検索で引き当てる」方式だった。これは検索結果が
@@ -34,6 +34,30 @@ etsuran2_4 — 国土交通省 建設業者・宅建業者等企業情報検索�
    そのため旧 `etsuran2_3` の DynamicCrawler(Playwright) は不要と判断し、
    netharvest 標準の軽量な `StaticCrawler`(requests) ベースに作り替えた。
    ブラウザ起動が無くなり高速・低リソース・504 耐性が大幅に向上する。
+
+═══════════════════════════════════════════════════════════════════════════
+改訂（レビュー指摘対応）
+═══════════════════════════════════════════════════════════════════════════
+① 営業所ごとの許可業種を反映（本改訂の主眼）:
+   旧実装は会社概要の許可業種(略号29列=建設業許可29業種)を build_row で全営業所行に
+   コピーしていた
+   ため、業種(土〜解)列が全営業所で同一になっていた。営業所タブ(ksEigyo.do)の
+   各営業所行が持つ許可業種セル（営業所テーブルの4列目 = 旧コメントで「未使用」と
+   していた列）を parse_office_industry_cell でパースし、営業所別の値で上書きする。
+   営業所側が取得できなかった場合のみ会社単位の値へフォールバックする。
+② 名寄せ列の整理:
+   ・商号_営業所 列から "主たる○○"(=本店) を除去。本店行の当列は会社名のみにする。
+   ・本店を文字列名に依存せず 本店フラグ 列(1/空)で明示する。
+     "茨城本店" のように名称に本店を含む支店を誤判定しないよう、建設業許可上の
+     "主たる営業所" だけを本店とみなす(is_principal_office)。
+③ 重複列(商号/名称)の扱い:
+   商号 は 名称(Schema.NAME) と全行完全一致だが、レビュー指摘は「DB 読み取りは
+   片方でよい」であり取得段階での除去は求めていない。取得元の素の形を保つため
+   スクレイパーは従来どおり両方を出力し、重複解消は DB 読み取り/縦横変換側で行う。
+   名寄せキーは 商号(会社名) と 商号_営業所(会社名＋営業所名) の2本立て。
+※ 本店情報を本店行のみへ寄せる / 本店と支店を別テーブルへ分割する案(レビュー④⑤)は
+  118番テーブル側の設計判断のため本スクレイパーでは行わず、各行自己完結のまま出力する。
+  縦横変換(oracle_join_formatter)側で 本店フラグ を使って抜き取る方が安全。
 
 備考対応:
     呼び出し備考「一覧ページから所在地検索指定を行い検索ボタンをクリックすることで
@@ -95,7 +119,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
 
-_project_root = Path(__file__).resolve().parent.parent.parent.parent
+_project_root = Path(__file__).resolve().parents[2]
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
@@ -403,10 +427,11 @@ def fetch_all_tabs(license_no: str, epoch: int) -> Tuple[Optional[str], Optional
 
 
 # ====================== HTMLパース ======================
-# 許可を受けた建設業の種類（28業種を表す略号）。値は 一般/特定/空。
+# 許可を受けた建設業の種類（略号）。値は 1(一般)/2(特定)/空。
+# 建設業許可の 29 業種。「しゅ(んせつ)」はサイトと同様に 1 列（"しゅ"）で持つ。
 ABBR_COLUMNS = [
     "土", "建", "大", "左", "と", "石", "屋", "電", "管", "夕",
-    "鋼", "筋", "舗", "し", "ゅ", "板", "ガ", "塗", "防", "内",
+    "鋼", "筋", "舗", "しゅ", "板", "ガ", "塗", "防", "内",
     "機", "絶", "通", "園", "井", "具", "水", "消", "清", "解",
 ]
 
@@ -471,22 +496,45 @@ def parse_insurance(soup: BeautifulSoup) -> Dict[str, str]:
     return res
 
 
-def parse_industry_table_numbers(soup: BeautifulSoup) -> Dict[str, str]:
-    """許可業種テーブルを読み、各略号に 一般/特定/空 を割り当てる。"""
-    res = {abbr: "" for abbr in ABBR_COLUMNS}
+def _map_industry_row(header_cells, value_cells) -> Dict[str, str]:
+    """業種テーブルの「略号ヘッダ行」と「値行」を ABBR_COLUMNS へマップする。
 
-    def num_to_label(s: str) -> str:
-        # 1=一般建設業, 2=特定建設業 — 数値コードのまま保持（文字列変換なし）
-        s = re.sub(r"\s+", "", s)
-        if s in ("1", "2"):
-            return s
-        return ""
+    値は 1(一般建設業)/2(特定建設業)/空。会社概要・営業所タブの双方で共用する。
+    「しゅ」はサイトで 1 カラム（し/ゅ 縦積み）なので 1 列("しゅ")のまま扱う。
+    表記ブレ（しゅんせつ / しゅんせつ工事）は "しゅ" に正規化する。
+    """
+    res = {abbr: "" for abbr in ABBR_COLUMNS}
+    if not header_cells or not value_cells:
+        return res
+    # 値セルが不足している場合は不整合とみなして空を返す（誤マッピング防止）。
+    if len(value_cells) < len(header_cells):
+        return res
+
+    labels: List[str] = []
+    for td in header_cells:
+        lab = norm(td.get_text("")).replace("\n", "").replace(" ", "")
+        if lab in ("しゅんせつ", "しゅんせつ工事"):
+            lab = "しゅ"
+        labels.append(lab)
+
+    for i, lab in enumerate(labels):
+        raw = re.sub(r"\s+", "", norm(value_cells[i].get_text("")))
+        val = raw if raw in ("1", "2") else ""
+        if lab in res:
+            res[lab] = val
+    return res
+
+
+def parse_industry_table_numbers(soup: BeautifulSoup) -> Dict[str, str]:
+    """会社概要の許可業種テーブルを読み、各略号に 1/2/空 を割り当てる。"""
+    res = {abbr: "" for abbr in ABBR_COLUMNS}
 
     cand_tables = []
     for tbl in soup.find_all("table"):
         txt = norm(tbl.get_text(" "))
         if "許可を受けた" in txt and "建設業" in txt and "種類" in txt:
             cand_tables.append(tbl)
+
     for tbl in cand_tables:
         header_tr, value_tr = None, None
         for tr in tbl.find_all("tr"):
@@ -497,34 +545,60 @@ def parse_industry_table_numbers(soup: BeautifulSoup) -> Dict[str, str]:
                 value_tr = tr
         if not header_tr or not value_tr:
             continue
-        header_cells = header_tr.find_all("td")
-        value_cells = value_tr.find_all("td")
-        if not header_cells or not value_cells:
-            continue
-        if len(value_cells) < len(header_cells):
-            continue
+        mapped = _map_industry_row(header_tr.find_all("td"), value_tr.find_all("td"))
+        if any(mapped.values()):
+            return mapped
+    return res
 
-        idx_to_labels: List[List[str]] = []
-        for td in header_cells:
-            raw = td.get_text("")
-            lab = norm(raw).replace("\n", "").replace(" ", "")
-            if lab in ("しゅ", "し\nゅ", "しゅんせつ", "しゅんせつ工事"):
-                idx_to_labels.append(["し", "ゅ"])
-            else:
-                idx_to_labels.append([lab])
-        for i, labels in enumerate(idx_to_labels):
-            raw_val = norm(value_cells[i].get_text(""))
-            label_val = num_to_label(raw_val)
-            for lab in labels:
-                if lab in res:
-                    res[lab] = label_val
-        if any(res.values()):
-            return res
+
+def parse_office_industry_cell(td) -> Dict[str, str]:
+    """営業所行の許可業種セル（営業所テーブルの4列目）から業種別 1/2 を読む。 ★①
+
+    営業所タブの業種表は会社概要と同型のことが多いのでまず同じロジックを試し、
+    キャプション/クラスが異なる場合に備えて『業種略号ヘッダ行＋直下値行』の
+    汎用検出でフォールバックする。取得できなければ全空を返し、呼び出し側が
+    会社単位の値へフォールバックする（＝営業所別が取れた時だけ上書きされる）。
+    """
+    res = {abbr: "" for abbr in ABBR_COLUMNS}
+    if td is None:
+        return res
+    sub = BeautifulSoup(str(td), "html.parser")
+
+    # 1) 会社概要と同じ構造（キャプション + re_summ_ev/re_summ_odd）を試す。
+    mapped = parse_industry_table_numbers(sub)
+    if any(mapped.values()):
+        return mapped
+
+    # 2) フォールバック: 業種略号を並べたヘッダ行を見つけ、その直下行を値とみなす。
+    for tbl in sub.find_all("table"):
+        trs = tbl.find_all("tr")
+        for i, tr in enumerate(trs):
+            if i + 1 >= len(trs):
+                continue
+            cells = tr.find_all(["td", "th"])
+            if not cells:
+                continue
+            labels = [norm(c.get_text("")).replace(" ", "") for c in cells]
+            # ヘッダらしさ: 業種略号が複数個ならんでいれば業種行とみなす。
+            hits = sum(1 for l in labels if l in res or l in ("しゅんせつ", "しゅんせつ工事"))
+            if hits >= 3:
+                mapped = _map_industry_row(cells, trs[i + 1].find_all(["td", "th"]))
+                if any(mapped.values()):
+                    return mapped
     return res
 
 
 _TEL_RE = re.compile(r"\d{1,4}-\d{1,4}-\d{2,4}")
 _POST_RE = re.compile(r"\d{3}-\d{4}")
+
+
+def is_principal_office(office_name: str) -> bool:
+    """建設業許可上の『主たる営業所』(=本店) かどうか。 ★②
+
+    名称に『本店』を含むだけの支店（例: 茨城本店・東京本店）を本店と誤判定しない
+    よう、『主たる』で始まる営業所（=主たる営業所）だけを本店とみなす。
+    """
+    return norm(office_name).startswith("主たる")
 
 
 def parse_offices_table(soup: BeautifulSoup) -> List[Dict[str, str]]:
@@ -535,10 +609,11 @@ def parse_offices_table(soup: BeautifulSoup) -> List[Dict[str, str]]:
         [0] No. （行番号）
         [1] 名称・電話番号  … 入れ子 table.re_office2 に 名称行 / 電話行
         [2] 住所            … 〒郵便番号 + 都道府県以降（<br> 区切り）
-        [3] 許可業種        … 会社単位と同様の業種テーブル（本パーサでは未使用）
+        [3] 許可業種        … 会社単位と同様の業種テーブル ★① 営業所別に読む
       ※「主たる営業所」(=本店) もこのテーブルに 1 行として含まれる。
 
-    返す各 dict のキー: 営業所名 / 郵便番号 / 所在地 / 都道府県 / 電話番号
+    返す各 dict のキー: 営業所名 / 郵便番号 / 所在地 / 都道府県 / 電話番号 / 業種
+      （業種 は ABBR_COLUMNS -> 1/2/"" の dict）
     """
     offices: List[Dict[str, str]] = []
 
@@ -572,12 +647,17 @@ def parse_offices_table(soup: BeautifulSoup) -> List[Dict[str, str]]:
 
         if not office_name:
             continue
+
+        # ★① 営業所別の許可業種（4列目）をこの営業所の値としてパースする。
+        industry = parse_office_industry_cell(tds[3])
+
         offices.append({
             "営業所名": office_name,
             "郵便番号": post,
             "所在地": addr,
             "都道府県": mpr.group(1) if mpr else "",
             "電話番号": tel,
+            "業種": industry,
         })
 
     return offices
@@ -589,6 +669,8 @@ def parse_company_overview_soup(soup: BeautifulSoup) -> Dict[str, str]:
     本社の所在地・電話は 本社_* キーで格納する。
     Schema.ADDR / Schema.TEL / Schema.POST_CODE / Schema.PREF は
     呼び出し側 (parse_detail_rows) が営業所情報で設定する。
+    ここで持つ業種(ABBR_COLUMNS)は「会社単位」の値であり、営業所タブが取れた
+    行では parse_detail_rows で営業所別の値に上書きされる。★①
     """
     row: Dict[str, str] = {}
 
@@ -599,6 +681,9 @@ def parse_company_overview_soup(soup: BeautifulSoup) -> Dict[str, str]:
     td = find_value_cell_by_label(soup, r"(商号又は名称|名称)")
     kana, name = split_phonetic_cell(td)
     row[Schema.NAME] = name
+    # ★③ 商号 は 名称(Schema.NAME) と同値だが、レビュー指摘は「DB 読み取りは
+    #     片方でよい」であって取得段階の除去は求めていない。取得元の素の形として
+    #     保持し、重複解消は DB 読み取り/縦横変換側に委ねる。
     row["商号"] = name  # 名寄せ用: 商号単体
     row[Schema.NAME_KANA] = kana
 
@@ -641,14 +726,16 @@ def parse_company_overview_soup(soup: BeautifulSoup) -> Dict[str, str]:
 def parse_detail_rows(html: str, office_html: Optional[str], detail_url: str) -> List[Dict[str, str]]:
     """詳細HTML（業者概要）と営業所タブHTMLをパースし、営業所単位の行リストを返す。
 
-    方針（メール要件「営業所側をベースに、本店も支店も 1 行ずつ」）:
-      ・各行に業者概要(parse_company_overview_soup)の全カラムを複製する。
+    方針（レビュー指摘対応）:
+      ・各行に業者概要(parse_company_overview_soup)の会社共通カラムを複製する。
       ・住所/TEL/都道府県/郵便番号 は営業所側を採用（無ければ本社へフォールバック）。
-      ・本社情報（登記上の所在地等）は 本社_* 列として全行に保持する。
+      ・許可業種(ABBR_COLUMNS)は営業所別を採用（無ければ会社単位へフォールバック）★①
+      ・名寄せ用の 商号_営業所 は本店(主たる営業所)では会社名のみにし、
+        "主たる○○" を含めない。本店かどうかは 本店フラグ 列で明示する。★②
       ・営業所タブが取れた場合は「主たる営業所(=本店)」を含む全営業所を 1 行ずつ出力。
         → 本店を概要から別途生成すると主たる営業所と二重計上になるため行わない。
-      ・営業所タブが無い/取れない場合のみ、本店 1 行（営業所名空・住所=本社）に
-        フォールバックする（＝従来 CSV 相当の行を最低 1 行は必ず残す）。
+      ・営業所タブが無い/取れない場合のみ、本店 1 行（営業所名空・住所=本社・
+        業種=会社単位・本店フラグ=1）にフォールバックする。
     """
     soup = BeautifulSoup(html, "html.parser")
 
@@ -656,17 +743,31 @@ def parse_detail_rows(html: str, office_html: Optional[str], detail_url: str) ->
     overview[Schema.URL] = detail_url
     company_name = overview.get("商号", "") or overview.get(Schema.NAME, "")
 
-    def build_row(office_name: str, post: str, addr: str, pref: str, tel: str) -> Dict[str, str]:
-        row = dict(overview)  # 業者概要の全カラムを各行に複製
+    def build_row(office_name: str, post: str, addr: str, pref: str, tel: str,
+                  industry: Optional[Dict[str, str]], is_honten: bool) -> Dict[str, str]:
+        row = dict(overview)  # 会社共通カラムを各行に複製
         row["営業所名"] = office_name
-        # 名寄せ用: 商号 と 商号＋営業所名 の 2 通りを両列で保持
-        row["商号_営業所"] = (f"{company_name} {office_name}".strip()
-                              if office_name else company_name)
+
+        # ★② 名寄せ用 N 列: 本店(主たる営業所)は "主たる○○" を付けず会社名のみ。
+        if office_name and not is_honten:
+            row["商号_営業所"] = f"{company_name} {office_name}".strip()
+        else:
+            row["商号_営業所"] = company_name
+
+        # ★② 本店を文字列名ではなくフラグで明示（"主たる営業所" のみが本店）。
+        row["本店フラグ"] = "1" if is_honten else ""
+
         # 営業所側を優先（取得できなければ本社へフォールバック）
         row[Schema.POST_CODE] = post or overview.get("本社_郵便番号", "")
         row[Schema.ADDR] = addr or overview.get("本社_所在地", "")
         row[Schema.PREF] = pref or overview.get("本社_都道府県", "")
         row[Schema.TEL] = tel or overview.get("本社_電話番号", "")
+
+        # ★① 許可業種は営業所別を採用。営業所側が取れた時のみ上書きし、
+        #     取れなかった場合は overview 由来の会社単位値をそのまま残す。
+        if industry and any(industry.values()):
+            for abbr in ABBR_COLUMNS:
+                row[abbr] = industry.get(abbr, "")
         return row
 
     offices: List[Dict[str, str]] = []
@@ -675,12 +776,15 @@ def parse_detail_rows(html: str, office_html: Optional[str], detail_url: str) ->
 
     if offices:
         return [
-            build_row(o["営業所名"], o["郵便番号"], o["所在地"], o["都道府県"], o["電話番号"])
+            build_row(
+                o["営業所名"], o["郵便番号"], o["所在地"], o["都道府県"],
+                o["電話番号"], o.get("業種"), is_principal_office(o["営業所名"]),
+            )
             for o in offices
         ]
 
-    # フォールバック: 営業所タブなし → 本店 1 行（営業所名空・住所=本社）
-    return [build_row("", "", "", "", "")]
+    # フォールバック: 営業所タブなし → 本店 1 行（営業所名空・住所=本社・業種=会社単位）
+    return [build_row("", "", "", "", "", None, True)]
 
 
 # ====================== チェックポイント / 進捗 ======================
@@ -751,8 +855,9 @@ class Etsuran24Scraper(StaticCrawler):
     EXTRA_COLUMNS = [
         "許可番号",
         "許可区分凡例",      # 1:一般建設業 2:特定建設業
-        "商号",              # 名寄せ用: 商号単体
-        "商号_営業所",       # 名寄せ用: 商号＋営業所名
+        "商号",              # 名寄せ用: 商号単体（名称と同値。重複解消は DB 読み取り側で）★③
+        "商号_営業所",       # 名寄せ用: 商号＋営業所名（本店は会社名のみ）★②
+        "本店フラグ",         # 1:主たる営業所(本店) / 空:支店・営業所 ★②
         "営業所名",
         "本社_郵便番号",
         "本社_所在地",
