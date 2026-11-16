@@ -6796,3 +6796,27 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.min-taxes.com/reprint/"
+
+  - site_id: kouseikyoku_ika
+    name: "地方厚生局(医科・指定一覧・全国)"
+    module: "medical.kouseikyoku_ika"
+    url: "https://kouseikyoku.mhlw.go.jp/index.html"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.mhlw.go.jp/chosakuken/index.html"
+
+  - site_id: kouseikyoku_shika
+    name: "地方厚生局(歯科・指定一覧・全国)"
+    module: "medical.kouseikyoku_shika"
+    url: "https://kouseikyoku.mhlw.go.jp/index.html"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.mhlw.go.jp/chosakuken/index.html"
+
+  - site_id: kouseikyoku_yakkyoku
+    name: "地方厚生局(薬局・指定一覧・全国)"
+    module: "medical.kouseikyoku_yakkyoku"
+    url: "https://kouseikyoku.mhlw.go.jp/index.html"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.mhlw.go.jp/chosakuken/index.html"
