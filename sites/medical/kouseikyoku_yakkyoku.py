@@ -42,6 +42,14 @@ Excel のブロック構造 (1レコード = 2〜7行):
     sub2 : [4]医師数 [7]指定期間始
     sub3+: 非常勤 等
 
+    col4 は TEL の下に勤務者数が縦に積まれる:
+        常　勤:　　 116 / (医　　　 115) / (歯　　　　 1) / 非常勤:　　　61 / (医　　　　61)
+        → 勤務医数_常勤合計・常勤医・常勤歯・常勤薬、勤務医数_非常勤合計・非常勤医・非常勤歯・非常勤薬
+    col8 は病院・有床診療所のとき、診療科名の上に病床区分と病床数が積まれる:
+        療養　　    198 / 一般　　    239
+        → 病床数 (合計)、病床数_詳細 (「療養 198 / 一般 239」)
+        「一般（感染）」は区分だけの行で、床数が次の行に単独で来る
+
 ⚠ 「指定年月日」と「指定期間始」の区別:
     - 指定年月日 … head[7]。初回指定日 (開業日相当)。一度決まったら変わらない
     - 指定期間始 … sub2[7]。指定は6年ごとに更新されるため、更新のたびに書き換わる
@@ -185,6 +193,13 @@ _STATUS_RE = re.compile(r"^(現存|休止|停止|廃止)$")
 _BED_RE = re.compile(
     r"^(?:(?:一般|精神|療養|感染|結核|介護)(?:[（(][^）)]*[）)])?[\s　]*[\d,]*|[\d,\s　]+)$"
 )
+# col8 の病床行を「区分」と「床数」に分ける (「一般（感染）  4」は区分=一般（感染）)
+_BED_PARSE_RE = re.compile(
+    r"^((?:一般|精神|療養|感染|結核|介護)(?:[（(][^）)]*[）)])?)[\s　]*([\d,]*)$"
+)
+# col4 の勤務者数 (「常　勤:　　 116」「非常勤:　　　61」「(医　　　 115)」)
+_STAFF_TOTAL_RE = re.compile(r"^(非?)\s*常\s*勤\s*[:：]\s*([\d,]+)$")
+_STAFF_KIND_RE = re.compile(r"^[（(]\s*(医|歯|薬)\s*([\d,]+)\s*[）)]$")
 # 併設医療機関コード 「(01,3196,7)」。区切りは局によって「,」「-」と表記が揺れる
 _SUB_CODE_RE = re.compile(r"^[（(]\s*([0-9０-９][0-9０-９,，\-－‐]*)\s*[）)]$")
 # 和暦日付 (昭51. 11. 1 / 令元. 5. 1)
@@ -208,6 +223,7 @@ class KouseikyokuYakkyoku(StaticCrawler):
     EXTRA_COLUMNS = [
         "医療機関コード",
         "併設医療機関コード",
+        "医療機関コード補足",
         "指定年月日",
         "指定期間始",
         "登録理由",
@@ -217,6 +233,16 @@ class KouseikyokuYakkyoku(StaticCrawler):
         "医療機関種別",
         "管轄厚生局",
         "基準日",
+        "勤務医数_常勤合計",
+        "勤務医数_常勤医",
+        "勤務医数_常勤歯",
+        "勤務医数_常勤薬",
+        "勤務医数_非常勤合計",
+        "勤務医数_非常勤医",
+        "勤務医数_非常勤歯",
+        "勤務医数_非常勤薬",
+        "病床数",
+        "病床数_詳細",
     ]
 
     def prepare(self):
@@ -626,14 +652,31 @@ class KouseikyokuYakkyoku(StaticCrawler):
             addr = pref + addr
 
         # --- 2行目以降 ---
-        #   col1: (併設医療機関コード)
+        #   col1: (併設医療機関コード)。括弧書きでない文字 (「中川230」等) は補足として別に持つ
+        #   col4: 勤務者数 (常勤/非常勤 の合計と、医・歯・薬の内訳)
         #   col7: 日付なら「指定期間始」、日付でなければ「登録理由」
-        sub_code, reason, period_start = "", "", ""
+        sub_code, code_note, reason, period_start = "", "", "", ""
+        staff: dict[str, str] = {}
+        staff_section = ""
         for row in block[1:]:
-            m = _SUB_CODE_RE.match(self._cell(row, 1))
-            if m and not sub_code:
-                sub_code = (self._to_ascii_digits(m.group(1))
-                            .replace("，", ",").replace("－", "-").replace("‐", "-"))
+            v1 = self._cell(row, 1)
+            m = _SUB_CODE_RE.match(v1)
+            if m:
+                if not sub_code:
+                    sub_code = (self._to_ascii_digits(m.group(1))
+                                .replace("，", ",").replace("－", "-").replace("‐", "-"))
+            elif v1 and not code_note:
+                code_note = v1
+            v4 = self._to_ascii_digits(self._cell(row, 4))
+            m = _STAFF_TOTAL_RE.match(v4)
+            if m:
+                staff_section = "非常勤" if m.group(1) else "常勤"
+                staff.setdefault(f"勤務医数_{staff_section}合計", m.group(2).replace(",", ""))
+            else:
+                m = _STAFF_KIND_RE.match(v4)
+                if m and staff_section:
+                    staff.setdefault(f"勤務医数_{staff_section}{m.group(1)}",
+                                     m.group(2).replace(",", ""))
             val = self._cell(row, 7)
             if not val:
                 continue
@@ -646,6 +689,8 @@ class KouseikyokuYakkyoku(StaticCrawler):
         #   col9: 医療機関種別 (診療所 / 病院 / 療養病床 / 薬局 …) + 現存フラグ (現存/休止)
         #   col8: 病床区分と病床数 (病院のみ) + 診療科名 (内 呼内 … / 調剤)
         status, kinds, depts = "", [], []
+        beds: list[tuple[str, int]] = []
+        bed_label = ""      # 「一般（感染）」のように区分だけの行。床数は次の行に来る
         for row in block:
             v9 = self._cell(row, 9)
             if v9:
@@ -654,7 +699,22 @@ class KouseikyokuYakkyoku(StaticCrawler):
                 elif v9 not in kinds:
                     kinds.append(v9)
             v8 = self._cell(row, 8)
-            if v8 and not _BED_RE.match(v8) and v8 not in depts:
+            if not v8:
+                continue
+            if _BED_RE.match(v8):
+                v8n = self._to_ascii_digits(v8)
+                m = _BED_PARSE_RE.match(v8n)
+                if m and m.group(2):
+                    beds.append((m.group(1), int(m.group(2).replace(",", ""))))
+                    bed_label = ""
+                elif m:
+                    bed_label = m.group(1)
+                elif bed_label:
+                    digits = re.sub(r"[^0-9]", "", v8n)
+                    if digits:
+                        beds.append((bed_label, int(digits)))
+                    bed_label = ""
+            elif v8 not in depts:
                 depts.append(v8)
 
         self._pref_counts[pref or "(不明)"] = self._pref_counts.get(pref or "(不明)", 0) + 1
@@ -670,6 +730,7 @@ class KouseikyokuYakkyoku(StaticCrawler):
             Schema.URL: page_url,
             "医療機関コード": code,
             "併設医療機関コード": sub_code,
+            "医療機関コード補足": code_note,
             # ⚠ 初回指定日 (開業日相当)。6年ごとに書き換わる「指定期間始」とは別物
             "指定年月日": self._to_iso_date(self._cell(head, 7)),
             # ⚠ 6年ごとの指定更新における現在の指定期間の開始日。開業日ではない
@@ -681,6 +742,16 @@ class KouseikyokuYakkyoku(StaticCrawler):
             "医療機関種別": " ".join(kinds),
             "管轄厚生局": bureau_name,
             "基準日": asof,
+            "勤務医数_常勤合計": staff.get("勤務医数_常勤合計", ""),
+            "勤務医数_常勤医": staff.get("勤務医数_常勤医", ""),
+            "勤務医数_常勤歯": staff.get("勤務医数_常勤歯", ""),
+            "勤務医数_常勤薬": staff.get("勤務医数_常勤薬", ""),
+            "勤務医数_非常勤合計": staff.get("勤務医数_非常勤合計", ""),
+            "勤務医数_非常勤医": staff.get("勤務医数_非常勤医", ""),
+            "勤務医数_非常勤歯": staff.get("勤務医数_非常勤歯", ""),
+            "勤務医数_非常勤薬": staff.get("勤務医数_非常勤薬", ""),
+            "病床数": str(sum(n for _, n in beds)) if beds else "",
+            "病床数_詳細": " / ".join(f"{kind} {n}" for kind, n in beds),
         }
 
     @staticmethod
