@@ -6820,3 +6820,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.mhlw.go.jp/chosakuken/index.html"
+
+  - site_id: fancrew
+    name: "ファンくる"
+    module: "service.fancrew"
+    url: "https://www.fancrew.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.fancrew.jp/terms"
