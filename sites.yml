@@ -6788,3 +6788,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://job.career-tasu.jp/membership-agreement/"
+
+  - site_id: min_taxes_it
+    name: "補助金データベース(min-taxes)IT系"
+    module: "corporate.min_taxes_it"
+    url: "https://www.min-taxes.com/hojokin-database/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.min-taxes.com/reprint/"
