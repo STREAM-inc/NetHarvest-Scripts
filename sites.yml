@@ -5596,6 +5596,14 @@ sites:
     schedule: null
     enabled: false
     terms_url: ""
+    terms_review:
+      decision: "no_terms"
+      approved_keywords: []
+      terms_hash: ""
+      reviewer: "stuser"
+      confirmer: "宮下"
+      reviewed_at: "2026-11-17T09:23:12+00:00"
+      reason: "なし"
 
   - site_id: natta_3
     name: "NATTA会員名簿(ネパール旅行代理店協会)"
