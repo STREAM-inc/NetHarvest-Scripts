@@ -73,7 +73,7 @@ def is_shop_url(url: str) -> bool:
 class TainyuMacaronScraper(StaticCrawler):
     """体入マカロン 店舗情報スクレイパー"""
 
-    DELAY = 3.0
+    DELAY = 5.0  # 詳細ページの取得間隔 (秒)
     SITEMAP_DELAY = 0.5
     EXTRA_COLUMNS = [
         "名称_フリガナ",
@@ -124,6 +124,10 @@ class TainyuMacaronScraper(StaticCrawler):
             item = self._scrape_detail(shop_url)
             if item:
                 yield item
+            elif not self._last_fetch_from_cache:
+                # 基盤の DELAY は yield したときにしか入らないため、
+                # 取れなかった詳細ページの後もここで同じだけ待つ (連続アクセス防止)
+                time.sleep(self.DELAY)
 
     def _collect_shop_urls(self, sitemap_url: str) -> list[str]:
         sitemap_pages = self._collect_sitemap_pages(sitemap_url)
