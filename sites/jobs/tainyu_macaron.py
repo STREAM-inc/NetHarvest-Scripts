@@ -6,7 +6,6 @@ import csv
 import gzip
 import re
 import sys
-import time
 import xml.etree.ElementTree as ET
 from html import unescape
 from pathlib import Path
@@ -20,12 +19,16 @@ if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
 from src.const.schema import Schema
+from src.framework.base import CrawlAbortedError
 from src.framework.static import StaticCrawler
 
 
 BASE_URL = "https://picsastock.com"
 NAME_FURI_RE = re.compile(r"^(?P<name>.*?)[（(](?P<furi>[^）)]+)[）)]\s*$")
 PHONE_RE = re.compile(r"(?:0\d{1,4}-\d{1,4}-\d{3,4}|0\d{9,10})")
+# 詳細ページの取得にこの回数だけ連続で失敗したら打ち切る (サイト側に拒否されている間、叩き続けないため)。
+# 掲載終了の 404 が数件続くことはあるので、それでは止まらない回数にしている
+MAX_CONSECUTIVE_FAILURES = 10
 
 
 def normalize_ws(value: str | None) -> str:
@@ -74,7 +77,11 @@ class TainyuMacaronScraper(StaticCrawler):
     """体入マカロン 店舗情報スクレイパー"""
 
     DELAY = 3.0
-    SITEMAP_DELAY = 0.5
+    # 取得に失敗しても (yield しなくても) 実取得どうしの間隔を空ける (基盤が待つ)。
+    # 4 秒は、全件取得できていた頃の実測ペース (1 分あたり 13〜14 件) に合わせた値。
+    # 間隔はリクエスト単位で保証されるので、アイテム間の追加待機は不要
+    REQUEST_INTERVAL = 4.0
+    ITEM_DELAY = 0.0
     EXTRA_COLUMNS = [
         "名称_フリガナ",
         "業種",
@@ -120,8 +127,20 @@ class TainyuMacaronScraper(StaticCrawler):
         self.total_items = len(unprocessed_urls)
         self.logger.info("未処理URL: %d 件", len(unprocessed_urls))
 
+        failures = 0
         for shop_url in unprocessed_urls:
-            item = self._scrape_detail(shop_url)
+            soup = self.get_soup(shop_url)
+            if soup is None:
+                # 取得失敗 (403・通信エラー等) だけを数える。抽出失敗は数えない
+                failures += 1
+                if failures >= MAX_CONSECUTIVE_FAILURES:
+                    raise CrawlAbortedError(
+                        f"詳細ページの取得に {failures} 回連続で失敗したため打ち切ります "
+                        f"(サイト側に拒否されている可能性): 最後の URL={shop_url}"
+                    )
+                continue
+            failures = 0
+            item = self._scrape_detail(shop_url, soup)
             if item:
                 yield item
 
@@ -144,8 +163,6 @@ class TainyuMacaronScraper(StaticCrawler):
                         urls.append(shop_url)
             except Exception as exc:
                 self.logger.warning("店舗サイトマップ解析をスキップ: %s (%s)", page_url, exc)
-            finally:
-                time.sleep(self.SITEMAP_DELAY)
 
         return urls
 
@@ -179,11 +196,7 @@ class TainyuMacaronScraper(StaticCrawler):
             return gzip.decompress(content)
         return content
 
-    def _scrape_detail(self, url: str) -> dict | None:
-        soup = self.get_soup(url)
-        if soup is None:
-            return None
-
+    def _scrape_detail(self, url: str, soup: BeautifulSoup) -> dict | None:
         block = soup.select_one("div.shop_detail") or soup
         table = block.select_one("table.shop_detail__table") or block
 
