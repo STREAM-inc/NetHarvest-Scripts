@@ -6,7 +6,6 @@ import csv
 import gzip
 import re
 import sys
-import time
 import xml.etree.ElementTree as ET
 from html import unescape
 from pathlib import Path
@@ -20,12 +19,16 @@ if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
 from src.const.schema import Schema
+from src.framework.base import CrawlAbortedError
 from src.framework.static import StaticCrawler
 
 
 BASE_URL = "https://picsastock.com"
 NAME_FURI_RE = re.compile(r"^(?P<name>.*?)[（(](?P<furi>[^）)]+)[）)]\s*$")
 PHONE_RE = re.compile(r"(?:0\d{1,4}-\d{1,4}-\d{3,4}|0\d{9,10})")
+# 詳細ページの取得にこの回数だけ連続で失敗したら打ち切る (サイト側に拒否されている間、叩き続けないため)。
+# 掲載終了の 404 が数件続くことはあるので、それでは止まらない回数にしている
+MAX_CONSECUTIVE_FAILURES = 10
 
 
 def normalize_ws(value: str | None) -> str:
@@ -73,8 +76,14 @@ def is_shop_url(url: str) -> bool:
 class TainyuMacaronScraper(StaticCrawler):
     """体入マカロン 店舗情報スクレイパー"""
 
+    # 待機は REQUEST_INTERVAL (実取得どうしの間隔) だけで行う。DELAY は基盤の開始ログに
+    # 出る値なので、実際の間隔と同じ値にしておく (ITEM_DELAY = 0 のため待機には使われない)
     DELAY = 3.0
-    SITEMAP_DELAY = 0.5
+    # 取得に失敗しても (yield しなくても) 前の取得が終わってから次の取得まで 3 秒空ける
+    # (基盤が待つ)。全件取得できていた頃と同じペース (応答 1〜2 秒 + 3 秒 = 1 分あたり
+    # 13〜14 件) になる。間隔はリクエスト単位で保証されるので、アイテム間の追加待機は不要
+    REQUEST_INTERVAL = DELAY
+    ITEM_DELAY = 0.0
     EXTRA_COLUMNS = [
         "名称_フリガナ",
         "業種",
@@ -112,16 +121,29 @@ class TainyuMacaronScraper(StaticCrawler):
         shop_urls = self._collect_shop_urls(sitemap_url)
         self.logger.info("店舗URL収集完了: %d 件", len(shop_urls))
         if not shop_urls:
-            # sitemap を読めない・構成が変わった等を「0 件で正常終了」にしない (気付けなくなるため)
-            raise RuntimeError(f"店舗 URL を 1 件も集められませんでした (sitemap: {sitemap_url})")
+            # sitemap を読めない・構成が変わった等を「0 件で正常終了」にしない (気付けなくなるため)。
+            # RuntimeError だと基盤 (CONTINUE_ON_ERROR) に握りつぶされるので CrawlAbortedError で送出する
+            raise CrawlAbortedError(f"店舗 URL を 1 件も集められませんでした (sitemap: {sitemap_url})")
 
         # 未処理のURLのみをフィルター
         unprocessed_urls = [u for u in shop_urls if u not in self.processed_urls]
         self.total_items = len(unprocessed_urls)
         self.logger.info("未処理URL: %d 件", len(unprocessed_urls))
 
+        failures = 0
         for shop_url in unprocessed_urls:
-            item = self._scrape_detail(shop_url)
+            soup = self.get_soup(shop_url)
+            if soup is None:
+                # 取得失敗 (403・通信エラー等) だけを数える。抽出失敗は数えない
+                failures += 1
+                if failures >= MAX_CONSECUTIVE_FAILURES:
+                    raise CrawlAbortedError(
+                        f"詳細ページの取得に {failures} 回連続で失敗したため打ち切ります "
+                        f"(サイト側に拒否されている可能性): 最後の URL={shop_url}"
+                    )
+                continue
+            failures = 0
+            item = self._scrape_detail(shop_url, soup)
             if item:
                 yield item
 
@@ -132,10 +154,11 @@ class TainyuMacaronScraper(StaticCrawler):
         urls: list[str] = []
         seen: set[str] = set()
         for page_url in sitemap_pages:
+            soup = self.get_soup(page_url)
+            if soup is None:
+                # 取れないページを飛ばすと、その分の店舗が欠けた結果を納品してしまうため打ち切る
+                raise CrawlAbortedError(f"店舗サイトマップページの取得に失敗したため打ち切ります: {page_url}")
             try:
-                soup = self.get_soup(page_url)
-                if soup is None:
-                    continue
                 for link in soup.select("a[href]"):
                     href = normalize_ws(link.get("href"))
                     shop_url = urljoin(BASE_URL, href)
@@ -144,8 +167,6 @@ class TainyuMacaronScraper(StaticCrawler):
                         urls.append(shop_url)
             except Exception as exc:
                 self.logger.warning("店舗サイトマップ解析をスキップ: %s (%s)", page_url, exc)
-            finally:
-                time.sleep(self.SITEMAP_DELAY)
 
         return urls
 
@@ -179,11 +200,7 @@ class TainyuMacaronScraper(StaticCrawler):
             return gzip.decompress(content)
         return content
 
-    def _scrape_detail(self, url: str) -> dict | None:
-        soup = self.get_soup(url)
-        if soup is None:
-            return None
-
+    def _scrape_detail(self, url: str, soup: BeautifulSoup) -> dict | None:
         block = soup.select_one("div.shop_detail") or soup
         table = block.select_one("table.shop_detail__table") or block
 
