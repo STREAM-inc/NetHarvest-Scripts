@@ -5594,7 +5594,7 @@ sites:
     module: "travel.anta_3"
     url: "https://anta.com.na/"
     schedule: null
-    enabled: false
+    enabled: true
     terms_url: ""
     terms_review:
       decision: "no_terms"
