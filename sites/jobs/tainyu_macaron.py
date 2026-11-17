@@ -73,7 +73,7 @@ def is_shop_url(url: str) -> bool:
 class TainyuMacaronScraper(StaticCrawler):
     """体入マカロン 店舗情報スクレイパー"""
 
-    DELAY = 3.0
+    DELAY = 5.0  # 詳細ページの取得間隔 (秒)。サイト負荷軽減のため 3.0 → 5.0
     SITEMAP_DELAY = 0.5
     EXTRA_COLUMNS = [
         "名称_フリガナ",
