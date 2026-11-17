@@ -76,11 +76,13 @@ def is_shop_url(url: str) -> bool:
 class TainyuMacaronScraper(StaticCrawler):
     """体入マカロン 店舗情報スクレイパー"""
 
+    # 待機は REQUEST_INTERVAL (実取得どうしの間隔) だけで行う。DELAY は基盤の開始ログに
+    # 出る値なので、実際の間隔と同じ値にしておく (ITEM_DELAY = 0 のため待機には使われない)
     DELAY = 3.0
-    # 取得に失敗しても (yield しなくても) 実取得どうしの間隔を空ける (基盤が待つ)。
-    # 4 秒は、全件取得できていた頃の実測ペース (1 分あたり 13〜14 件) に合わせた値。
-    # 間隔はリクエスト単位で保証されるので、アイテム間の追加待機は不要
-    REQUEST_INTERVAL = 4.0
+    # 取得に失敗しても (yield しなくても) 前の取得が終わってから次の取得まで 3 秒空ける
+    # (基盤が待つ)。全件取得できていた頃と同じペース (応答 1〜2 秒 + 3 秒 = 1 分あたり
+    # 13〜14 件) になる。間隔はリクエスト単位で保証されるので、アイテム間の追加待機は不要
+    REQUEST_INTERVAL = DELAY
     ITEM_DELAY = 0.0
     EXTRA_COLUMNS = [
         "名称_フリガナ",
@@ -119,8 +121,9 @@ class TainyuMacaronScraper(StaticCrawler):
         shop_urls = self._collect_shop_urls(sitemap_url)
         self.logger.info("店舗URL収集完了: %d 件", len(shop_urls))
         if not shop_urls:
-            # sitemap を読めない・構成が変わった等を「0 件で正常終了」にしない (気付けなくなるため)
-            raise RuntimeError(f"店舗 URL を 1 件も集められませんでした (sitemap: {sitemap_url})")
+            # sitemap を読めない・構成が変わった等を「0 件で正常終了」にしない (気付けなくなるため)。
+            # RuntimeError だと基盤 (CONTINUE_ON_ERROR) に握りつぶされるので CrawlAbortedError で送出する
+            raise CrawlAbortedError(f"店舗 URL を 1 件も集められませんでした (sitemap: {sitemap_url})")
 
         # 未処理のURLのみをフィルター
         unprocessed_urls = [u for u in shop_urls if u not in self.processed_urls]
@@ -151,10 +154,11 @@ class TainyuMacaronScraper(StaticCrawler):
         urls: list[str] = []
         seen: set[str] = set()
         for page_url in sitemap_pages:
+            soup = self.get_soup(page_url)
+            if soup is None:
+                # 取れないページを飛ばすと、その分の店舗が欠けた結果を納品してしまうため打ち切る
+                raise CrawlAbortedError(f"店舗サイトマップページの取得に失敗したため打ち切ります: {page_url}")
             try:
-                soup = self.get_soup(page_url)
-                if soup is None:
-                    continue
                 for link in soup.select("a[href]"):
                     href = normalize_ws(link.get("href"))
                     shop_url = urljoin(BASE_URL, href)
