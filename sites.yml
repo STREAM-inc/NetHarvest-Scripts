@@ -2823,10 +2823,18 @@ sites:
     module: "beauty.epark"
     url: "https://mitsuraku.jp/"
     schedule: "40 11 15-21 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://mitsuraku.jp/agreement/"
 
 #317
+    terms_review:
+      decision: "rejected"
+      approved_keywords: []
+      terms_hash: ""
+      reviewer: "stuser"
+      confirmer: "宮武"
+      reviewed_at: "2026-11-18T05:18:40+00:00"
+      reason: "第6条で、掲載店舗の掲載情報等を当社の事前承諾なく引用の範囲を超えて使用することを一切禁止し、本サービスの商用目的での利用と、当社の承認した以外の方法での利用も禁止している。サイトから店舗情報を取得して営業リストに利用することはこれに抵触するためNGと判定する。"
   - site_id: store
     name: "ほっともっと"
     module: "food.store"
