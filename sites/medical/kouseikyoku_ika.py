@@ -56,11 +56,20 @@ Excel のブロック構造 (1レコード = 2〜7行):
                    「現在の指定期間の開始日」。開業日ではない
     この2つは別カラムとして両方保持し、混同しない。
 
+出力カラム (依頼サンプルに合わせた形式):
+    取得日時 名称 都道府県 郵便番号 住所 TEL 医療機関番号 勤務医数_常勤合計〜非常勤薬
+    開設者氏名 管理者氏名 指定年月日 登録理由 指定期間始 病床数 病床数_詳細 診療科名 現存 備考
+    - 医療機関番号 … 「01,1248,9」+ 改行 +「(05,3214,6)」(併設医療機関コードがある場合)
+    - 指定年月日/指定期間始 … 一覧表の和暦表記のまま (昭47. 3. 1)
+    - 病床数_詳細 … 「療養 206」「一般 231」を改行区切り
+    - 診療科名 … 「、」区切り
+    - 現存 … 現存=1 / 休止=0
+    - 備考 … 医療機関種別 (病院 / 診療所 / 療養病床 …) を改行区切り
+    - 住所 … 一覧表の表記どおり (都道府県名なし)
+
 備考:
     - 一覧は「現存/休止」の機関のみ (廃止済みは載らない)。「現存フラグ」で区別できる
     - 医科には病院と診療所の両方が含まれる。「医療機関種別」で区別できる
-    - 住所に都道府県名が入っていないため補完する
-    - 日付は和暦 (昭51. 11. 1) で記載されるため YYYY-MM-DD に正規化する
     - 同じ (都道府県, 医療機関コード) が2回出た場合は2件目以降を捨てる
 
 利用規約:
@@ -207,6 +216,13 @@ _WAREKI_RE = re.compile(r"^([明大昭平令])\s*(元|\d+)\s*\.\s*(\d+)\s*\.\s*(
 _ERA_BASE = {"明": 1868, "大": 1912, "昭": 1926, "平": 1989, "令": 2019,
              "明治": 1868, "大正": 1912, "昭和": 1926, "平成": 1989, "令和": 2019}
 
+# 開設者欄「医療法人　愛全会　理事長　松原　泉」の役職以降 (法人の代表者名) を落とすための区切り。
+# 個人開設 (「山田　太郎」) は役職語が無いのでそのまま残る。
+_FOUNDER_ROLE_RE = re.compile(
+    r"[\s　]+(?:理事長|代表理事|代表取締役|取締役社長|代表社員|代表者|会長|社長|学長|総長|"
+    r"院長|病院長|組合長|事業管理者|管理者|知事|市長|町長|村長|区長|長官|局長|大臣|総裁|理事)[\s　].*$"
+)
+
 _NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 _MAX_ATTEMPTS = 3
 _HEAD_ROWS = 12     # 区分・県名を読むために先読みする行数
@@ -220,19 +236,10 @@ class KouseikyokuIka(StaticCrawler):
     FETCH_DELAY = 1.0       # ページ/ファイル取得ごとの待機秒数
     TIMEOUT = 120           # 数MB の ZIP をダウンロードするため長め
 
+    # 出力カラムは依頼サンプル (取得日時 名称 都道府県 郵便番号 TEL 住所 医療機関番号 …
+    # 現存 備考) に合わせる。Schema 列は framework が定義順 (住所→TEL) で並べる。
     EXTRA_COLUMNS = [
-        "医療機関コード",
-        "併設医療機関コード",
-        "医療機関コード補足",
-        "指定年月日",
-        "指定期間始",
-        "登録理由",
-        "管理者氏名",
-        "現存フラグ",
-        "診療科名",
-        "医療機関種別",
-        "管轄厚生局",
-        "基準日",
+        "医療機関番号",
         "勤務医数_常勤合計",
         "勤務医数_常勤医",
         "勤務医数_常勤歯",
@@ -241,8 +248,16 @@ class KouseikyokuIka(StaticCrawler):
         "勤務医数_非常勤医",
         "勤務医数_非常勤歯",
         "勤務医数_非常勤薬",
+        "開設者氏名",
+        "管理者氏名",
+        "指定年月日",
+        "登録理由",
+        "指定期間始",
         "病床数",
         "病床数_詳細",
+        "診療科名",
+        "現存",
+        "備考",
     ]
 
     def prepare(self):
@@ -617,6 +632,13 @@ class KouseikyokuIka(StaticCrawler):
                 yield item
 
     @staticmethod
+    def _raw(row: list[str], idx: int) -> str:
+        """全角スペースを残したままセル値を返す (名称・氏名用)。"""
+        if idx >= len(row):
+            return ""
+        return str(row[idx]).replace("\n", "").strip(" 　")
+
+    @staticmethod
     def _cell(row: list[str], idx: int) -> str:
         if idx >= len(row):
             return ""
@@ -625,7 +647,7 @@ class KouseikyokuIka(StaticCrawler):
     def _build(self, block: list[list[str]], pref: str, page_url: str,
                bureau_name: str, asof: str) -> dict | None:
         head = block[0]
-        name = self._cell(head, 2)
+        name = self._raw(head, 2)      # 全角スペースは一覧表の表記どおり残す
         if not name:
             return None
 
@@ -647,9 +669,7 @@ class KouseikyokuIka(StaticCrawler):
             addr = raw_addr[m.end():].strip()
         else:
             addr = raw_addr.lstrip("〒").strip()
-        # 住所に都道府県が含まれないため補完する
-        if addr and pref and not addr.startswith(pref):
-            addr = pref + addr
+        # 住所は一覧表の表記どおり (都道府県名なし) で出力する。都道府県は別カラム。
 
         # --- 2行目以降 ---
         #   col1: (併設医療機関コード)。括弧書きでない文字 (「中川230」等) は補足として別に持つ
@@ -663,8 +683,9 @@ class KouseikyokuIka(StaticCrawler):
             m = _SUB_CODE_RE.match(v1)
             if m:
                 if not sub_code:
-                    sub_code = (self._to_ascii_digits(m.group(1))
-                                .replace("，", ",").replace("－", "-").replace("‐", "-"))
+                    sub_code = "({})".format(
+                        self._to_ascii_digits(m.group(1)).replace(" ", "")
+                        .replace("，", ",").replace("－", "-").replace("‐", "-"))
             elif v1 and not code_note:
                 code_note = v1
             v4 = self._to_ascii_digits(self._cell(row, 4))
@@ -714,34 +735,30 @@ class KouseikyokuIka(StaticCrawler):
                     if digits:
                         beds.append((bed_label, int(digits)))
                     bed_label = ""
-            elif v8 not in depts:
-                depts.append(v8)
+            else:
+                # 「内　呼内　循環器内科」のように1セルに複数科が空白区切りで入る
+                for dept in re.split(r"[\s、,，]+", v8):
+                    if dept and dept not in depts:
+                        depts.append(dept)
 
         self._pref_counts[pref or "(不明)"] = self._pref_counts.get(pref or "(不明)", 0) + 1
+
+        code_disp = code + ("\n" + sub_code if sub_code else "")
+        if status == "現存":
+            exists = "1"
+        elif status:
+            exists = "0"        # 休止 等
+        else:
+            exists = ""
 
         return {
             Schema.NAME: name,
             Schema.PREF: pref,
             Schema.POST_CODE: post_code,
-            Schema.ADDR: addr,
             Schema.TEL: self._cell(head, 4),
-            Schema.REP_NM: self._cell(head, 5),      # 開設者氏名
-            Schema.CAT_SITE: _CATEGORY,
-            Schema.URL: page_url,
-            "医療機関コード": code,
-            "併設医療機関コード": sub_code,
-            "医療機関コード補足": code_note,
-            # ⚠ 初回指定日 (開業日相当)。6年ごとに書き換わる「指定期間始」とは別物
-            "指定年月日": self._to_iso_date(self._cell(head, 7)),
-            # ⚠ 6年ごとの指定更新における現在の指定期間の開始日。開業日ではない
-            "指定期間始": self._to_iso_date(period_start),
-            "登録理由": reason,
-            "管理者氏名": self._cell(head, 6),
-            "現存フラグ": status,
-            "診療科名": " ".join(depts),
-            "医療機関種別": " ".join(kinds),
-            "管轄厚生局": bureau_name,
-            "基準日": asof,
+            Schema.ADDR: addr,
+            # 医療機関コード (+ 2行目に併設医療機関コードを括弧書き)
+            "医療機関番号": code_disp,
             "勤務医数_常勤合計": staff.get("勤務医数_常勤合計", ""),
             "勤務医数_常勤医": staff.get("勤務医数_常勤医", ""),
             "勤務医数_常勤歯": staff.get("勤務医数_常勤歯", ""),
@@ -750,30 +767,30 @@ class KouseikyokuIka(StaticCrawler):
             "勤務医数_非常勤医": staff.get("勤務医数_非常勤医", ""),
             "勤務医数_非常勤歯": staff.get("勤務医数_非常勤歯", ""),
             "勤務医数_非常勤薬": staff.get("勤務医数_非常勤薬", ""),
+            # 法人開設は役職+代表者名が続くので法人名までにする
+            "開設者氏名": _FOUNDER_ROLE_RE.sub("", self._raw(head, 5)),
+            "管理者氏名": self._raw(head, 6),
+            # ⚠ 初回指定日 (開業日相当)。6年ごとに書き換わる「指定期間始」とは別物
+            "指定年月日": self._wareki_text(self._cell(head, 7)),
+            "登録理由": reason,
+            # ⚠ 6年ごとの指定更新における現在の指定期間の開始日。開業日ではない
+            "指定期間始": self._wareki_text(period_start),
             "病床数": str(sum(n for _, n in beds)) if beds else "",
-            "病床数_詳細": " / ".join(f"{kind} {n}" for kind, n in beds),
+            "病床数_詳細": "\n".join(f"{kind} {n}" for kind, n in beds),
+            "診療科名": "、".join(depts),
+            "現存": exists,                         # 現存=1 / 休止=0
+            "備考": "\n".join(kinds),               # 医療機関種別 (病院 / 診療所 / 療養病床 …)
         }
+
+    @classmethod
+    def _wareki_text(cls, text: str) -> str:
+        """和暦日付を一覧表の表記 (昭47. 3. 1) のまま返す。日付でなければ空。"""
+        text = cls._to_ascii_digits(text or "").strip()
+        return text if _WAREKI_RE.match(text) else ""
 
     @staticmethod
     def _to_ascii_digits(text: str) -> str:
         return text.translate(str.maketrans("０１２３４５６７８９", "0123456789"))
-
-    @classmethod
-    def _to_iso_date(cls, text: str) -> str:
-        """和暦 (昭51. 11. 1 / 令元. 5. 1) を YYYY-MM-DD に正規化する。"""
-        if not text:
-            return ""
-        m = _WAREKI_RE.match(cls._to_ascii_digits(text).strip())
-        if not m:
-            return ""
-        era, year, month, day = m.groups()
-        y = 1 if year == "元" else int(year)
-        try:
-            return "{:04d}-{:02d}-{:02d}".format(
-                _ERA_BASE[era] + y - 1, int(month), int(day)
-            )
-        except (KeyError, ValueError):
-            return ""
 
     # ------------------------------------------------------------ 網羅性チェック
     def _log_pref_coverage(self):
