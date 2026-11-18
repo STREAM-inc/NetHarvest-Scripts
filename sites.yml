@@ -6852,3 +6852,12 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.fancrew.jp/terms"
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "(本文が短い)"
+      terms_hash: "sha256:7a7c069d26cfd62a7b01f684f9a10a8159ff635d5921e0238e722be33fe1cbcc"
+      reviewer: "stuser"
+      confirmer: "ガイ"
+      reviewed_at: "2026-11-18T02:15:34+00:00"
+      reason: "条文によって、スクレイピングが禁止されていません。"
