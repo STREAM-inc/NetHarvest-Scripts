@@ -1488,10 +1488,21 @@ sites:
     module: "jobs.bejob_navi"
     url: "https://www.bejob-navi.jp/"
     schedule: "40 4 22-28 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://www.bejob-navi.jp/contract.php"
 
 #166
+    terms_review:
+      decision: "rejected"
+      approved_keywords: []
+      terms_hash: ""
+      reviewer: "stuser"
+      confirmer: "神田悠希"
+      reviewed_at: "2026-11-18T06:42:28+00:00"
+      reason: "「Be-jobナビ」を利用した営業活動、営利を目的とする情報提供等の行為。
+「Be-jobナビ」を通じて入手した情報を複製・販売・出版、その他私的利用の範囲を超えて使用する行為。
+
+この二つの規約に違反する。情報を商用目的で取得するという点で違反と判断。"
   - site_id: ishikawa_jobnavi
     name: "石川ジョブナビ"
     module: "jobs.ishikawa_jobnavi"
