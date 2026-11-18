@@ -3191,10 +3191,18 @@ sites:
     module: "service.club_jt"
     url: "https://www.clubjt.jp/place/spot/"
     schedule: "20 17 1-7 * SAT"
-    enabled: true
+    enabled: false
     terms_url: "https://www.clubjt.jp/terms/clubjt-terms/"
 
 #357
+    terms_review:
+      decision: "rejected"
+      approved_keywords: []
+      terms_hash: ""
+      reviewer: "stuser"
+      confirmer: "ガイ"
+      reviewed_at: "2026-11-18T01:21:34+00:00"
+      reason: "スクレイピング条文によって禁止されています。"
   - site_id: jp_2
     name: "スタンバイ　ナイトワーク"
     module: "nightlife.jp_2"
