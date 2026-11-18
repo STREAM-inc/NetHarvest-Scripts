@@ -6861,3 +6861,11 @@ sites:
       confirmer: "ガイ"
       reviewed_at: "2026-11-18T02:15:34+00:00"
       reason: "条文によって、スクレイピングが禁止されていません。"
+
+  - site_id: estama
+    name: "エステ魂"
+    module: "nightlife.estama"
+    url: "https://estama.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://estama.jp/terms/"
