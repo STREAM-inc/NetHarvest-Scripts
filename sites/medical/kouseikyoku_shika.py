@@ -220,19 +220,10 @@ class KouseikyokuShika(StaticCrawler):
     FETCH_DELAY = 1.0       # ページ/ファイル取得ごとの待機秒数
     TIMEOUT = 120           # 数MB の ZIP をダウンロードするため長め
 
+    # 出力カラム (指定サンプルと同じ並び。Schema 列は framework 側の固定順で先に出る)
+    #   取得日時 名称 都道府県 郵便番号 住所 TEL | 以下 EXTRA_COLUMNS
     EXTRA_COLUMNS = [
-        "医療機関コード",
-        "併設医療機関コード",
-        "医療機関コード補足",
-        "指定年月日",
-        "指定期間始",
-        "登録理由",
-        "管理者氏名",
-        "現存フラグ",
-        "診療科名",
-        "医療機関種別",
-        "管轄厚生局",
-        "基準日",
+        "医療機関番号",
         "勤務医数_常勤合計",
         "勤務医数_常勤医",
         "勤務医数_常勤歯",
@@ -241,8 +232,16 @@ class KouseikyokuShika(StaticCrawler):
         "勤務医数_非常勤医",
         "勤務医数_非常勤歯",
         "勤務医数_非常勤薬",
+        "開設者氏名",
+        "管理者氏名",
+        "指定年月日",
+        "登録理由",
+        "指定期間始",
         "病床数",
         "病床数_詳細",
+        "診療科名",
+        "現存",
+        "備考",
     ]
 
     def prepare(self):
@@ -647,9 +646,7 @@ class KouseikyokuShika(StaticCrawler):
             addr = raw_addr[m.end():].strip()
         else:
             addr = raw_addr.lstrip("〒").strip()
-        # 住所に都道府県が含まれないため補完する
-        if addr and pref and not addr.startswith(pref):
-            addr = pref + addr
+        # 住所は Excel 記載のまま (都道府県は「都道府県」列に別に持つ)
 
         # --- 2行目以降 ---
         #   col1: (併設医療機関コード)。括弧書きでない文字 (「中川230」等) は補足として別に持つ
@@ -725,23 +722,7 @@ class KouseikyokuShika(StaticCrawler):
             Schema.POST_CODE: post_code,
             Schema.ADDR: addr,
             Schema.TEL: self._cell(head, 4),
-            Schema.REP_NM: self._cell(head, 5),      # 開設者氏名
-            Schema.CAT_SITE: _CATEGORY,
-            Schema.URL: page_url,
-            "医療機関コード": code,
-            "併設医療機関コード": sub_code,
-            "医療機関コード補足": code_note,
-            # ⚠ 初回指定日 (開業日相当)。6年ごとに書き換わる「指定期間始」とは別物
-            "指定年月日": self._to_iso_date(self._cell(head, 7)),
-            # ⚠ 6年ごとの指定更新における現在の指定期間の開始日。開業日ではない
-            "指定期間始": self._to_iso_date(period_start),
-            "登録理由": reason,
-            "管理者氏名": self._cell(head, 6),
-            "現存フラグ": status,
-            "診療科名": " ".join(depts),
-            "医療機関種別": " ".join(kinds),
-            "管轄厚生局": bureau_name,
-            "基準日": asof,
+            "医療機関番号": code,
             "勤務医数_常勤合計": staff.get("勤務医数_常勤合計", ""),
             "勤務医数_常勤医": staff.get("勤務医数_常勤医", ""),
             "勤務医数_常勤歯": staff.get("勤務医数_常勤歯", ""),
@@ -750,9 +731,31 @@ class KouseikyokuShika(StaticCrawler):
             "勤務医数_非常勤医": staff.get("勤務医数_非常勤医", ""),
             "勤務医数_非常勤歯": staff.get("勤務医数_非常勤歯", ""),
             "勤務医数_非常勤薬": staff.get("勤務医数_非常勤薬", ""),
+            "開設者氏名": self._raw_cell(head, 5),
+            "管理者氏名": self._raw_cell(head, 6),
+            # ⚠ 初回指定日 (開業日相当)。6年ごとに書き換わる「指定期間始」とは別物
+            "指定年月日": self._wareki_raw(self._cell(head, 7)),
+            "登録理由": reason,
+            # ⚠ 6年ごとの指定更新における現在の指定期間の開始日。開業日ではない
+            "指定期間始": self._wareki_raw(period_start),
             "病床数": str(sum(n for _, n in beds)) if beds else "",
             "病床数_詳細": " / ".join(f"{kind} {n}" for kind, n in beds),
+            "診療科名": " ".join(depts),
+            # 現存=1 / 休止=0 (それ以外の表記はそのまま)
+            "現存": {"現存": "1", "休止": "0"}.get(status, status),
+            # 医療機関種別 (診療所 / 病院 …)
+            "備考": " ".join(kinds),
         }
+
+    @staticmethod
+    def _raw_cell(row: list[str], idx: int) -> str:
+        """全角スペースを残したままのセル値 (氏名の「姓　名」区切りを Excel 表記のまま出す)。"""
+        return str(row[idx]).strip(" \n") if idx < len(row) else ""
+
+    @staticmethod
+    def _wareki_raw(text: str) -> str:
+        """和暦日付を Excel 記載の表記 (昭46. 7. 1) のまま返す。日付でなければ空。"""
+        return text.strip() if text and _WAREKI_RE.match(text.strip()) else ""
 
     @staticmethod
     def _to_ascii_digits(text: str) -> str:
