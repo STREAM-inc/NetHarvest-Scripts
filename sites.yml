@@ -4067,6 +4067,14 @@ sites:
     schedule: "0 10 15 * *"
     enabled: false
     terms_url: ""
+    terms_review:
+      decision: "no_terms"
+      approved_keywords: []
+      terms_hash: ""
+      reviewer: "stuser"
+      confirmer: "宮下"
+      reviewed_at: "2026-11-18T06:42:25+00:00"
+      reason: "規約がないことを確認"
 
   - site_id: ajssa
     name: "全国警備業協会（AJSSA）会員名簿(東京)"
