@@ -59,8 +59,10 @@ Excel のブロック構造 (1レコード = 2〜7行):
 備考:
     - 一覧は「現存/休止」の機関のみ (廃止済みは載らない)。「現存フラグ」で区別できる
     - 薬局の「医療機関コード」は薬局コード。「診療科名」には「調剤」等が入る (空欄の薬局もある)
-    - 住所に都道府県名が入っていないため補完する
-    - 日付は和暦 (昭51. 11. 1) で記載されるため YYYY-MM-DD に正規化する
+    - 出力は依頼サンプル準拠: 名称・住所・氏名は原文 (全角スペース・全角数字のまま)、
+      住所に都道府県は付けない (「都道府県」カラムに別出し)、日付は和暦のまま
+      (昭32. 10. 23)、医療機関番号は「01,4093,0」形式、現存は 現存=1 / 休止等=0、
+      備考は医療機関種別 (「薬局」等)
     - 同じ (都道府県, 医療機関コード) が2回出た場合は2件目以降を捨てる
 
 利用規約:
@@ -220,19 +222,12 @@ class KouseikyokuYakkyoku(StaticCrawler):
     FETCH_DELAY = 1.0       # ページ/ファイル取得ごとの待機秒数
     TIMEOUT = 120           # 数MB の ZIP をダウンロードするため長め
 
+    # 出力カラムは依頼サンプルに合わせる:
+    #   取得日時 名称 都道府県 郵便番号 TEL 住所 医療機関番号 勤務医数_* 開設者氏名 管理者氏名
+    #   指定年月日 登録理由 指定期間始 病床数 病床数_詳細 診療科名 現存 備考
+    # (Schema カラムの並びはフレームワーク側の固定順のため、TEL は住所の後に出力される)
     EXTRA_COLUMNS = [
-        "医療機関コード",
-        "併設医療機関コード",
-        "医療機関コード補足",
-        "指定年月日",
-        "指定期間始",
-        "登録理由",
-        "管理者氏名",
-        "現存フラグ",
-        "診療科名",
-        "医療機関種別",
-        "管轄厚生局",
-        "基準日",
+        "医療機関番号",
         "勤務医数_常勤合計",
         "勤務医数_常勤医",
         "勤務医数_常勤歯",
@@ -241,8 +236,16 @@ class KouseikyokuYakkyoku(StaticCrawler):
         "勤務医数_非常勤医",
         "勤務医数_非常勤歯",
         "勤務医数_非常勤薬",
+        "開設者氏名",
+        "管理者氏名",
+        "指定年月日",
+        "登録理由",
+        "指定期間始",
         "病床数",
         "病床数_詳細",
+        "診療科名",
+        "現存",
+        "備考",
     ]
 
     def prepare(self):
@@ -637,19 +640,17 @@ class KouseikyokuYakkyoku(StaticCrawler):
         self._seen.add(key)
 
         # --- 住所 (〒NNN-NNNN が先頭に連結されている) ---
-        raw_addr = self._cell(head, 3).replace("\n", "")
+        raw_addr = self._raw(head, 3)
         post_code = ""
         m = _POST_RE.search(raw_addr)
         if m:
-            post_code = "{}-{}".format(
+            post_code = "〒{}-{}".format(
                 self._to_ascii_digits(m.group(1)), self._to_ascii_digits(m.group(2))
             )
             addr = raw_addr[m.end():].strip()
         else:
             addr = raw_addr.lstrip("〒").strip()
-        # 住所に都道府県が含まれないため補完する
-        if addr and pref and not addr.startswith(pref):
-            addr = pref + addr
+        # 住所は原文どおり (都道府県は「都道府県」カラムに別出し)
 
         # --- 2行目以降 ---
         #   col1: (併設医療機関コード)。括弧書きでない文字 (「中川230」等) は補足として別に持つ
@@ -719,29 +720,16 @@ class KouseikyokuYakkyoku(StaticCrawler):
 
         self._pref_counts[pref or "(不明)"] = self._pref_counts.get(pref or "(不明)", 0) + 1
 
+        # 現存フラグ: 現存 → "1"、休止等 → "0" (サンプル準拠)
+        exist = "1" if status == "現存" else ("0" if status else "")
+
         return {
-            Schema.NAME: name,
+            Schema.NAME: self._raw(head, 2),
             Schema.PREF: pref,
             Schema.POST_CODE: post_code,
+            Schema.TEL: self._raw(head, 4),
             Schema.ADDR: addr,
-            Schema.TEL: self._cell(head, 4),
-            Schema.REP_NM: self._cell(head, 5),      # 開設者氏名
-            Schema.CAT_SITE: _CATEGORY,
-            Schema.URL: page_url,
-            "医療機関コード": code,
-            "併設医療機関コード": sub_code,
-            "医療機関コード補足": code_note,
-            # ⚠ 初回指定日 (開業日相当)。6年ごとに書き換わる「指定期間始」とは別物
-            "指定年月日": self._to_iso_date(self._cell(head, 7)),
-            # ⚠ 6年ごとの指定更新における現在の指定期間の開始日。開業日ではない
-            "指定期間始": self._to_iso_date(period_start),
-            "登録理由": reason,
-            "管理者氏名": self._cell(head, 6),
-            "現存フラグ": status,
-            "診療科名": " ".join(depts),
-            "医療機関種別": " ".join(kinds),
-            "管轄厚生局": bureau_name,
-            "基準日": asof,
+            "医療機関番号": code,
             "勤務医数_常勤合計": staff.get("勤務医数_常勤合計", ""),
             "勤務医数_常勤医": staff.get("勤務医数_常勤医", ""),
             "勤務医数_常勤歯": staff.get("勤務医数_常勤歯", ""),
@@ -750,9 +738,26 @@ class KouseikyokuYakkyoku(StaticCrawler):
             "勤務医数_非常勤医": staff.get("勤務医数_非常勤医", ""),
             "勤務医数_非常勤歯": staff.get("勤務医数_非常勤歯", ""),
             "勤務医数_非常勤薬": staff.get("勤務医数_非常勤薬", ""),
+            "開設者氏名": self._raw(head, 5),
+            "管理者氏名": self._raw(head, 6),
+            # ⚠ 初回指定日 (開業日相当)。6年ごとに書き換わる「指定期間始」とは別物。和暦のまま
+            "指定年月日": self._raw(head, 7),
+            "登録理由": reason,
+            # ⚠ 6年ごとの指定更新における現在の指定期間の開始日。開業日ではない。和暦のまま
+            "指定期間始": period_start,
             "病床数": str(sum(n for _, n in beds)) if beds else "",
             "病床数_詳細": " / ".join(f"{kind} {n}" for kind, n in beds),
+            "診療科名": " ".join(depts),
+            "現存": exist,
+            "備考": " ".join(kinds),      # 医療機関種別 (薬局 等)
         }
+
+    @staticmethod
+    def _raw(row: list[str], idx: int) -> str:
+        """セル値を全角スペース込みのまま返す (前後の空白・改行のみ除去)。"""
+        if idx >= len(row):
+            return ""
+        return str(row[idx]).replace("\n", "").strip()
 
     @staticmethod
     def _to_ascii_digits(text: str) -> str:
