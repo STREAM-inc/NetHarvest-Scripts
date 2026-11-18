@@ -5903,6 +5903,14 @@ sites:
     schedule: null
     enabled: false
     terms_url: "https://www.atpress.ne.jp/term_use"
+    terms_review:
+      decision: "rejected"
+      approved_keywords: []
+      terms_hash: ""
+      reviewer: "stuser"
+      confirmer: "宮下"
+      reviewed_at: "2026-11-18T06:47:10+00:00"
+      reason: "営利目的となるため"
 
   - site_id: coeteco_2
     name: "コエテコキャンパス"
