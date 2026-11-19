@@ -6888,6 +6888,16 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.min-taxes.com/reprint/"
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "クローラー"
+        - "クローラ"
+      terms_hash: "sha256:7b12ec4e5b9b94fe078d88a5f23f636b13a86e0353e3bc34e376bb752a1d10fd"
+      reviewer: "stuser"
+      confirmer: "相澤"
+      reviewed_at: "2026-11-19T04:05:36+00:00"
+      reason: "「 robots.txt でも主要なAI・検索クローラーを許可しています。」との記載があり、https://min-taxes.com/privacy-policy/の著作権の部分には、「無断での複製・転載・改変・商業利用は禁じます。ただし、出典を明記したうえでの引用（著作権法に定める範囲内）はこの限りではありません。」と明記されているため、出典を書けば使用していいと判断しました。"
 
   - site_id: kouseikyoku_ika
     name: "地方厚生局(医科・指定一覧・全国)"
