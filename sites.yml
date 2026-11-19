@@ -6936,3 +6936,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://keibiworker.jp/policy?policy_no=1"
+
+  - site_id: esthe_ranking
+    name: "メンズエステランキング"
+    module: "nightlife.esthe_ranking"
+    url: "https://www.esthe-ranking.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.esthe-ranking.jp/page/terms/"
