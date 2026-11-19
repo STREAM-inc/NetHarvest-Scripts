@@ -6937,6 +6937,16 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://estama.jp/terms/"
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "営利"
+      terms_hash: "sha256:03428225c33038558c5f673f1717117d9768035a4ec74d740087367c78c8ab64"
+      reviewer: "stuser"
+      confirmer: "藤本"
+      reviewed_at: "2026-11-19T01:59:52+00:00"
+      reason: "第1条（定義と規約の適応範囲）
+検出された禁止ワードはエステ魂の規約ではなくEsJob会員（株式会社WEBLAが運営する広告サービス【エステ魂】内の求人広告掲載サービス【EsTAMA(エスタマ求人)】の登録ユーザーの総称）の規約であり、我々は会員登録をした会員ではないため対象外。"
 
   - site_id: keibiworker_2
     name: "警備ワーカー"
