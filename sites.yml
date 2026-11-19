@@ -1303,6 +1303,15 @@ sites:
     terms_url: "https://www.dartslive.com/jp/terms/"
 
 #144
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "営利"
+      terms_hash: "sha256:42fb40eaf0800f9866ba8672bc2d946464344b643c0c259e84efbea138f1fd9c"
+      reviewer: "stuser"
+      confirmer: "ガイ"
+      reviewed_at: "2026-11-19T08:58:47+00:00"
+      reason: "条文によって、スクレイピング、プログラムは禁止されていません。"
   - site_id: fitmap
     name: "Fit Map"
     module: "portal.fitmap"
