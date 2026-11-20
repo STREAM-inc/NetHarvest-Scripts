@@ -2,11 +2,29 @@
 luline 夜のお店選びドットコム（全国版） (luline.jp/top) — ナイトワーク店舗スクレイパー
 
 既存の東北版 (nightlife/luline.py, url=/tohoku/shop_list/search/) と同一サイトの
-全国版。sites.yml の url は全国トップ (https://luline.jp/top/)。全国の店舗一覧は
-/shop_list/search/ にあり (?page=N で全40ページ・約1,200件)、url の origin から派生して辿る。
+全国版。sites.yml の url は全国トップ (https://luline.jp/top/)。
+
+巡回範囲 (トップナビ「全国」配下の全地域、エリア絞り込みなし):
+    首都圏   /shop_list/search/            (首都圏だけは地域プレフィックス無し)
+    関西     /kansai/shop_list/search/
+    東北     /tohoku/shop_list/search/
+    北海道   /hokkaido/shop_list/search/
+    東海     /tokai/shop_list/search/
+    九州     /kyushu/shop_list/search/
+    各一覧は ?page=N で送り、新規店舗が出なくなった時点で次の地域へ (2026-11 時点で計約1,570店)。
+    詳細は /shop/view/{id}/ (地域版は /{region}/shop/view/{id}/)。店舗IDで重複排除する。
+    いずれも引数 url の origin に urljoin して派生させる。
+
+    トップページが lulinecast.jp (キャスト向け別サイト) へリダイレクトされる場合でも、
+    url の origin から一覧→店舗詳細 URL を直接たどる (リダイレクト先は巡回しない)。
+
+対象カテゴリ (サイト定義業種):
+    キャバクラ / ガールズバー / ラウンジ / スナック / クラブ / ホスト / コンカフェ / パブ
+    (熟女キャバクラ・朝キャバ/昼キャバ・ニュークラブ・ガールズラウンジ等の派生を含む)
+    性風俗カテゴリ (セクキャバ・ヘルス・ソープ等) は取得しない。
 
 取得対象:
-    - 店舗名 / 名称_カナ / 都道府県 / 住所 / TEL / 営業時間 / 定休日 / HP / サイト定義業種
+    - 店舗名 / 名称_カナ / 都道府県 / 住所 / TEL / 営業時間 / 定休日 / HP / サイト定義業種 / 取得URL
     - エリア / 最寄り駅 / 平均年齢 / メールアドレス
     - 各種料金 (指名・場内指名・同伴・サービス料・延長・延長方法・目安予算)
     - 求人情報 (table.arbeitMiddle): 職種 / 勤務時間 (区分ごとに分割)
@@ -21,8 +39,9 @@ luline 夜のお店選びドットコム（全国版） (luline.jp/top) — ナ�
     区分ごとに別カラム (勤務時間区分N / 勤務時間N) へ分割して取得する。
 
 取得フロー (Pattern B: 一覧→詳細, 詳細1件ごとに即 yield):
-    1. 一覧ページ (origin/shop_list/search/?page=N) から店舗ブロック (.listShopWrap) を収集
-       - 一覧でしか取れない 名称_カナ / エリア / 平均年齢 をここで確保
+    1. 地域別一覧ページから店舗ブロック (.listShopWrap) を収集
+       - 一覧でしか取れない 名称_カナ / エリア / 平均年齢 / 業種 をここで確保
+       - 対象カテゴリ外 (性風俗等) はここで除外し、詳細を取りに行かない
        - luline.jp 内の詳細リンク (/shop/view/N/) のみ採用 (tainew 等の外部リンクは除外)
     2. 各詳細ページ (div.accessInner table / table.systemMiddle / table.arbeitMiddle) から
        住所/TEL/MAIL/定休日/最寄り駅/料金/求人情報 等を取得
@@ -50,9 +69,33 @@ from bs4 import BeautifulSoup
 from src.const.schema import Schema
 from src.framework.static import StaticCrawler
 
-# 全国の店舗一覧パス。引数 url (= sites.yml の url, トップページ) の origin に対して
-# urljoin して使う。別ドメイン/別 origin はハードコードしない (SSOT = sites.yml の url)。
-_LIST_PATH = "/shop_list/search/"
+# トップナビ「全国」配下の地域別一覧パス (地域名, 一覧パス)。
+# 引数 url (= sites.yml の url, トップページ) の origin に対して urljoin して使う。
+# 別ドメイン/別 origin はハードコードしない (SSOT = sites.yml の url)。
+_REGION_LIST_PATHS: list[tuple[str, str]] = [
+    ("首都圏", "/shop_list/search/"),
+    ("関西", "/kansai/shop_list/search/"),
+    ("東北", "/tohoku/shop_list/search/"),
+    ("北海道", "/hokkaido/shop_list/search/"),
+    ("東海", "/tokai/shop_list/search/"),
+    ("九州", "/kyushu/shop_list/search/"),
+]
+# 1地域あたりのページ上限 (安全弁。首都圏で約40ページ)
+_MAX_PAGES = 200
+
+_SHOP_ID_RE = re.compile(r"/shop/view/(\d+)/?")
+
+# 対象カテゴリ (部分一致)。熟女キャバクラ/朝キャバ/ニュークラブ/ガールズラウンジ等も含む。
+_TARGET_CATEGORY_KEYWORDS = (
+    "キャバ", "ガールズバー", "ラウンジ", "スナック", "クラブ",
+    "ホスト", "コンカフェ", "コンセプトカフェ", "パブ",
+)
+# 性風俗カテゴリ (対象キーワードに部分一致しても除外する)
+_ADULT_CATEGORY_KEYWORDS = (
+    "セクキャバ", "セクシーキャバ", "いちゃキャバ", "おっぱい", "ヘルス", "ソープ",
+    "デリヘル", "ホテヘル", "ピンサロ", "ピンクサロン", "性感", "風俗", "イメクラ",
+    "ハプニング", "エステ", "M性感", "オナクラ", "手コキ",
+)
 
 _PREF_PATTERN = re.compile(
     r"^(北海道|東京都|京都府|大阪府|"
@@ -132,56 +175,109 @@ class Luline2Scraper(StaticCrawler):
     ]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        # 引数 url (トップページ) の origin から全国一覧の起点を派生させる。
-        list_root = urljoin(url, _LIST_PATH)
+        # トップページが lulinecast.jp 等の別ホストへリダイレクトされても、
+        # 一覧・詳細は引数 url の origin から派生させて直接たどる。
+        self._check_top_redirect(url)
 
-        seen: set[str] = set()
+        seen_ids: set[str] = set()
         saved = 0
         index = 0
-        page = 1
-        while True:
-            page_url = list_root if page == 1 else f"{list_root}?page={page}"
-            list_soup = self.get_soup(page_url)
-            if list_soup is None:
-                break
-            blocks = list_soup.select(".listShopWrap")
-            if not blocks:
-                break
+        skipped_category = 0
+        for region, list_path in _REGION_LIST_PATHS:
+            list_root = urljoin(url, list_path)
+            region_count = 0
+            for page in range(1, _MAX_PAGES + 1):
+                page_url = list_root if page == 1 else f"{list_root}?page={page}"
+                list_soup = self.get_soup(page_url)
+                if list_soup is None:
+                    break
+                blocks = list_soup.select(".listShopWrap")
+                if not blocks:
+                    break
 
-            for block in blocks:
-                listing = self._parse_listing_block(url, block)
-                if not listing:
-                    continue
-                detail_url = listing["detail_url"]
-                if detail_url in seen:
-                    continue
-                seen.add(detail_url)
-                index += 1
-
-                try:
-                    soup = self.get_soup(detail_url)
-                    if soup is None:
-                        self.logger.warning("詳細取得失敗(None): %s", detail_url)
+                new_on_page = 0
+                for block in blocks:
+                    listing = self._parse_listing_block(url, block)
+                    if not listing:
                         continue
-                    record = self._parse_detail(detail_url, soup, listing)
-                except Exception as e:  # 個別アイテムの失敗は握りつぶして継続
-                    self.logger.warning("詳細取得失敗: %s (%s)", detail_url, e)
-                    continue
+                    shop_id = listing["shop_id"]
+                    if shop_id in seen_ids:
+                        continue
+                    seen_ids.add(shop_id)
+                    new_on_page += 1
 
-                if not record:
-                    continue
+                    if not self._is_target_category(listing.get("cat_site", "")):
+                        skipped_category += 1
+                        self.logger.info(
+                            "対象外カテゴリをスキップ: %s (%s)",
+                            listing.get("name"), listing.get("cat_site"),
+                        )
+                        continue
 
-                saved += 1
-                self.logger.info(
-                    "取得OK: %d 店舗=%s",
-                    index,
-                    record.get(Schema.NAME) or detail_url,
-                )
-                yield record  # ★ 詳細1件ごとに即 yield
+                    index += 1
+                    detail_url = listing["detail_url"]
+                    try:
+                        soup = self.get_soup(detail_url)
+                        if soup is None:
+                            self.logger.warning("詳細取得失敗(None): %s", detail_url)
+                            continue
+                        record = self._parse_detail(detail_url, soup, listing)
+                    except Exception as e:  # 個別アイテムの失敗は握りつぶして継続
+                        self.logger.warning("詳細取得失敗: %s (%s)", detail_url, e)
+                        continue
 
-            page += 1
+                    if not record:
+                        continue
+                    # 詳細側の業種で性風俗と判明した場合も除外
+                    if not self._is_target_category(record.get(Schema.CAT_SITE, "")):
+                        skipped_category += 1
+                        continue
 
-        self.logger.info("取得完了: 候補%d件 取得%d件", index, saved)
+                    saved += 1
+                    region_count += 1
+                    self.logger.info(
+                        "取得OK: %d [%s] 店舗=%s",
+                        index,
+                        region,
+                        record.get(Schema.NAME) or detail_url,
+                    )
+                    yield record  # ★ 詳細1件ごとに即 yield
+
+                # 範囲外ページで1ページ目等が返る場合の無限ループ防止
+                if new_on_page == 0:
+                    break
+
+            self.logger.info("地域完了: %s 取得%d件", region, region_count)
+
+        self.logger.info(
+            "取得完了: 候補%d件 取得%d件 対象外カテゴリ%d件", index, saved, skipped_category
+        )
+
+    def _check_top_redirect(self, url: str) -> None:
+        """トップページのリダイレクト先を確認しログに残す (巡回起点は url の origin のまま)。"""
+        try:
+            resp = self.session.get(url, timeout=30, allow_redirects=True)
+            final_host = urlparse(resp.url).netloc
+        except Exception as e:  # 確認に失敗しても一覧巡回は続ける
+            self.logger.warning("トップページ確認失敗: %s (%s)", url, e)
+            return
+        if final_host and final_host != urlparse(url).netloc:
+            self.logger.warning(
+                "トップページが %s へリダイレクトされたため、一覧→店舗詳細URLを直接たどります",
+                resp.url,
+            )
+
+    @staticmethod
+    def _is_target_category(cat: str) -> bool:
+        """サイト定義業種が対象カテゴリか判定する。
+
+        業種が空 (一覧/詳細とも未記載) の場合は判定材料が無いため対象として扱う。
+        """
+        if not cat:
+            return True
+        if any(k in cat for k in _ADULT_CATEGORY_KEYWORDS):
+            return False
+        return any(k in cat for k in _TARGET_CATEGORY_KEYWORDS)
 
     def _parse_listing_block(self, root_url: str, block) -> dict | None:
         h2 = block.select_one("h2.shopName")
@@ -195,7 +291,8 @@ class Luline2Scraper(StaticCrawler):
 
         # luline.jp 内の詳細ページのみ対象 (tainew 等の外部リンクは除外)
         parsed = urlparse(detail_url)
-        if parsed.netloc != urlparse(root_url).netloc or "/shop/view/" not in parsed.path:
+        id_match = _SHOP_ID_RE.search(parsed.path)
+        if parsed.netloc != urlparse(root_url).netloc or not id_match:
             return None
 
         name = self._clean(name_anchor.get_text(strip=True))
@@ -217,6 +314,7 @@ class Luline2Scraper(StaticCrawler):
 
         return {
             "detail_url": detail_url,
+            "shop_id": id_match.group(1),
             "name": name,
             "kana": kana,
             "area": area,
