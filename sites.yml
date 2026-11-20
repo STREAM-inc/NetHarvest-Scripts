@@ -1267,6 +1267,15 @@ sites:
     terms_url: "https://www.ozmall.co.jp/introduction/14118/"
 
 #140
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "営利"
+      terms_hash: "sha256:c36b960ec675c791b1f9cd4ce58107584bc3d741bcbf951572223f8bbefdd23e"
+      reviewer: "stuser"
+      confirmer: "松永"
+      reviewed_at: "2026-11-20T06:29:35+00:00"
+      reason: "営利ではなくHPにあるような一次情報のみを取得しているため問題ないと判断した"
   - site_id: beautypark
     name: "Beauty Park"
     module: "medical.beautypark"
