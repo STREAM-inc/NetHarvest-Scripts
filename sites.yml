@@ -6273,6 +6273,15 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.kusurinomadoguchi.com/terms"
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "商用"
+      terms_hash: "sha256:e3dbe8d6e863018db6bc0bb3697bacd39c65fb12cd1817eacf514ffaaf66da6d"
+      reviewer: "stuser"
+      confirmer: "佐渡"
+      reviewed_at: "2026-11-20T01:29:35+00:00"
+      reason: "掲載者に対するEPARKによる情報利用でありスクレイピングに関する条文ではない"
 
   - site_id: engage
     name: "engage"
