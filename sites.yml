@@ -529,6 +529,16 @@ sites:
     terms_url: "https://haisha-yoyaku.jp/terms.html"
 
 #57
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "営利"
+        - "商用"
+      terms_hash: "sha256:a7b3f3628a3372265783bfeb647761bea4b6eace3f83a3cb2be509460510290d"
+      reviewer: "stuser"
+      confirmer: "佐藤"
+      reviewed_at: "2026-11-20T09:19:58+00:00"
+      reason: "スクロールは、禁止を明記されていない。また、医師の名前などは取得せず、医院の名前、住所、電話番号、HPのURLの最低限の公開情報に絞って取得し、そのほかの情報は、HPから補完する方法であれば、取得可能と判断。"
   - site_id: jobcon_driver
     name: "ジョブコンプラスD"
     module: "jobs.jobcon_driver"
