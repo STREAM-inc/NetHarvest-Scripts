@@ -1598,10 +1598,18 @@ sites:
     module: "portal.epark_hotel"
     url: "https://epark.jp/hotel-stay/list/"
     schedule: "0 7 1-7 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://terms.epark.jp/use/"
 
 #176
+    terms_review:
+      decision: "rejected"
+      approved_keywords: []
+      terms_hash: ""
+      reviewer: "stuser"
+      confirmer: "ガイ"
+      reviewed_at: "2026-11-20T02:10:07+00:00"
+      reason: "データベース上のデータを収集、または複製する目的で本サイトを利用する行為、又は、本サイトを通じて配信されるデータを、複製、改変、編集、頒布、再販売など商業的、または業務的に利用する行為（二次加工の如何を問いません）"
   - site_id: dummy
     name: "ダミー"
     module: "test.dummy"
