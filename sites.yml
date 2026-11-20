@@ -5395,6 +5395,12 @@ sites:
     schedule: "0 7 * * SAT"
     enabled: false
     terms_url: "https://www.ikyu.com/terms/service/"
+    terms_manual_approval:
+      reviewed_url: "https://www.ikyu.com/terms/service/"
+      reviewer: "stuser"
+      confirmer: "松永"
+      reviewed_at: "2026-11-20T08:26:55+00:00"
+      reason: "問題ない"
 
   - site_id: www2_2
     name: "産廃情報ネット行政情報検索"
