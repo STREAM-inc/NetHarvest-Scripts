@@ -1276,6 +1276,15 @@ sites:
     terms_url: "https://www.beauty-park.jp/pages/use_rule/"
 
 #141
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "営利"
+      terms_hash: "sha256:b44ef22406ef04ca02ce672ed89130514aade1e5171dfa10d87d3af2c58a993d"
+      reviewer: "stuser"
+      confirmer: "神田悠希"
+      reviewed_at: "2026-11-20T02:23:51+00:00"
+      reason: "営利を目的とした～～という文言は口コミの内容に関する条文であり、リスト作成には抵触しないと考えた。"
   - site_id: hospita
     name: "HOSPITA"
     module: "medical.HOSPITA_scrape"
