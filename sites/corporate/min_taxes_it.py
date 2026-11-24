@@ -49,6 +49,7 @@ logger = logging.getLogger(__name__)
 # 中断したランの続きから取るための途中再開ファイル (手動で置く。Git 管理外の output/cache/)
 _RESUME_FILE = _project_root / "output" / "cache" / "min_taxes_it_resume.json"
 _BEACON_LOCK = threading.Lock()
+_RATE_LOCK = threading.Lock()
 
 _PREFS = [
     "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
@@ -119,6 +120,8 @@ class MinTaxesIt(StaticCrawler):
         """API を 1 回叩く。rate_limited は retry_after 待ちで上限付きリトライ。"""
         full = f"{api_url}?{urllib.parse.urlencode(params)}"
         for attempt in range(self.MAX_RATE_RETRY):
+            # 他のスレッドが rate limit を受けていたら、その解除時刻まで全スレッドで待つ
+            self._wait_shared_rate_limit()
             resp = self.session.get(full, timeout=self.TIMEOUT, headers={"Accept": "application/json"})
             data = None
             try:
@@ -136,14 +139,14 @@ class MinTaxesIt(StaticCrawler):
                     retry_after = 60
                 wait = min(retry_after + 5, self.MAX_RATE_WAIT)
                 logger.warning("rate_limited (%s) %d秒待機 attempt=%d", full, wait, attempt + 1)
-                self._sleep_with_heartbeat(wait)
+                self._set_shared_rate_limit(wait)
                 continue
             if resp.status_code == 429:
                 if attempt + 1 >= self.MAX_RATE_RETRY:
                     break
                 wait = min(60 * (attempt + 1), 600)
                 logger.warning("HTTP 429 (%s) %d秒待機", full, wait)
-                self._sleep_with_heartbeat(wait)
+                self._set_shared_rate_limit(wait)
                 continue
             resp.raise_for_status()
             if not isinstance(data, dict):
@@ -170,6 +173,17 @@ class MinTaxesIt(StaticCrawler):
             self._ping()
             if end - time.time() > 0:
                 logger.info("rate_limited 待機中 残り %d 秒", int(end - time.time()))
+
+    def _set_shared_rate_limit(self, seconds: int):
+        """rate limit の解除時刻を全スレッドで共有する (遅い方に合わせる)。"""
+        with _RATE_LOCK:
+            self._rl_until = max(getattr(self, "_rl_until", 0.0), time.time() + seconds)
+
+    def _wait_shared_rate_limit(self):
+        with _RATE_LOCK:
+            left = getattr(self, "_rl_until", 0.0) - time.time()
+        if left > 0:
+            self._sleep_with_heartbeat(int(left) + 1)
 
     def _ping(self):
         """進捗ビーコンを打つ。複数スレッドから呼ばれるのでロックで直列化する
