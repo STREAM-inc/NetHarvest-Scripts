@@ -97,6 +97,7 @@ class MinTaxesIt(StaticCrawler):
     TIMEOUT = 30
     REQUIRE_CO_NUM = True  # 備考「法人番号は必須」: 法人番号の無い行は出力しない
     MAX_RATE_RETRY = 6
+    MAX_RATE_WAIT = 20 * 3600  # 1 日上限 (retry_after ≒ 14h) を待ち切れる長さ
 
     EXTRA_COLUMNS = ["法人種別", "補助金名", "実施機関", "交付決定日", "交付金額"]
 
@@ -111,9 +112,11 @@ class MinTaxesIt(StaticCrawler):
             except ValueError:
                 pass
             if isinstance(data, dict) and data.get("error") == "rate_limited":
-                wait = min(int(data.get("retry_after") or 60) + 5, 600)
+                # 1 日上限に当たると retry_after が数万秒 (〜14h) になる。600 秒で 6 回
+                # 諦めると全件取り直しになるので、上限まで待ってから続きを取る。
+                wait = min(int(data.get("retry_after") or 60) + 5, self.MAX_RATE_WAIT)
                 logger.warning("rate_limited (%s) %d秒待機 attempt=%d", full, wait, attempt + 1)
-                time.sleep(wait)
+                self._sleep_with_heartbeat(wait)
                 continue
             if resp.status_code == 429:
                 wait = min(60 * (attempt + 1), 600)
@@ -126,6 +129,17 @@ class MinTaxesIt(StaticCrawler):
             return data
         raise RuntimeError(f"rate limit が解除されませんでした: {full}")
 
+    def _sleep_with_heartbeat(self, seconds: int):
+        """長い待機中も 10 分ごとにログを出し、止まっているように見せない。"""
+        end = time.time() + seconds
+        while True:
+            left = end - time.time()
+            if left <= 0:
+                return
+            time.sleep(min(left, 600))
+            if end - time.time() > 0:
+                logger.info("rate_limited 待機中 残り %d 秒", int(end - time.time()))
+
     def parse(self, url: str):
         api_url = urllib.parse.urljoin(url, "/api/hojokin")
         self._seen = set()
@@ -133,12 +147,21 @@ class MinTaxesIt(StaticCrawler):
         for pref in _PREFS:
             for q in _QUERIES:
                 page = 1
+                prev_sig = None
                 while True:
                     params = {"q": q, "target": "title", "pref": pref}
                     if page > 1:
                         params["page"] = page
                     data = self._api(api_url, params)
                     companies = data.get("companies") or []
+                    # API は最終ページを過ぎても同じ最終ページを truncated=true で返し続ける
+                    # (2026-11 確認: デジタル×東京都で page 2000 と 2361 が同一)。
+                    # 前ページと同じ中身が返ったら終端とみなす。
+                    sig = tuple((c.get("corp_number"), c.get("name")) for c in companies)
+                    if sig and sig == prev_sig:
+                        logger.info("終端検出 (前ページと同一) q=%s pref=%s page=%d", q, pref, page)
+                        break
+                    prev_sig = sig
                     for c in companies:
                         yield from self._rows(c, url)
                     if not data.get("truncated") or not companies:
