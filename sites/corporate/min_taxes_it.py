@@ -103,6 +103,10 @@ class MinTaxesIt(StaticCrawler):
     """補助金データベース(min-taxes)IT系 スクレイパー"""
 
     DELAY = 1.5
+    # 基盤は既定で 1 件出力するごとに DELAY 秒待つ (ITEM_DELAY=None)。この API は 1 ページで
+    # 最大 20 社を返し、ページ取得の間隔は _iter_companies が DELAY で空けているので、
+    # 件ごとの待機は相手サーバーの負荷に関係なく速度だけを 40 件/分に落としていた。
+    ITEM_DELAY = 0.0
     TIMEOUT = 30
     REQUIRE_CO_NUM = True  # 備考「法人番号は必須」: 法人番号の無い行は出力しない
     MAX_RATE_RETRY = 6
