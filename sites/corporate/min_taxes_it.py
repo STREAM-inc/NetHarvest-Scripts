@@ -25,11 +25,16 @@
     (転載・引用ポリシー: 出典明記+リンクで利用可 https://www.min-taxes.com/reprint/)
 """
 
+import csv
+import json
 import logging
+import queue
 import re
 import sys
+import threading
 import time
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 _project_root = Path(__file__).resolve().parent.parent.parent.parent
@@ -40,6 +45,9 @@ from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
 logger = logging.getLogger(__name__)
+
+# 中断したランの続きから取るための途中再開ファイル (手動で置く。Git 管理外の output/cache/)
+_RESUME_FILE = _project_root / "output" / "cache" / "min_taxes_it_resume.json"
 
 _PREFS = [
     "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
@@ -97,6 +105,7 @@ class MinTaxesIt(StaticCrawler):
     TIMEOUT = 30
     REQUIRE_CO_NUM = True  # 備考「法人番号は必須」: 法人番号の無い行は出力しない
     MAX_RATE_RETRY = 6
+    CONCURRENCY = 4  # 同時に取得する組 (県×検索語) の数。rate limit 応答には各スレッドが従う
     MAX_RATE_WAIT = 20 * 3600  # 1 日上限 (retry_after ≒ 14h) を待ち切れる長さ
 
     EXTRA_COLUMNS = ["法人種別", "補助金名", "実施機関", "交付決定日", "交付金額"]
@@ -148,43 +157,159 @@ class MinTaxesIt(StaticCrawler):
             left = end - time.time()
             if left <= 0:
                 return
-            time.sleep(min(left, 600))
+            time.sleep(min(left, 60))
+            if self._stopped():
+                return
+            if int(left) // 600 == int(end - time.time()) // 600:
+                continue  # ビーコンとログは 10 分ごと
             services = getattr(self, "_services", None)
             if services is not None:
                 services.beacon.ping()
             if end - time.time() > 0:
                 logger.info("rate_limited 待機中 残り %d 秒", int(end - time.time()))
 
+    def _stopped(self) -> bool:
+        stop = getattr(self, "_stop", None)
+        return stop is not None and stop.is_set()
+
     def parse(self, url: str):
         api_url = urllib.parse.urljoin(url, "/api/hojokin")
         self._seen = set()
 
-        for pref in _PREFS:
-            for q in _QUERIES:
-                page = 1
-                seen_sigs = set()
-                while True:
-                    params = {"q": q, "target": "title", "pref": pref}
-                    if page > 1:
-                        params["page"] = page
-                    data = self._api(api_url, params)
-                    companies = data.get("companies") or []
-                    # API は最終ページを過ぎても同じ最終ページを truncated=true で返し続ける
-                    # (2026-11 確認: デジタル×東京都で page 2000 と 2361 が同一)。
-                    # 既に取得したページと同じ中身が返ったら終端とみなす
-                    # (直前ページだけでなく全履歴と比べ、交互に返る場合も止める)。
-                    sig = tuple((c.get("corp_number"), c.get("name")) for c in companies)
-                    if sig and sig in seen_sigs:
-                        logger.info("終端検出 (取得済みページと同一) q=%s pref=%s page=%d", q, pref, page)
-                        break
-                    seen_sigs.add(sig)
-                    for c in companies:
-                        yield from self._rows(c, url)
-                    if not data.get("truncated") or not companies:
-                        break
-                    page += 1
-                    time.sleep(self.DELAY)
-                time.sleep(self.DELAY)
+        done = set()
+        resume = self._load_resume()
+        if resume:
+            done = {tuple(k) for k in resume.get("done", [])}
+            yield from self._seed_rows(resume.get("seed_csv", ""))
+
+        combos = [(pref, q) for pref in _PREFS for q in _QUERIES if (pref, q) not in done]
+        logger.info("取得対象 %d 組 (県×検索語、完了済み %d 組をスキップ) を %d 並列で取得",
+                    len(combos), len(done), self.CONCURRENCY)
+
+        # 各スレッドが 1 組 (県×検索語) をページ送りし、会社をキューへ流す。
+        # 行の生成・重複除外・件数集計はこのスレッド (ジェネレータ) だけで行う。
+        out = queue.Queue(maxsize=200)
+        _END = object()
+        self._stop = threading.Event()
+
+        def put(x):
+            # 呼び出し側が止まった (例外・途中終了) ときに put で固まらないよう、停止フラグを見る
+            while not self._stop.is_set():
+                try:
+                    out.put(x, timeout=1)
+                    return
+                except queue.Full:
+                    continue
+
+        def worker(pref, q):
+            try:
+                for c in self._iter_companies(api_url, pref, q):
+                    if self._stop.is_set():
+                        return
+                    put(c)
+            except BaseException as e:  # 呼び出し側で再送出する
+                put(e)
+            finally:
+                put(_END)
+
+        pool = ThreadPoolExecutor(max_workers=self.CONCURRENCY)
+        try:
+            for pref, q in combos:
+                pool.submit(worker, pref, q)
+            remaining = len(combos)
+            while remaining:
+                item = out.get()
+                if item is _END:
+                    remaining -= 1
+                    continue
+                if isinstance(item, BaseException):
+                    raise item
+                yield from self._rows(item, url)
+        finally:
+            self._stop.set()
+            pool.shutdown(wait=False, cancel_futures=True)
+
+        # 完走したら再開ファイルを使用済みにし、次回の通常実行で使われないようにする
+        if resume:
+            used = _RESUME_FILE.with_name(_RESUME_FILE.name + ".used")
+            try:
+                _RESUME_FILE.replace(used)
+                logger.info("途中再開ファイルを使用済みにしました: %s", used)
+            except OSError as e:
+                logger.warning("途中再開ファイルを使用済みにできません (次回実行前に削除が必要): %s — %s", _RESUME_FILE, e)
+
+    def _iter_companies(self, api_url: str, pref: str, q: str):
+        """1 組 (県×検索語) を終端までページ送りし、会社を順に返す。"""
+        page = 1
+        seen_sigs = set()
+        while True:
+            params = {"q": q, "target": "title", "pref": pref}
+            if page > 1:
+                params["page"] = page
+            data = self._api(api_url, params)
+            companies = data.get("companies") or []
+            # API は最終ページを過ぎても同じ最終ページを truncated=true で返し続ける
+            # (2026-11 確認: デジタル×東京都で page 2000 と 2361 が同一)。
+            # 既に取得したページと同じ中身が返ったら終端とみなす
+            # (直前ページだけでなく全履歴と比べ、交互に返る場合も止める)。
+            sig = tuple((c.get("corp_number"), c.get("name")) for c in companies)
+            if sig and sig in seen_sigs:
+                logger.info("終端検出 (取得済みページと同一) q=%s pref=%s page=%d", q, pref, page)
+                break
+            seen_sigs.add(sig)
+            yield from companies
+            if not data.get("truncated") or not companies:
+                break
+            page += 1
+            if self._stopped():
+                return
+            time.sleep(self.DELAY)
+        logger.info("完了 q=%s pref=%s (%d ページ)", q, pref, page)
+
+    def _load_resume(self) -> dict | None:
+        """途中再開ファイル (output/cache/min_taxes_it_resume.json) があれば読む。
+
+        中断したランの続きから取るための手動運用ファイル。形式:
+            {"seed_csv": "output/aborted/<中断ランの CSV>", "done": [["北海道", "AI"], ...]}
+        seed_csv の行を先に出力し、done の組 (県×検索語) は取り直さない。
+        """
+        path = _RESUME_FILE
+        if not path.exists():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            raise RuntimeError(f"途中再開ファイルを読めません: {path} — {e}") from e
+        logger.info("途中再開ファイルを使用: %s (完了済み %d 組)", path, len(data.get("done", [])))
+        return data
+
+    def _seed_rows(self, seed_csv: str):
+        """中断ランの CSV の行を、重複除外キーに登録しながらそのまま出力する。"""
+        if not seed_csv:
+            return
+        path = Path(seed_csv)
+        if not path.is_absolute():
+            path = _project_root / path
+        if not path.exists():
+            raise RuntimeError(f"途中再開の元 CSV がありません: {path}")
+        n = 0
+        with path.open(encoding="utf-8-sig", newline="") as f:
+            for r in csv.DictReader(f):
+                key = (r.get(Schema.CO_NUM) or r.get(Schema.NAME, ""), r.get("補助金名", ""),
+                       r.get("交付決定日", ""), r.get("交付金額", ""), r.get("実施機関", ""))
+                if key in self._seen:
+                    continue
+                self._seen.add(key)
+                n += 1
+                yield {
+                    Schema.NAME: r.get(Schema.NAME, ""),
+                    Schema.CO_NUM: r.get(Schema.CO_NUM, ""),
+                    Schema.PREF: r.get(Schema.PREF, ""),
+                    Schema.ADDR: r.get(Schema.ADDR, ""),
+                    Schema.URL: r.get(Schema.URL, ""),
+                    **{col: r.get(col, "") for col in self.EXTRA_COLUMNS},
+                }
+        logger.info("途中再開: 中断ランの %d 行を引き継ぎ (%s)", n, path)
 
     def _rows(self, c: dict, url: str):
         name = (c.get("name") or "").strip()
