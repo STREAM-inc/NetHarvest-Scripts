@@ -41,6 +41,9 @@ _project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
+import requests
+
+from src.framework.base import CrawlAbortedError
 from src.framework.static import StaticCrawler
 from src.const.schema import Schema
 
@@ -110,11 +113,33 @@ class MinTaxesIt(StaticCrawler):
     ITEM_DELAY = 0.0
     TIMEOUT = 30
     REQUIRE_CO_NUM = True  # 備考「法人番号は必須」: 法人番号の無い行は出力しない
-    MAX_RATE_RETRY = 6
-    CONCURRENCY = 4  # 同時に取得する組 (県×検索語) の数。rate limit 応答には各スレッドが従う
-    MAX_RATE_WAIT = 20 * 3600  # 1 日上限 (retry_after ≒ 14h) を待ち切れる長さ
+    # rate limit を受けたら最長 MAX_RATE_WAIT 秒待って 1 回だけ解除を確かめる。
+    # retry_after は ~14h を返すが、実際は数分〜数十分で解除されることがある (2026-11-24 確認)。
+    # 30 分 × 60 回 = 最長 30 時間待つ。
+    MAX_RATE_RETRY = 60
+    MAX_RATE_WAIT = 30 * 60
+    # 同時に取得する組 (県×検索語) の数。4 並列では数十リクエストで HTTP 500 → 429 になった
+    # (2026-11-24 確認) ため 1 本にする。
+    CONCURRENCY = 1
+    # 名前解決の失敗など一時的な通信エラーの再試行回数 (待機は 60 秒 × 回数、最長 10 分)
+    MAX_NET_RETRY = 10
 
     EXTRA_COLUMNS = ["法人種別", "補助金名", "実施機関", "交付決定日", "交付金額"]
+
+    def _get(self, full: str):
+        """GET する。名前解決の失敗など一時的な通信エラーは待って再試行し、
+        それでも失敗したら打ち切る (CrawlAbortedError: 部分データを完了扱いで納品しない)。"""
+        for n in range(1, self.MAX_NET_RETRY + 1):
+            try:
+                return self.session.get(full, timeout=self.TIMEOUT, headers={"Accept": "application/json"})
+            except requests.exceptions.RequestException as e:
+                if n >= self.MAX_NET_RETRY:
+                    raise CrawlAbortedError(f"通信エラーが続いたため打ち切り: {full} — {e}") from e
+                wait = min(60 * n, 600)
+                logger.warning("通信エラー (%s) %d秒後に再試行 %d/%d — %s", full, wait, n, self.MAX_NET_RETRY, e)
+                self._sleep_with_heartbeat(wait)
+                if self._stopped():
+                    raise CrawlAbortedError("停止要求") from e
 
     def _api(self, api_url: str, params: dict) -> dict:
         """API を 1 回叩く。rate_limited は retry_after 待ちで上限付きリトライ。"""
@@ -122,7 +147,7 @@ class MinTaxesIt(StaticCrawler):
         for attempt in range(self.MAX_RATE_RETRY):
             # 他のスレッドが rate limit を受けていたら、その解除時刻まで全スレッドで待つ
             self._wait_shared_rate_limit()
-            resp = self.session.get(full, timeout=self.TIMEOUT, headers={"Accept": "application/json"})
+            resp = self._get(full)
             data = None
             try:
                 data = resp.json()
@@ -152,7 +177,7 @@ class MinTaxesIt(StaticCrawler):
             if not isinstance(data, dict):
                 raise RuntimeError(f"JSON 以外の応答: {full}")
             return data
-        raise RuntimeError(f"rate limit が解除されませんでした: {full}")
+        raise CrawlAbortedError(f"rate limit が解除されませんでした: {full}")
 
     def _sleep_with_heartbeat(self, seconds: int):
         """長い待機中も 10 分ごとに進捗ビーコンとログを出す。
@@ -199,7 +224,22 @@ class MinTaxesIt(StaticCrawler):
         return stop is not None and stop.is_set()
 
     def parse(self, url: str):
-        api_url = urllib.parse.urljoin(url, "/api/hojokin")
+        """取得のメイン。想定外の例外はすべて打ち切り (CrawlAbortedError) にする。
+
+        基盤は parse() の通常の例外を「取得済みデータで継続」として完了扱いにし、
+        部分データを S3 へ送ってしまう (2026-11-24 発生) ため。
+        """
+        try:
+            yield from self._parse(url)
+        except CrawlAbortedError:
+            raise
+        except Exception as e:
+            raise CrawlAbortedError(f"取得中のエラーで打ち切り: {e}") from e
+
+    def _parse(self, url: str):
+        # www. 付きは毎回 min-taxes.com へ 301 リダイレクトされ、1 ページに 2 リクエストかかるため
+        # 最初からリダイレクト先を叩く
+        api_url = urllib.parse.urljoin(url, "/api/hojokin").replace("://www.min-taxes.com", "://min-taxes.com", 1)
         self._seen = set()
 
         done = set()
@@ -249,7 +289,11 @@ class MinTaxesIt(StaticCrawler):
                     remaining -= 1
                     continue
                 if isinstance(item, BaseException):
-                    raise item
+                    # 基盤は parse() の通常の例外を「取得済みデータで継続」として完了扱いにし、
+                    # 部分データを S3 へ送ってしまう (2026-11-24 発生)。打ち切りとして送出する。
+                    if isinstance(item, CrawlAbortedError):
+                        raise item
+                    raise CrawlAbortedError(f"取得中のエラーで打ち切り: {item}") from item
                 yield from self._rows(item, url)
         finally:
             self._stop.set()
