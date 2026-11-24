@@ -7047,3 +7047,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.esthe-ranking.jp/page/terms/"
+
+  - site_id: line_official_account
+    name: "LINE公式アカウント（STX登録LINE URL）"
+    module: "sns.line_official_account"
+    url: "https://page.line.me/"
+    schedule: "0 2 1 * *"
+    enabled: true
+    terms_url: ""
