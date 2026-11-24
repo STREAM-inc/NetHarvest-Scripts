@@ -42,6 +42,7 @@ if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
 import requests
+from requests.adapters import HTTPAdapter
 
 from src.framework.base import CrawlAbortedError
 from src.framework.static import StaticCrawler
@@ -106,9 +107,14 @@ def _etype(name: str) -> str:
 class MinTaxesIt(StaticCrawler):
     """補助金データベース(min-taxes)IT系 スクレイパー"""
 
-    DELAY = 1.5
+    # ページ間の追加待機はしない。間隔は REQUEST_INTERVAL で全リクエスト共通に空ける。
+    DELAY = 0.0
+    # リクエストの開始から次の開始までの最短間隔 (秒)。30 回/分で取ると 2〜5 分で 429 になり
+    # 10 分待たされた (2026-11-24 観測: 平均 10 分あたり約 77 回しか通らない)。
+    # 8 秒 = 10 分あたり 75 回の一定ペースにして、429 と待機の繰り返しを避ける。
+    REQUEST_INTERVAL = 8.0
     # 基盤は既定で 1 件出力するごとに DELAY 秒待つ (ITEM_DELAY=None)。この API は 1 ページで
-    # 最大 20 社を返し、ページ取得の間隔は _iter_companies が DELAY で空けているので、
+    # 最大 20 社を返し、リクエストの間隔は REQUEST_INTERVAL で空けているので、
     # 件ごとの待機は相手サーバーの負荷に関係なく速度だけを 40 件/分に落としていた。
     ITEM_DELAY = 0.0
     TIMEOUT = 30
@@ -129,9 +135,15 @@ class MinTaxesIt(StaticCrawler):
     def _get(self, full: str):
         """GET する。名前解決の失敗など一時的な通信エラーは待って再試行し、
         それでも失敗したら打ち切る (CrawlAbortedError: 部分データを完了扱いで納品しない)。"""
+        self._disable_session_retries()
         for n in range(1, self.MAX_NET_RETRY + 1):
+            self._wait_request_slot()
             try:
-                return self.session.get(full, timeout=self.TIMEOUT, headers={"Accept": "application/json"})
+                resp = self.session.get(full, timeout=self.TIMEOUT, headers={"Accept": "application/json"})
+                if resp.status_code >= 500:
+                    # 5xx も一時的なエラーとして、8 秒間隔を通る再試行で扱う
+                    raise requests.exceptions.HTTPError(f"HTTP {resp.status_code}", response=resp)
+                return resp
             except requests.exceptions.RequestException as e:
                 if n >= self.MAX_NET_RETRY:
                     raise CrawlAbortedError(f"通信エラーが続いたため打ち切り: {full} — {e}") from e
@@ -140,6 +152,27 @@ class MinTaxesIt(StaticCrawler):
                 self._sleep_with_heartbeat(wait)
                 if self._stopped():
                     raise CrawlAbortedError("停止要求") from e
+
+    def _disable_session_retries(self):
+        """基盤のセッションは 5xx を urllib3 で自動再送する (0〜4 秒間隔で REQUEST_INTERVAL を
+        通らない)。このクローラーでは切って、再試行は _get で行う。"""
+        if getattr(self, "_retries_disabled", False):
+            return
+        with _RATE_LOCK:
+            if not getattr(self, "_retries_disabled", False):
+                adapter = HTTPAdapter(max_retries=0)
+                self.session.mount("https://", adapter)
+                self.session.mount("http://", adapter)
+                self._retries_disabled = True
+
+    def _wait_request_slot(self):
+        """前回のリクエスト開始から REQUEST_INTERVAL 秒たつまで待つ (全スレッド共通)。"""
+        with _RATE_LOCK:
+            now = time.time()
+            start = max(now, getattr(self, "_next_request_at", 0.0))
+            self._next_request_at = start + self.REQUEST_INTERVAL
+        if start > now:
+            time.sleep(start - now)
 
     def _api(self, api_url: str, params: dict) -> dict:
         """API を 1 回叩く。rate_limited は retry_after 待ちで上限付きリトライ。"""
@@ -335,7 +368,6 @@ class MinTaxesIt(StaticCrawler):
             page += 1
             if self._stopped():
                 return
-            time.sleep(self.DELAY)
         logger.info("完了 q=%s pref=%s (%d ページ)", q, pref, page)
 
     def _load_resume(self) -> dict | None:
