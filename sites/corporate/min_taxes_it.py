@@ -224,6 +224,19 @@ class MinTaxesIt(StaticCrawler):
         return stop is not None and stop.is_set()
 
     def parse(self, url: str):
+        """取得のメイン。想定外の例外はすべて打ち切り (CrawlAbortedError) にする。
+
+        基盤は parse() の通常の例外を「取得済みデータで継続」として完了扱いにし、
+        部分データを S3 へ送ってしまう (2026-11-24 発生) ため。
+        """
+        try:
+            yield from self._parse(url)
+        except CrawlAbortedError:
+            raise
+        except Exception as e:
+            raise CrawlAbortedError(f"取得中のエラーで打ち切り: {e}") from e
+
+    def _parse(self, url: str):
         # www. 付きは毎回 min-taxes.com へ 301 リダイレクトされ、1 ページに 2 リクエストかかるため
         # 最初からリダイレクト先を叩く
         api_url = urllib.parse.urljoin(url, "/api/hojokin").replace("://www.min-taxes.com", "://min-taxes.com", 1)
