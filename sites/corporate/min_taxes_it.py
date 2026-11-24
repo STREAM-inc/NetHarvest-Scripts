@@ -114,11 +114,19 @@ class MinTaxesIt(StaticCrawler):
             if isinstance(data, dict) and data.get("error") == "rate_limited":
                 # 1 日上限に当たると retry_after が数万秒 (〜14h) になる。600 秒で 6 回
                 # 諦めると全件取り直しになるので、上限まで待ってから続きを取る。
-                wait = min(int(data.get("retry_after") or 60) + 5, self.MAX_RATE_WAIT)
+                if attempt + 1 >= self.MAX_RATE_RETRY:
+                    break  # 最後の試行で長時間待っても再リクエストしないので待たずに諦める
+                try:
+                    retry_after = int(float(data.get("retry_after") or 60))
+                except (TypeError, ValueError):
+                    retry_after = 60
+                wait = min(retry_after + 5, self.MAX_RATE_WAIT)
                 logger.warning("rate_limited (%s) %d秒待機 attempt=%d", full, wait, attempt + 1)
                 self._sleep_with_heartbeat(wait)
                 continue
             if resp.status_code == 429:
+                if attempt + 1 >= self.MAX_RATE_RETRY:
+                    break
                 wait = min(60 * (attempt + 1), 600)
                 logger.warning("HTTP 429 (%s) %d秒待機", full, wait)
                 time.sleep(wait)
@@ -130,13 +138,20 @@ class MinTaxesIt(StaticCrawler):
         raise RuntimeError(f"rate limit が解除されませんでした: {full}")
 
     def _sleep_with_heartbeat(self, seconds: int):
-        """長い待機中も 10 分ごとにログを出し、止まっているように見せない。"""
+        """長い待機中も 10 分ごとに進捗ビーコンとログを出す。
+
+        自己修復基盤の停滞検知は run_progress (ビーコン) の更新時刻を見るため、
+        ログだけでは 1 時間で「停滞」と判定される。待機中もビーコンを打つ。
+        """
         end = time.time() + seconds
         while True:
             left = end - time.time()
             if left <= 0:
                 return
             time.sleep(min(left, 600))
+            services = getattr(self, "_services", None)
+            if services is not None:
+                services.beacon.ping()
             if end - time.time() > 0:
                 logger.info("rate_limited 待機中 残り %d 秒", int(end - time.time()))
 
@@ -147,7 +162,7 @@ class MinTaxesIt(StaticCrawler):
         for pref in _PREFS:
             for q in _QUERIES:
                 page = 1
-                prev_sig = None
+                seen_sigs = set()
                 while True:
                     params = {"q": q, "target": "title", "pref": pref}
                     if page > 1:
@@ -156,12 +171,13 @@ class MinTaxesIt(StaticCrawler):
                     companies = data.get("companies") or []
                     # API は最終ページを過ぎても同じ最終ページを truncated=true で返し続ける
                     # (2026-11 確認: デジタル×東京都で page 2000 と 2361 が同一)。
-                    # 前ページと同じ中身が返ったら終端とみなす。
+                    # 既に取得したページと同じ中身が返ったら終端とみなす
+                    # (直前ページだけでなく全履歴と比べ、交互に返る場合も止める)。
                     sig = tuple((c.get("corp_number"), c.get("name")) for c in companies)
-                    if sig and sig == prev_sig:
-                        logger.info("終端検出 (前ページと同一) q=%s pref=%s page=%d", q, pref, page)
+                    if sig and sig in seen_sigs:
+                        logger.info("終端検出 (取得済みページと同一) q=%s pref=%s page=%d", q, pref, page)
                         break
-                    prev_sig = sig
+                    seen_sigs.add(sig)
                     for c in companies:
                         yield from self._rows(c, url)
                     if not data.get("truncated") or not companies:
