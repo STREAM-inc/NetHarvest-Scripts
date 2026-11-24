@@ -44,12 +44,15 @@ if str(_project_root) not in sys.path:
 import requests
 
 from src.const.schema import Schema
+from src.framework.base import CrawlAbortedError
 from src.framework.static import StaticCrawler
 
 _STX_API = os.environ.get("STREAMX_API_BASE", "http://stream09:8000/api/v1").rstrip("/")
 _STX_QUERY = "SELECT name, pref, addr, tel, corp_no, li FROM stx WHERE li IS NOT NULL"
 _WORKERS = 4
 _REQ_INTERVAL = 0.5  # 各ワーカーのリクエスト間隔(秒)
+_ABORT_AFTER_CONSECUTIVE = 50  # 制限応答・ページ構造不一致がこの件数連続したら中止
+_EXPORT_DEADLINE_SEC = 2 * 3600  # STX エクスポート待ちの上限
 
 _LINE_URL_RE = re.compile(r"https?://line\.me/R/ti/p/(.+)$")
 _NEXT_DATA_RE = re.compile(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', re.S)
@@ -65,6 +68,10 @@ _EXTRA_STX_NAME = "STX名称"
 _EXTRA_STX_ADDR = "STX住所"
 _EXTRA_STX_TEL = "STX_TEL"
 _EXTRA_STX_ROWS = "STX該当件数"
+
+
+class _SystemicError(RuntimeError):
+    """IP ブロックやページ構造変更など、1件ではなく全体に関わる失敗。"""
 
 
 def _norm_id(url: str) -> str | None:
@@ -85,7 +92,12 @@ class LineOfficialAccountScraper(StaticCrawler):
     ]
 
     def parse(self, url: str) -> Generator[dict, None, None]:
-        targets = self._load_targets()
+        try:
+            targets = self._load_targets()
+        except CrawlAbortedError:
+            raise
+        except Exception as e:  # 取り込み失敗を「0件で完了」にしない
+            raise CrawlAbortedError(f"STX から LINE URL を取得できませんでした: {e}") from e
         limit = int(os.environ.get("LINE_OA_LIMIT", "0") or 0)
         ids = list(targets)
         if limit:
@@ -95,26 +107,38 @@ class LineOfficialAccountScraper(StaticCrawler):
 
         self._pause_until = 0.0
         self._lock = threading.Lock()
-        with ThreadPoolExecutor(_WORKERS) as ex:
+        systemic = 0
+        ex = ThreadPoolExecutor(_WORKERS)
+        try:
             for start in range(0, len(ids), 2000):
                 futs = {ex.submit(self._fetch, i): i for i in ids[start:start + 2000]}
                 for fu in as_completed(futs):
                     i = futs[fu]
                     try:
                         rec = fu.result()
+                    except _SystemicError as e:
+                        systemic += 1
+                        self.logger.warning("取得失敗(%d件連続): %s (%s)", systemic, i, e)
+                        if systemic >= _ABORT_AFTER_CONSECUTIVE:
+                            raise CrawlAbortedError(
+                                f"制限応答またはページ構造不一致が {systemic} 件連続したため中止: {e}")
+                        continue
                     except Exception as e:  # 1件の失敗で全体を止めない
                         self.logger.warning("取得失敗: %s (%s)", i, e)
                         continue
+                    systemic = 0
                     if rec is None:
                         continue
                     rows = targets[i]
-                    rec[Schema.LINE] = f"https://line.me/R/ti/p/@{i}"
+                    rec[Schema.LINE] = rows[0].get("li", "")
                     rec[_EXTRA_STX_NAME] = rows[0].get("name", "")
                     rec[_EXTRA_STX_ADDR] = rows[0].get("addr", "")
                     rec[_EXTRA_STX_TEL] = rows[0].get("tel", "")
                     rec[Schema.CO_NUM] = rows[0].get("corp_no", "") or ""
                     rec[_EXTRA_STX_ROWS] = len(rows)
                     yield rec
+        finally:
+            ex.shutdown(wait=True, cancel_futures=True)
 
     # ------------------------------------------------------------------ STX
     def _load_targets(self) -> dict[str, list[dict]]:
@@ -132,14 +156,20 @@ class LineOfficialAccountScraper(StaticCrawler):
         r.raise_for_status()
         job_id = r.json()["job_id"]
         self.logger.info("STX エクスポート開始 job=%s", job_id)
+        # events ストリームはサーバー側で約10分ごとに閉じるため、終了状態になるまで開き直す
         status = None
-        with requests.get(f"{_STX_API}/stx/export/events/{job_id}", stream=True, timeout=3600) as s:
-            for line in s.iter_lines(decode_unicode=True):
-                if line and line.startswith("data:"):
-                    ev = json.loads(line[5:])
-                    status = ev.get("status")
-                    if status in ("done", "error"):
-                        break
+        deadline = time.time() + _EXPORT_DEADLINE_SEC
+        while status not in ("done", "error") and time.time() < deadline:
+            try:
+                with requests.get(f"{_STX_API}/stx/export/events/{job_id}", stream=True, timeout=600) as s:
+                    for line in s.iter_lines(decode_unicode=True):
+                        if line and line.startswith("data:"):
+                            status = json.loads(line[5:]).get("status")
+                            if status in ("done", "error"):
+                                break
+            except requests.RequestException as e:
+                self.logger.warning("STX エクスポート進捗の取得を再試行: %s", e)
+                time.sleep(10)
         if status != "done":
             raise RuntimeError(f"STX エクスポートが完了しませんでした: status={status}")
         csv_text = None
@@ -188,7 +218,10 @@ class LineOfficialAccountScraper(StaticCrawler):
             if resp.status_code == 404:
                 return self._status_only(url, "存在せず")
             if resp.status_code in (403, 429) or resp.status_code >= 500:
-                wait = min(600, 30 * 2 ** attempt)
+                last = f"HTTP {resp.status_code}"
+                if attempt >= 2:  # 3回で打ち切り、連続件数で全体の中止を判断する
+                    raise _SystemicError(last)
+                wait = 30 * 2 ** attempt
                 with self._lock:
                     self._pause_until = max(self._pause_until, time.time() + wait)
                 self.logger.warning("HTTP %s: %s — 全体を %d 秒停止", resp.status_code, line_id, wait)
@@ -197,7 +230,8 @@ class LineOfficialAccountScraper(StaticCrawler):
                 return self._status_only(url, "プロフィール非公開")
             m = _NEXT_DATA_RE.search(resp.text)
             if not m:
-                last = "__NEXT_DATA__ なし"
+                if attempt >= 1:  # 1回だけ再取得し、それでも無ければページ構造の変更を疑う
+                    raise _SystemicError("__NEXT_DATA__ なし")
                 continue
             props = json.loads(m.group(1)).get("props", {}).get("pageProps", {})
             ds = props.get("initialDataString")
