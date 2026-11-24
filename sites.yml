@@ -1115,6 +1115,20 @@ sites:
     terms_url: "https://doda.jp/material/kiyaku/001.html"
 
 #123
+    terms_manual_approval:
+      reviewed_url: "https://doda.jp/material/kiyaku/001.html"
+      reviewer: "stuser"
+      confirmer: "佐藤"
+      reviewed_at: "2026-11-24T03:45:14+00:00"
+      reason: "次のように対応すれば、著作権等には該当しない可能性があります。
+
+企業名、所在地、企業URLは、公開情報として取得してもよいと解釈できます。
+設立、代表者名は、HPから取得できる情報と判断し、公表情報と解釈定できそうです。
+従業員数、資本金、売上高、平均年齢は、直接取得することを避け、規模範囲として取得（例：従業員数１０～１９人）すれば、こちらが情報を踏まえて想定したという解釈ができる可能性があります。
+事業概要取得禁止です。
+あとから、HPから取得できる文言に置き換える or STREAMで保持している文言に置き換える、などの対応が必要。
+採用担当のメアド、電話番号は取得禁止。
+本社の電話番号は取得してOK"
   - site_id: mynavi2027
     name: "マイナビ2027"
     module: "jobs.mynavi2027"
