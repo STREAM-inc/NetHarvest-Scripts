@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 
 # 中断したランの続きから取るための途中再開ファイル (手動で置く。Git 管理外の output/cache/)
 _RESUME_FILE = _project_root / "output" / "cache" / "min_taxes_it_resume.json"
+_BEACON_LOCK = threading.Lock()
 
 _PREFS = [
     "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
@@ -138,7 +139,7 @@ class MinTaxesIt(StaticCrawler):
                     break
                 wait = min(60 * (attempt + 1), 600)
                 logger.warning("HTTP 429 (%s) %d秒待機", full, wait)
-                time.sleep(wait)
+                self._sleep_with_heartbeat(wait)
                 continue
             resp.raise_for_status()
             if not isinstance(data, dict):
@@ -162,11 +163,18 @@ class MinTaxesIt(StaticCrawler):
                 return
             if int(left) // 600 == int(end - time.time()) // 600:
                 continue  # ビーコンとログは 10 分ごと
-            services = getattr(self, "_services", None)
-            if services is not None:
-                services.beacon.ping()
+            self._ping()
             if end - time.time() > 0:
                 logger.info("rate_limited 待機中 残り %d 秒", int(end - time.time()))
+
+    def _ping(self):
+        """進捗ビーコンを打つ。複数スレッドから呼ばれるのでロックで直列化する
+        (ビーコン自体が間隔を間引くので、毎ページ呼んでも DB 書き込みは増えない)。"""
+        services = getattr(self, "_services", None)
+        if services is None:
+            return
+        with _BEACON_LOCK:
+            services.beacon.ping()
 
     def _stopped(self) -> bool:
         stop = getattr(self, "_stop", None)
@@ -257,6 +265,8 @@ class MinTaxesIt(StaticCrawler):
                 logger.info("終端検出 (取得済みページと同一) q=%s pref=%s page=%d", q, pref, page)
                 break
             seen_sigs.add(sig)
+            # 法人番号のない行ばかりのページが続くと行が出ずビーコンが止まるので、ページ単位でも打つ
+            self._ping()
             yield from companies
             if not data.get("truncated") or not companies:
                 break
@@ -272,6 +282,11 @@ class MinTaxesIt(StaticCrawler):
         中断したランの続きから取るための手動運用ファイル。形式:
             {"seed_csv": "output/aborted/<中断ランの CSV>", "done": [["北海道", "AI"], ...]}
         seed_csv の行を先に出力し、done の組 (県×検索語) は取り直さない。
+        引き継いだ行の取得日時は、パイプラインが今回の出力時刻で付け直す。
+
+        ラン中にこのファイルは更新しない。再開したランがまた途中で止まったら、
+        seed_csv をそのランの CSV (output/aborted/ に退避される) に差し替え、
+        done に完了した組を書き足してから再実行する (ログの「完了 q=… pref=…」で分かる)。
         """
         path = _RESUME_FILE
         if not path.exists():
