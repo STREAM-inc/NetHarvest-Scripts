@@ -7073,3 +7073,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.propagateinc.com/privacy"
+
+  - site_id: houjin_bangou_2
+    name: "国税庁　法人番号公表サイト（新規指定法人）"
+    module: "government.houjin_bangou_2"
+    url: "https://www.houjin-bangou.nta.go.jp/download/"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.houjin-bangou.nta.go.jp/riyokiyaku/index.html"
