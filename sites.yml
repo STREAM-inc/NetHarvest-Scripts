@@ -1085,9 +1085,9 @@ sites:
         - "営利"
       terms_hash: "sha256:051688320ca8922cbd492bd3a8fd31e3b053dbb5eb9e0a842640fd9942381093"
       reviewer: "stuser"
-      confirmer: "神田"
-      reviewed_at: "2026-11-25T06:06:46+00:00"
-      reason: "マイページ利用時での規約のため"
+      confirmer: "松永"
+      reviewed_at: "2026-11-25T06:12:13+00:00"
+      reason: "マイページに入らずに取得しているため規約上問題ないと判断しました"
   - site_id: hellowork_shinnkikyuujin
     name: "ハローワーク（新規求人）"
     module: "jobs.hellowork_shinnkikyuujin"
