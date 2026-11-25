@@ -6967,11 +6967,11 @@ sites:
       approved_keywords:
         - "クローラー"
         - "クローラ"
-      terms_hash: "sha256:9b3baefc8dd7d737179e963cf21d56b4af5e233f8d5338d9a6c378ff7dbd4c2c"
+      terms_hash: "sha256:b139b329ffbcef01705f9483b419af0fc3b37797d364793163bb4360149f34ea"
       reviewer: "stuser"
-      confirmer: "松永"
-      reviewed_at: "2026-11-24T01:20:06+00:00"
-      reason: "許可"
+      confirmer: "宮下"
+      reviewed_at: "2026-11-25T02:50:00+00:00"
+      reason: "再承認 (本文ハッシュ変化のため。依頼者が承認)"
 
   - site_id: kouseikyoku_ika
     name: "地方厚生局(医科・指定一覧・全国)"
