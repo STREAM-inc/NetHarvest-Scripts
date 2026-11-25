@@ -7047,3 +7047,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.esthe-ranking.jp/page/terms/"
+
+  - site_id: propagateinc
+    name: "プロパゲート制作実績"
+    module: "service.propagateinc"
+    url: "https://www.propagateinc.com/works"
+    schedule: null
+    enabled: true
+    terms_url: "https://www.propagateinc.com/privacy"
