@@ -119,11 +119,13 @@ class MinTaxesIt(StaticCrawler):
     ITEM_DELAY = 0.0
     TIMEOUT = 30
     REQUIRE_CO_NUM = True  # 備考「法人番号は必須」: 法人番号の無い行は出力しない
-    # rate limit を受けたら最長 MAX_RATE_WAIT 秒待って 1 回だけ解除を確かめる。
+    # rate limit を受けたら最長 MAX_RATE_WAIT 秒待って解除を確かめる (最大 MAX_RATE_RETRY 回)。
     # retry_after は ~14h を返すが、実際は数分〜数十分で解除されることがある (2026-11-24 確認)。
-    # 30 分 × 60 回 = 最長 30 時間待つ。
-    MAX_RATE_RETRY = 60
-    MAX_RATE_WAIT = 30 * 60
+    # 30 分待機では待ち時間が取得時間を大きく上回り進みが遅かった。10 分待機でも
+    # 解除されて取得できていた (2026-11-24 昼に確認) ため 10 分ごとに確かめる。
+    # 10 分 × 180 回 = 最長 30 時間待つ (これまでと同じ上限)。
+    MAX_RATE_RETRY = 180
+    MAX_RATE_WAIT = 10 * 60
     # 同時に取得する組 (県×検索語) の数。4 並列では数十リクエストで HTTP 500 → 429 になった
     # (2026-11-24 確認) ため 1 本にする。
     CONCURRENCY = 1
@@ -187,8 +189,8 @@ class MinTaxesIt(StaticCrawler):
             except ValueError:
                 pass
             if isinstance(data, dict) and data.get("error") == "rate_limited":
-                # 1 日上限に当たると retry_after が数万秒 (〜14h) になる。600 秒で 6 回
-                # 諦めると全件取り直しになるので、上限まで待ってから続きを取る。
+                # 1 日上限に当たると retry_after が数万秒 (〜14h) になる。早く諦めると全件取り直しに
+                # なるので、MAX_RATE_WAIT ごとに解除を確かめながら最長 30 時間待つ。
                 if attempt + 1 >= self.MAX_RATE_RETRY:
                     break  # 最後の試行で長時間待っても再リクエストしないので待たずに諦める
                 try:
