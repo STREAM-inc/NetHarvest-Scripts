@@ -912,10 +912,18 @@ sites:
     module: "food.gnavi"
     url: "https://www.gnavi.co.jp/"
     schedule: "20 6 1-7,15-21 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://corporate.gnavi.co.jp/agreement/"
 
 #99
+    terms_review:
+      decision: "rejected"
+      approved_keywords: []
+      terms_hash: ""
+      reviewer: "stuser"
+      confirmer: "李"
+      reviewed_at: "2026-11-26T08:02:27+00:00"
+      reason: "1つ目はぐるなびの掲示板に限った条項だが、2つ目は「)ぐるなびに無断でぐるなびサイトを営利目的に利用する行為 」とありぐるなびから得た情報をリストにして売る行為はこれに当たる。そのため却下。"
   - site_id: mypl
     name: "まいぷれ"
     module: "portal.mypl"
