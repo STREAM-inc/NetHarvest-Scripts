@@ -2843,6 +2843,15 @@ sites:
     terms_url: "https://re-katsu.jp/career/contents/kiyaku/index.html"
 
 #308
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "営利"
+      terms_hash: "sha256:ddc86b32d18b2a67d75d9ec84d0d00953c0115e99f7d6122d2420fb1369e2fd0"
+      reviewer: "stuser"
+      confirmer: "相澤"
+      reviewed_at: "2026-11-26T04:21:43+00:00"
+      reason: "本サービスを利用できる会員は、～～必要な情報を本サービスに登録し、弊社がこれを承認した方とします。と記載されており、本サービスに登録していないため、会員ではないと判断。したがって、第6条の会員禁止行為には当てはまらない。"
   - site_id: it
     name: "ITトレンド"
     module: "corporate.it"
