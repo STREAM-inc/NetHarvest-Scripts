@@ -1852,6 +1852,15 @@ sites:
 
 
 #197
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "プログラムを使用"
+      terms_hash: "sha256:5a13658c28d13dddffcab76da37f9c1dafa2dd03ee0546b4e2ff720d0a3d1b25"
+      reviewer: "stuser"
+      confirmer: "佐渡"
+      reviewed_at: "2026-11-26T06:47:22+00:00"
+      reason: "有害なプログラムを使用はダメ。そうでなければOK"
   - site_id: onsen_kyokai
     name: "日本温泉協会"
     module: "service.onsen_kyokai"
