@@ -7138,3 +7138,11 @@ sites:
     schedule: null
     enabled: true
     terms_url: "https://www.houjin-bangou.nta.go.jp/riyokiyaku/index.html"
+
+  - site_id: messe
+    name: "日経メッセ 出展者一覧"
+    module: "corporate.messe"
+    url: "https://messe.nikkei.co.jp/"
+    schedule: null
+    enabled: true
+    terms_url: "https://messe.nikkei.co.jp/rule.html"
