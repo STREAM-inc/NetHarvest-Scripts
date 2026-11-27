@@ -925,6 +925,16 @@ sites:
     terms_url: "https://curama.jp/terms/"
 
 #98
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "営利"
+      terms_hash: "sha256:06ca8c3f8a579101ddfbf3d5ee7378bbcba7ab4a98ea3238f452c77ad903a232"
+      reviewer: "stuser"
+      confirmer: "佐渡"
+      reviewed_at: "2026-11-27T06:37:32+00:00"
+      reason: "①当社と同種又は類似の業務を行う目的で本サービスを利用する行為その他本サービスと異なる営利目的で本サービスを利用する行為　→　弊社はくらしのマーケットと同種類似サービスではないからNGではない
+②中抜き取引（当社を介在させずに直接提供サービスの提供（営利　→　中抜きではないからNGではない"
   - site_id: gnavi
     name: "ぐるなび"
     module: "food.gnavi"
