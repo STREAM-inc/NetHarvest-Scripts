@@ -736,6 +736,15 @@ sites:
     terms_url: "https://tenshoku.mynavi.jp/rules/member/"
 
 #78
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "営利"
+      terms_hash: "sha256:179fbe263a4bcc0b4406f8baf25a37e15759d10fc9bc057d449ef7a340fa01c9"
+      reviewer: "stuser"
+      confirmer: "李"
+      reviewed_at: "2026-11-27T06:37:04+00:00"
+      reason: "「本サービスにおいて」という記載の仕方のため、このサイトに登録し転職活動をするように見せかけた営利活動が禁止されているものとみなせる。STREAMの活動はこれに当たらないので承認する。"
   - site_id: en_tenshoku
     name: "エン転職"
     module: "jobs.en_tenshoku"
