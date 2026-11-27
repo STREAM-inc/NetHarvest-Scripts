@@ -279,6 +279,15 @@ sites:
     terms_url: "https://usen.media/rules/hitosara/"
 
 #29
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "営利"
+      terms_hash: "sha256:6d61f283958822b9635a158dd28eb4eadd6f83bb62a1faff227b629ef2b7fb53"
+      reviewer: "stuser"
+      confirmer: "世良"
+      reviewed_at: "2026-11-27T06:44:47+00:00"
+      reason: "リンクをWEBサイトに掲載する際の営利目的が禁止であり、自動取得ではない。"
   - site_id: doctor_map
     name: "ドクターマップ"
     module: "medical.doctor_map"
