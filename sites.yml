@@ -2694,6 +2694,15 @@ sites:
     terms_url: "https://tsukulink.net/term"
 
 #283
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "商用"
+      terms_hash: "sha256:a9be57544269b2a9e173bd74500e8fbc5652919e4659697ece53750e91a98da3"
+      reviewer: "stuser"
+      confirmer: "神田"
+      reviewed_at: "2026-11-27T06:55:30+00:00"
+      reason: "会員登録をしたユーザーに対して課される規約であり、非ログイン状態であったらこれに該当しないと判断"
   - site_id: night
     name: "神奈川夜遊びNight"
     module: "nightlife.night"
