@@ -416,10 +416,19 @@ sites:
     module: "food.paypaygourmet"
     url: "https://paypaygourmet.yahoo.co.jp/"
     schedule: "0 1 22-28 * SUN"
-    enabled: true
+    enabled: false
     terms_url: "https://www.lycorp.co.jp/ja/company/terms/"
 
 #42
+    terms_review:
+      decision: "rejected"
+      approved_keywords: []
+      terms_hash: ""
+      reviewer: "stuser"
+      confirmer: "庭井"
+      reviewed_at: "2026-11-27T06:56:40+00:00"
+      reason: "当社サービスやそれらを構成するデータを、その提供目的を超えて利用することができません
+とあるため"
   - site_id: suumo
     name: "SUUMO不動産会社"
     module: "realestate.suumo"
