@@ -826,6 +826,15 @@ sites:
     terms_url: "https://www.digital.go.jp/resources/open_data/public_data_license_v1.0"
 
 #85
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "商用"
+      terms_hash: "sha256:2c629833196c255b1ebe3edb084f2869f0b64a9d7699cf467c96714d9db46526"
+      reviewer: "stuser"
+      confirmer: "佐藤"
+      reviewed_at: "2026-11-27T07:54:14+00:00"
+      reason: "商用利用可能です、と書いてあります。"
   - site_id: mlit_takken
     name: "建設業者・宅建業者等企業情報検索システム【賃貸住宅管理業者】"
     module: "realestate.mlit_takken"
