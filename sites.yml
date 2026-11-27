@@ -207,6 +207,15 @@ sites:
     terms_url: "https://yourmystar.jp/terms/"
 
 #22
+    terms_review:
+      decision: "approved"
+      approved_keywords:
+        - "営利"
+      terms_hash: "sha256:9cff82b6024a02df90043c66d2cfb5b34eb6c0733bde7c3241be41af7c0dc4e4"
+      reviewer: "stuser"
+      confirmer: "神田"
+      reviewed_at: "2026-11-27T03:51:32+00:00"
+      reason: "サービス提供者に関する規約であり、我々サイト利用者にかかわる禁止事項ではないため"
   - site_id: meetsmore
     name: "ミツモア"
     module: "service.meetsmore"
