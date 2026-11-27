@@ -7033,10 +7033,10 @@ sites:
       approved_keywords:
         - "クローラー"
         - "クローラ"
-      terms_hash: "sha256:2d50cb42b6b5689efde5a798974f4589869c9bdb6238861c8282d6716cc74567"
+      terms_hash: "sha256:fcc5bc0dd1b72fb0a1e7fe586b77a60bcf42eb446b154c171cf0d7acd0a6dc09"
       reviewer: "stuser"
       confirmer: "藤本"
-      reviewed_at: "2026-11-26T01:58:15+00:00"
+      reviewed_at: "2026-11-27T01:49:24+00:00"
       reason: "クローラーを許可している"
 
   - site_id: kouseikyoku_ika
